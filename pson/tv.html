@@ -1,0 +1,510 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live TV</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..800&display=swap" rel="stylesheet">
+  <style>
+    :root{ --bg:#000; --fg:#fff; --muted:#A9A9A9; --card:#0B0B0B; --stroke:rgba(255,255,255,0.14); --strokeStrong:rgba(255,255,255,0.22); --focus:rgba(255,255,255,0.35); --radius:12px; --radius-sm:8px; --live:#ff4d4d; }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--fg);font-family:"Inter",system-ui,-apple-system,sans-serif;letter-spacing:.1px;padding:28px 18px 60px}
+    .container{max-width:940px;margin:0 auto}
+    .title{font-weight:700;letter-spacing:-.02em;line-height:1.05;margin:0 0 12px;font-size:clamp(28px,5vw,40px)}
+
+    /* Controls */
+    .controls{display:flex;flex-wrap:wrap;gap:10px;margin:10px 0 10px;align-items:center}
+    select,button,input{background:#080808;color:var(--fg);border:1px solid var(--stroke);border-radius:var(--radius-sm);padding:10px 14px;font-size:14px;transition:.15s}
+    select,button{cursor:pointer}
+    select:hover,button:hover{border-color:var(--strokeStrong);background:#101010;transform:translateY(-1px)}
+    button:active{transform:translateY(1px)}
+
+    /* Search */
+    .searchWrap{display:flex;gap:8px;align-items:center;flex:1 1 280px;min-width:220px}
+    .searchWrap input{width:100%;outline:none}
+    .searchWrap input:focus{border-color:var(--focus)}
+    .clearBtn{white-space:nowrap}
+
+    /* 24/7 picker bar */
+    .pickerBar{display:none;border:1px solid var(--stroke);background:#0b0b0b;border-radius:var(--radius);padding:10px;margin:6px 0 10px}
+    .pickerBar.open{display:block}
+    .pickerRow{display:flex;flex-wrap:wrap;gap:8px}
+    .pickerPill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--stroke);background:#0f0f0f;border-radius:var(--radius-sm);padding:8px 10px;font-size:13.5px;cursor:pointer;transition:.15s}
+    .pickerPill:hover{background:#151515;border-color:var(--strokeStrong);transform:translateY(-1px)}
+
+    /* Player above results */
+    .player{display:none;border:1px solid var(--stroke);border-radius:var(--radius);overflow:hidden;background:#050505;margin:10px 0 12px}
+    .player.visible{display:block}
+    .player-header{padding:10px 12px;border-bottom:1px solid var(--stroke);display:flex;gap:8px;align-items:center}
+    .player-controls{margin-left:auto;display:flex;gap:8px}
+    .chip{border:1px solid var(--stroke);background:#0a0a0a;border-radius:999px;padding:2px 8px;font-size:12px}
+    .iconBtn{appearance:none;background:transparent;border:1px solid var(--stroke);border-radius:10px;color:#fff;font-weight:800;line-height:1;cursor:pointer;width:28px;height:28px;display:grid;place-items:center}
+    .iconBtn:hover{border-color:#fff;transform:translateY(-1px)}
+    .iconBtn:active{transform:translateY(1px)}
+    .ratio{position:relative;padding-bottom:56.25%}
+    .ratio iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+
+    /* List + cards */
+    .status{color:var(--muted);font-size:13px;margin:4px 0}
+    #attached{margin-bottom:10px}
+    .results{display:grid;gap:10px}
+    .card{position:relative;border:1px solid var(--stroke);background:linear-gradient(180deg,#0a0a0a,#050505);border-radius:var(--radius);overflow:hidden;transition:.15s}
+    .card:hover{border-color:var(--strokeStrong)}
+    .card.active{border-color:#fff}
+    .cardBody{display:grid;grid-template-columns:88px 1fr}
+    .art{position:relative;width:88px;border-right:1px solid var(--stroke)}
+    .artInner{position:relative;width:100%;aspect-ratio:1/1;overflow:hidden}
+    .artInner .bg{position:absolute;inset:0;background-size:cover;background-position:center;filter:blur(10px) saturate(1.1);transform:scale(1.2);opacity:.6}
+    .artInner img{position:absolute;inset:0;margin:auto;max-width:88%;max-height:88%;object-fit:contain;border-radius:6px}
+    /* Gradient placeholder for missing art */
+    .artPlaceholder{
+      position:absolute; inset:0;
+      display:flex; align-items:center; justify-content:center;
+      padding:8px; text-align:center;
+      background:linear-gradient(135deg,#d9d9d9,#bfbfbf);
+      color:#000; font-weight:700; font-size:12px;
+      border-radius:6px;
+    }
+    .content{padding:12px}
+    .metaRow{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:12.5px}
+    .cardTitle{font-size:15.5px;font-weight:650;margin:6px 0 0}
+    .live{position:absolute;right:10px;bottom:10px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--live)}
+    .liveDot{width:8px;height:8px;border-radius:999px;background:var(--live);box-shadow:0 0 12px var(--live)}
+    .sources{padding:0 12px 12px}
+    .pill{display:inline-flex;align-items:center;gap:6px;margin:6px 6px 0 0;border:1px solid var(--stroke);background:#0f0f0f;border-radius:var(--radius-sm);padding:8px 10px;font-size:13px;cursor:pointer;transition:.15s}
+    .pill:hover{background:#151515;border-color:var(--strokeStrong);transform:translateY(-1px)}
+    .streams{max-height:0;opacity:0;overflow:hidden;padding:0 12px;transition:max-height .25s ease,opacity .25s ease,padding .25s ease}
+    .streams.open{max-height:640px;opacity:1;padding:8px 12px 12px}
+    .stream-btn{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:var(--radius-sm);border:1px solid var(--stroke);background:#0b0b0b;margin-top:8px;transition:.15s}
+    .stream-btn:hover{background:#121212;border-color:var(--strokeStrong)}
+    .stream-btn.selected{border-color:#fff}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="title" id="title">Live TV</h1>
+
+    <div class="controls">
+  <select id="feed" aria-label="Feed">
+    <option value="all" selected>All matches</option>
+    <option value="today">Today</option>
+    <option value="live">Live</option>
+  </select>
+  <select id="sport" aria-label="Sport"></select>
+      <!-- Search (ALWAYS searches entire catalogue + 24/7, ignoring dropdowns) -->
+      <form id="searchForm" class="searchWrap" role="search" aria-label="Search matches">
+        <input id="search" type="search" placeholder="Search across ALL matches…" autocomplete="off" />
+        <button id="clearSearch" type="button" class="clearBtn" title="Clear">Clear</button>
+      </form>
+
+      <button id="btn-247" aria-label="Pick a 24/7 stream">27/4</button>
+    </div>
+
+    <div id="pickerBar" class="pickerBar" aria-label="24/7 channels" aria-expanded="false"></div>
+
+    <section class="player" id="player">
+      <div class="player-header">
+        <span class="chip">Player</span>
+        <div id="player-title" class="status" style="margin:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Pick a stream to play</div>
+        <div class="player-controls">
+          <button id="btn-open" class="iconBtn" title="Open in new tab" aria-label="Open in new tab">↗</button>
+          <button id="btn-close" class="iconBtn" title="Close player" aria-label="Close player">×</button>
+        </div>
+      </div>
+      <div class="ratio"><iframe id="iframe" title="Player" allowfullscreen></iframe></div>
+    </section>
+
+    <div id="attached"></div>
+    <div id="status" class="status"></div>
+    <div id="results" class="results"></div>
+  </div>
+<script>
+(function(){
+  const API = 'https://streamed.pk/api';
+
+  const resultsEl = document.getElementById('results');
+  const statusEl = document.getElementById('status');
+  const player = document.getElementById('player');
+  const playerTitle = document.getElementById('player-title');
+  const iframe = document.getElementById('iframe');
+  const sportSel = document.getElementById('sport');
+  const feedSel = document.getElementById('feed');
+  const btn247 = document.getElementById('btn-247');
+  const pickerBar = document.getElementById('pickerBar');
+  const attachedEl = document.getElementById('attached');
+  const btnOpen = document.getElementById('btn-open');
+  const btnClose = document.getElementById('btn-close');
+  const searchForm = document.getElementById('searchForm');
+  const searchInput = document.getElementById('search');
+  const clearSearchBtn = document.getElementById('clearSearch');
+
+  // 24/7 channels
+  const channels247 = [
+    { label: 'DAZN 1 UK', url: 'https://kleanpro.cfd/embed/29f80fe360ea09758cda99ec2eb61fd2' },
+    { label: 'Sky Sports Plus', url: 'https://kleanpro.cfd/embed/kl11IkOsWATR8duxiWrOyiprERl2hLx4' },
+    { label: 'Sky Sports Action', url: 'https://kleanpro.cfd/embed/wra2wlraTrewrAwohlsiCr0kUpHlswuc' },
+    { label: 'Sky Sports Cricket', url: 'https://kleanpro.cfd/embed/j5ru6icHofROsespidec64w0s7lgo8ot' },
+    { label: 'Sky Sports Football', url: 'https://kleanpro.cfd/embed/zuw3aYlboraPaStUP4o5ropHlbrospev' },
+    { label: 'Sky Sports F1', url: 'https://kleanpro.cfd/embed/888520f36cd94c5da4c71fddc1a5fc9b' },
+    { label: 'Sky Sports Golf', url: 'https://kleanpro.cfd/embed/juDiYAyaWljAtH55usw2sWogINI49kIY' },
+    { label: 'Sky Sports Main Event', url: 'https://kleanpro.cfd/embed/4reStAcaHuraStIc3o7rOdRAprEy2glB' },
+    { label: 'Sky Sports Mix', url: 'https://kleanpro.cfd/embed/phAjl4we7iw0agitOpro8Rlcrotrufre' },
+    { label: 'Sky Sports MotoGP', url: 'https://kleanpro.cfd/embed/1c6f53f565af34b3099d28adba983591' },
+    { label: 'Sky Sports News', url: 'https://kleanpro.cfd/embed/ZiProtriRlspiriBrI2oProjohAfretA' },
+    { label: 'Sky Sports Premier League', url: 'https://kleanpro.cfd/embed/swapr5jlpHidrlfR65ofRi8a0itHI6oc' },
+    { label: 'Sky Sports Racing', url: 'https://kleanpro.cfd/embed/x5Dodrl6Ro21RUprudEQAFRUTEfLPhec' },
+    { label: 'Sky Sports Tennis', url: 'https://kleanpro.cfd/embed/pA5reZusPAvispo16hUb2e5pahlthLB2' },
+  ];
+
+  // 24/7 pills row
+  (function buildPicker(){
+    const row = document.createElement('div'); row.className='pickerRow';
+    channels247.forEach(ch=>{
+      const pill=document.createElement('button');
+      pill.className='pickerPill'; pill.textContent=ch.label;
+      pill.addEventListener('click', ()=>{ play(ch.url, ch.label, null); togglePicker(false); });
+      row.appendChild(pill);
+    });
+    pickerBar.appendChild(row);
+  })();
+  function togglePicker(force){
+    const open = force!==undefined? force : !pickerBar.classList.contains('open');
+    pickerBar.classList.toggle('open', open);
+    pickerBar.setAttribute('aria-expanded', String(open));
+  }
+  btn247.addEventListener('click', ()=> togglePicker());
+
+  // Data helpers
+  async function j(url){
+    const r = await fetch(url, { headers:{'Accept':'application/json'} });
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  }
+  function imageURL(m){
+    if(m?.poster) return `https://streamed.pk${m.poster}.webp`;
+    const h=m?.teams?.home?.badge, a=m?.teams?.away?.badge;
+    if(h) return `${API}/images/badge/${h}.webp`;
+    if(a) return `${API}/images/badge/${a}.webp`;
+    return null; // no image available
+  }
+  function prettyDate(ts){ return ts ? new Date(ts).toLocaleString() : ''; }
+  function uniqBy(arr, key){ const seen=new Set(); return arr.filter(x=>{ const k=key(x); if(seen.has(k)) return false; seen.add(k); return true; }); }
+
+  // Streams cache
+  const streamsCache = {}; const keyFor = (src)=>`${src.source}:${src.id}`;
+  async function fetchStreams(src){
+    const k=keyFor(src);
+    if(!streamsCache[k]) streamsCache[k]=await j(`${API}/stream/${encodeURIComponent(src.source)}/${encodeURIComponent(src.id)}`);
+    return streamsCache[k];
+  }
+
+  // Feed paths for normal view
+  function feedPaths(){
+    const sport = sportSel.value; const feed = feedSel.value;
+    if(sport) return [`/matches/${encodeURIComponent(sport)}/popular`, `/matches/${encodeURIComponent(sport)}`];
+    if(feed==='live') return ['/matches/live/popular','/matches/live'];
+    if(feed==='today') return ['/matches/all-today/popular','/matches/all-today'];
+    return ['/matches/all/popular','/matches/all'];
+  }
+
+  // Cache for "ALL" data used by search (ignores dropdowns)
+  let allMatchesCache = null;     // array
+  let allLoadedOnce = false;      // flag to avoid repeated fetch spamming
+
+  async function ensureAllMatches(){
+    if(allLoadedOnce && Array.isArray(allMatchesCache)) return allMatchesCache;
+    // Always load the global ALL catalogue (popular + all) for search
+    const [pop, all] = await Promise.all([
+      j(`${API}/matches/all/popular`),
+      j(`${API}/matches/all`)
+    ]);
+    const merged = uniqBy([...(Array.isArray(pop)?pop:[]), ...(Array.isArray(all)?all:[])], m=>m.id);
+    merged.sort((a,b)=> (b.date||0)-(a.date||0));
+    allMatchesCache = merged;
+    allLoadedOnce = true;
+    return merged;
+  }
+
+  // Turn 24/7 channels into "virtual matches" so they appear in search
+  function map247ToMatches(){
+    return channels247.map((c,i)=>({
+      id: `247-${i}-${c.label.replace(/\s+/g,'-').toLowerCase()}`,
+      title: c.label,
+      category: '24/7',
+      sport: 'TV',
+      league: 'Continuous',
+      date: null,
+      _directUrl: c.url, // special: play directly
+      sources: []        // none; we bypass to _directUrl
+    }));
+  }
+
+  let currentMatches=[];           // normal dataset for current feed/sport
+  let selectedMatchId=null; let lastSourceKey=null; let selectedStreamIndex=0; let currentEmbedUrl='';
+  let searchQuery = '';            // current search (lowercased)
+
+  async function loadSports(){
+    try{
+      const sports = await j(`${API}/sports`);
+      sportSel.innerHTML = '<option value="">— All sports —</option>' + sports.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+    }catch{
+      sportSel.innerHTML = '<option value="">— All sports —</option>';
+    }
+  }
+
+  async function loadMatches(){
+    statusEl.textContent='Loading…'; resultsEl.innerHTML=''; attachedEl.innerHTML='';
+    try{
+      const [popularPath, basePath] = feedPaths();
+      const [popular, base] = await Promise.all([
+        j(`${API}${popularPath}`),
+        j(`${API}${basePath}`)
+      ]);
+      const merged = uniqBy([...(Array.isArray(popular)?popular:[]), ...(Array.isArray(base)?base:[])], m=>m.id);
+      merged.sort((a,b)=> (b.date||0)-(a.date||0));
+      currentMatches = merged;
+      renderResults();
+    }catch(e){
+      statusEl.innerHTML = `<span style='color:#ff6b6b'>Error: ${e.message||e}</span>`;
+    }
+  }
+
+  // Search helpers
+  function matchStrings(m){
+    const home = m?.teams?.home?.name || '';
+    const away = m?.teams?.away?.name || '';
+    const bag = [
+      m.title || '',
+      m.category || '',
+      m.league || '',
+      m.sport || '',
+      home, away
+    ].join(' ').toLowerCase();
+    return bag;
+  }
+  function matchesQuery(m, q){
+    if(!q) return true;
+    return matchStrings(m).includes(q);
+  }
+
+  function isDirect(item){ return Boolean(item && item._directUrl); }
+
+  function buildCard(m, attachMode){
+    const showLiveBadge = (feedSel.value==='live');
+    const card=document.createElement('div'); card.className='card'; card.id=`card-${m.id}`;
+    const body=document.createElement('div'); body.className='cardBody';
+
+    // left art
+    const art = document.createElement('div'); art.className='art';
+    const artInner = document.createElement('div'); artInner.className='artInner';
+
+    // placeholder (hidden by default; shown when no image)
+    const placeholder = document.createElement('div');
+    placeholder.className = 'artPlaceholder';
+    placeholder.textContent = (m.category || 'Sport');
+    placeholder.style.display = 'none';
+
+    const imgUrl = imageURL(m);
+    if(imgUrl){
+      const bg = document.createElement('div');
+      bg.className = 'bg';
+      bg.style.backgroundImage = `url('${imgUrl}')`;
+
+      const img = document.createElement('img');
+      img.alt = m.title || 'Poster';
+      img.src = imgUrl;
+
+      // If load fails, show gradient + sport text
+      img.onerror = () => {
+        bg.style.display = 'none';
+        img.style.display = 'none';
+        placeholder.style.display = 'flex';
+      };
+
+      artInner.appendChild(bg);
+      artInner.appendChild(img);
+    }else{
+      // No image URL at all — show placeholder immediately
+      placeholder.style.display = 'flex';
+    }
+
+    artInner.appendChild(placeholder);
+    art.appendChild(artInner);
+
+    // right content
+    const content=document.createElement('div'); content.className='content';
+    const meta=document.createElement('div'); meta.className='metaRow';
+    const cat=document.createElement('span'); cat.className='chip'; cat.textContent=m.category||'sport';
+    const when=document.createElement('span'); when.style.marginLeft='auto'; when.textContent=prettyDate(m.date);
+    meta.appendChild(cat);
+    if(m.popular){ const pop=document.createElement('span'); pop.className='chip'; pop.textContent='Popular'; meta.appendChild(pop); }
+    meta.appendChild(when);
+    const title=document.createElement('div'); title.className='cardTitle'; title.textContent=m.title||'Match';
+    content.appendChild(meta); content.appendChild(title);
+
+    body.appendChild(art); body.appendChild(content); card.appendChild(body);
+
+    if(!isDirect(m) && showLiveBadge){
+      const live=document.createElement('div'); live.className='live';
+      live.innerHTML='<span class="liveDot"></span><span>LIVE</span>'; card.appendChild(live);
+    }
+
+    // sources / play buttons
+    const sourcesWrap=document.createElement('div'); sourcesWrap.className='sources';
+    const pills=document.createElement('div');
+
+    if(isDirect(m)){
+      const b=document.createElement('button'); b.className='pill'; b.textContent='Play';
+      b.addEventListener('click', ev=>{ ev.stopPropagation(); play(m._directUrl, m.title, null); });
+      pills.appendChild(b);
+    }else if(Array.isArray(m.sources)&&m.sources.length){
+      m.sources.forEach((s,idx)=>{
+        const b=document.createElement('button'); b.className='pill'; b.textContent=`Source ${idx+1}`;
+        b.addEventListener('click', ev=>{ ev.stopPropagation(); openSource(card,m,s,0,true);});
+        pills.appendChild(b);
+      });
+    }else{
+      const none=document.createElement('span'); none.className='status'; none.textContent='No sources';
+      pills.appendChild(none);
+    }
+
+    sourcesWrap.appendChild(pills); card.appendChild(sourcesWrap);
+
+    const streams=document.createElement('div'); streams.className='streams'; streams.id=`streams-${m.id}`; card.appendChild(streams);
+
+    // if this is the attached/selected card, reopen last source + highlight
+    if(attachMode && lastSourceKey && !isDirect(m)){
+      const [name,id]=lastSourceKey.split(':');
+      openSource(card,m,{source:name,id},selectedStreamIndex,false);
+    }
+
+    card.addEventListener('click',()=>{
+      if(isDirect(m)) { play(m._directUrl, m.title, null); return; }
+      card.classList.toggle('active');
+    });
+    return card;
+  }
+
+  function renderResults(){
+    const q = searchQuery.trim().toLowerCase();
+
+    // Choose dataset: search uses "ALL + 24/7", empty search uses current feed set
+    const base = (q ? (allMatchesCache || []) : currentMatches).slice();
+    if(q){
+      // Include 24/7 virtual items in search base
+      base.push(...map247ToMatches());
+    }
+
+    const total = base.length;
+    const filtered = q ? base.filter(m=>matchesQuery(m, q)) : base;
+
+    resultsEl.innerHTML=''; attachedEl.innerHTML='';
+    statusEl.textContent = q
+      ? `Matches: ${filtered.length} (from full catalogue ${total}) • query: "${q}"`
+      : `Matches: ${filtered.length}`;
+
+    if(!filtered.length){
+      const d=document.createElement('div'); d.className='status'; d.textContent='No matches for this view.';
+      resultsEl.appendChild(d); return;
+    }
+
+    const list=[...filtered];
+    let selected=null;
+    if(selectedMatchId){
+      const i=list.findIndex(m=>m.id===selectedMatchId);
+      if(i>=0){ selected=list.splice(i,1)[0]; }
+    }
+
+    if(selected){ const card = buildCard(selected, true); attachedEl.appendChild(card); }
+    list.forEach(m=>{ const card = buildCard(m, false); resultsEl.appendChild(card); });
+  }
+
+  async function openSource(card, match, src, streamIndex, autoplay){
+    document.querySelectorAll('.streams.open').forEach(p=>{
+      if(p.id!==`streams-${match.id}`){ p.classList.remove('open'); p.innerHTML=''; }
+    });
+    const panel=card.querySelector(`#streams-${match.id}`);
+    panel.innerHTML='<div class="status">Loading streams…</div>';
+    try{
+      const list=await fetchStreams(src);
+      if(!list.length){ panel.innerHTML='<div class="status">No streams returned.</div>'; panel.classList.add('open'); return; }
+      panel.innerHTML='';
+      list.forEach((s,i)=>{
+        const btn=document.createElement('button'); btn.className='stream-btn';
+        btn.textContent=`#${s.streamNo??''}  ${s.hd?'• HD':''}  ${s.language?('• '+s.language):''}`.replace(/\s+/g,' ').trim();
+        btn.addEventListener('click',()=> selectStream(panel, btn, s, match));
+        if(i===streamIndex) btn.classList.add('selected');
+        panel.appendChild(btn);
+        if(autoplay && i===streamIndex){ selectStream(panel, btn, s, match); }
+      });
+      panel.classList.add('open');
+      selectedMatchId=match.id; lastSourceKey=`${src.source}:${src.id}`; selectedStreamIndex=streamIndex;
+    }catch(e){
+      panel.innerHTML=`<div class='status' style='color:#ff6b6b'>Error: ${e.message||e}</div>`;
+      panel.classList.add('open');
+    }
+  }
+
+  function selectStream(panel, btn, s, match){
+    panel.querySelectorAll('.stream-btn.selected').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    play(s.embedUrl, match.title, match.id);
+  }
+
+  function play(url, title, matchId){
+    playerTitle.textContent=title||'';
+    iframe.src=url;
+    currentEmbedUrl = url;
+    player.classList.add('visible');
+    window.scrollTo({top:0,behavior:'smooth'});
+    if(matchId){ selectedMatchId=matchId; renderResults(); }
+  }
+
+  // Events
+  document.getElementById('title').addEventListener('click', ()=> location.reload()); // soft refresh
+  sportSel.addEventListener('change', ()=>{ if(!searchQuery) loadMatches(); });  // ignored when searching
+  feedSel.addEventListener('change',  ()=>{ if(!searchQuery) loadMatches(); });  // ignored when searching
+  btnOpen.addEventListener('click', ()=>{ if(currentEmbedUrl) window.open(currentEmbedUrl, '_blank', 'noopener'); });
+  btnClose.addEventListener('click', ()=>{
+    iframe.src=''; currentEmbedUrl=''; player.classList.remove('visible');
+    selectedMatchId=null; lastSourceKey=null; selectedStreamIndex=0;
+    renderResults();
+    document.getElementById('status').scrollIntoView({behavior:'smooth', block:'start'});
+  });
+
+  // Search interactions (ALWAYS across ALL + 24/7)
+  function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
+  const onSearch = debounce(async ()=>{
+    searchQuery = (searchInput.value || '').toLowerCase();
+    if(searchQuery){                      // when searching, ensure we have the global dataset loaded
+      statusEl.textContent='Loading full catalogue…';
+      try{ await ensureAllMatches(); }catch(e){ statusEl.innerHTML = `<span style='color:#ff6b6b'>Error: ${e.message||e}</span>`; }
+    }
+    renderResults();
+  }, 200);
+
+  searchForm.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    searchQuery = (searchInput.value||'').toLowerCase();
+    if(searchQuery){
+      statusEl.textContent='Loading full catalogue…';
+      try{ await ensureAllMatches(); }catch(e){ statusEl.innerHTML = `<span style='color:#ff6b6b'>Error: ${e.message||e}</span>`; }
+    }
+    renderResults();
+  });
+  searchInput.addEventListener('input', onSearch);
+  clearSearchBtn.addEventListener('click', ()=>{
+    searchInput.value=''; searchQuery='';
+    renderResults(); // fall back to current feed view instantly
+    searchInput.focus();
+  });
+
+  // Init
+  (async function init(){
+    await loadSports();
+    await loadMatches(); // default (feed/sport) view until a search is typed
+  })();
+})();
+</script>
+</body>
+</html>
