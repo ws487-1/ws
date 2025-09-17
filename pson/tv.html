@@ -93,7 +93,7 @@
   <select id="sport" aria-label="Sport"></select>
       <!-- Search (ALWAYS searches entire catalogue + 24/7, ignoring dropdowns) -->
       <form id="searchForm" class="searchWrap" role="search" aria-label="Search matches">
-        <input id="search" type="search" placeholder="Search across ALL matches…" autocomplete="off" />
+        <input id="search" type="search" placeholder="Search" autocomplete="off" />
         <button id="clearSearch" type="button" class="clearBtn" title="Clear">Clear</button>
       </form>
 
@@ -246,9 +246,9 @@
   async function loadSports(){
     try{
       const sports = await j(`${API}/sports`);
-      sportSel.innerHTML = '<option value="">— All sports —</option>' + sports.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+      sportSel.innerHTML = '<option value="">All sports</option>' + sports.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
     }catch{
-      sportSel.innerHTML = '<option value="">— All sports —</option>';
+      sportSel.innerHTML = '<option value="">All sports</option>';
     }
   }
 
