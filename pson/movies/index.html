@@ -413,6 +413,16 @@
 
 // Sources configuration
 const sources = [
+
+  // cinemaos
+  { 
+    name: "cinemaos", 
+    movieUrl: id => `https://cinemaos.tech/player/${id}`, 
+    seriesUrl: (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}`, 
+    series: true 
+  }
+];
+    
   // vidlink
   { 
     name: "vidlink", 
@@ -497,14 +507,6 @@ const sources = [
     series: true 
   },
 
-  // warezcdn
-  { 
-    name: "warezcdn", 
-    movieUrl: id => `https://embed.warezcdn.cc/filme/${id}`, 
-    seriesUrl: (id, s, e) => `https://embed.warezcdn.cc/serie/${id}/${s}/${e}`, 
-    series: true 
-  },
-
   // cinezo
   { 
     name: "cinezo", 
@@ -512,15 +514,6 @@ const sources = [
     seriesUrl: (id, s, e) => `https://api.cinezo.net/embed/tmdb-tv-${id}/${s}/${e}`, 
     series: true 
   },
-
-  // cinemaos
-  { 
-    name: "cinemaos", 
-    movieUrl: id => `https://cinemaos.tech/player/${id}`, 
-    seriesUrl: (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}`, 
-    series: true 
-  }
-];
 
 
 
