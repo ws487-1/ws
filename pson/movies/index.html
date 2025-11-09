@@ -416,7 +416,7 @@ const sources = [
   
   // cinemaos
   { 
-    name: "cinemaos", 
+    name: "CINEMAOS", 
     movieUrl: id => `https://cinemaos.tech/player/${id}`, 
     seriesUrl: (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}`, 
     series: true 
@@ -424,7 +424,7 @@ const sources = [
   
   // vidlink
   { 
-    name: "vidlink", 
+    name: "VIDLINK", 
     movieUrl: id => `https://vidlink.pro/movie/${id}`, 
     seriesUrl: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}`, 
     series: true 
@@ -441,7 +441,7 @@ const sources = [
 
   // autoembed
   { 
-    name: "autoembed", 
+    name: "AUTOEMBED", 
     movieUrl: id => `https://player.autoembed.cc/embed/movie/${id}`, 
     seriesUrl: (id, s, e) => `https://player.autoembed.cc/embed/tv/${id}/${s}/${e}`, 
     series: true 
@@ -449,7 +449,7 @@ const sources = [
 
   // superembed (multiembed)
   { 
-    name: "superembed", 
+    name: "SUPEREMBED", 
     movieUrl: id => `https://multiembed.mov/?video_id=${id}&tmdb=1`, 
     seriesUrl: (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`, 
     series: true 
@@ -457,7 +457,7 @@ const sources = [
 
   // nontongo
   { 
-    name: "nontongo", 
+    name: "NONTONGO", 
     movieUrl: id => `https://www.NontonGo.win/embed/movie/${id}`, 
     seriesUrl: (id, s, e) => `https://www.NontonGo.win/embed/tv/${id}/${s}/${e}`, 
     series: true 
@@ -465,7 +465,7 @@ const sources = [
 
   // moviesapiclub
   { 
-    name: "moviesapiclub", 
+    name: "MOVIESAPICLUB", 
     movieUrl: id => `https://moviesapi.club/movie/${id}`, 
     seriesUrl: (id, s, e) => `https://moviesapi.club/tv/${id}-${s}-${e}`, 
     series: true 
@@ -473,7 +473,7 @@ const sources = [
 
   // cinezo
   { 
-    name: "cinezo", 
+    name: "CINEZO", 
     movieUrl: id => `https://api.cinezo.net/embed/tmdb-movie-${id}`, 
     seriesUrl: (id, s, e) => `https://api.cinezo.net/embed/tmdb-tv-${id}/${s}/${e}`, 
     series: true 
