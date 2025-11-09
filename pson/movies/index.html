@@ -412,19 +412,101 @@
     // TMDB API key
     const API_KEY = '79d7c854f26de5ac978215ce03ff0c87';
 
-    // Sources configuration
-    const sources = [
-      { name:"vidlink.pro", movieUrl:id=>`https://vidlink.pro/movie/${id}`, series:false },
-      { name:"vidsrc.nl", movieUrl:id=>`https://player.vidsrc.nl/embed/movie/${id}`, seriesUrl:(id,s,e)=>`https://player.vidsrc.nl/embed/tv/${id}/${s}/${e}`, series:true },
-      { name:"vidsrc.cc", movieUrl:id=>`https://vidsrc.cc/v2/embed/movie/${id}`, seriesUrl:(id,s,e)=>`https://v2.vidsrc.me/embed/${id}/${s}-${e}`, series:true },
-      { name:"vidsrc.to", movieUrl:id=>`https://vidsrc.to/embed/movie/${id}`, seriesUrl:(id,s,e)=>`https://vidsrc.to/embed/tv/${id}/${s}-${e}`, series:true },
-      { name:"vidsrc.icu", movieUrl:id=>`https://vidsrc.icu/embed/movie/${id}`, seriesUrl:(id,s,e)=>`https://vidsrc.icu/embed/tv/${id}/${s}/${e}`, series:true },
-      { name:"vidsrc.top", movieUrl:id=>`https://vidsrc.top/embed/movie/imdb/${id}`, seriesUrl:(id,s,e)=>`https://vidsrc.top/embed/tv/imdb/${id}/${s}/${e}`, series:true },
-      { name:"autoembed.cc", movieUrl:id=>`https://player.autoembed.cc/embed/movie/${id}`, seriesUrl:(id,s,e)=>`https://player.autoembed.cc/embed/tv/${id}/${s}/${e}`, series:true },
-      { name:"multiembed.mov", movieUrl:id=>`https://multiembed.mov/?video_id=${id}&tmdb=1`, seriesUrl:(id,s,e)=>`https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`, series:true },
-      { name:"multiembed.mov vip", movieUrl:id=>`https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1`, seriesUrl:(id,s,e)=>`https://multiembed.mov/directstream.php?video_id=${id}&tmdb=1&s=${s}&e=${e}`, series:true },
-      { name:"nontongo.win", movieUrl:id=>`https://www.NontonGo.win/embed/movie/${id}`, seriesUrl:(id,s,e)=>`https://www.NontonGo.win/embed/tv/${id}/${s}/${e}`, series:true }
-    ];
+// Sources configuration
+const sources = [
+  { 
+    name: "vidlink", 
+    movieUrl: id => `https://vidlink.pro/movie/${id}`, 
+    seriesUrl: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}`, 
+    series: true 
+  },
+  { 
+    name: "vidsrcme", 
+    movieUrl: id => `https://vidsrc-embed.ru/embed/movie?tmdb=${id}/`, 
+    seriesUrl: (id, s, e) => `https://vidsrc-embed.ru/embed/tv/${id}/${s}-${e}`, 
+    series: true 
+  },
+  // VIDSRC mirrors
+  { 
+    name: "VIDSRC 1", 
+    movieUrl: id => `https://vidsrcme.ru/embed/movie?tmdb=${id}/`, 
+    seriesUrl: (id, s, e) => `https://vidsrcme.ru/embed/tv/${id}/${s}-${e}`, 
+    series: true 
+  },
+  { 
+    name: "VIDSRC 2", 
+    movieUrl: id => `https://vidsrcme.su/embed/movie?tmdb=${id}/`, 
+    seriesUrl: (id, s, e) => `https://vidsrcme.su/embed/tv/${id}/${s}-${e}`, 
+    series: true 
+  },
+  { 
+    name: "VIDSRC 3", 
+    movieUrl: id => `https://vidsrc-me.ru/embed/movie?tmdb=${id}/`, 
+    seriesUrl: (id, s, e) => `https://vidsrc-me.ru/embed/tv/${id}/${s}-${e}`, 
+    series: true 
+  },
+  { 
+    name: "VIDSRC 4", 
+    movieUrl: id => `https://vidsrc-me.su/embed/movie?tmdb=${id}/`, 
+    seriesUrl: (id, s, e) => `https://vidsrc-me.su/embed/tv/${id}/${s}-${e}`, 
+    series: true 
+  },
+  { 
+    name: "VIDSRC 5", 
+    movieUrl: id => `https://vidsrc-embed.su/embed/movie?tmdb=${id}/`, 
+    seriesUrl: (id, s, e) => `https://vidsrc-embed.su/embed/tv/${id}/${s}-${e}`, 
+    series: true 
+  },
+  { 
+    name: "VIDSRC 6", 
+    movieUrl: id => `https://vsrc.su/embed/movie?tmdb=${id}/`, 
+    seriesUrl: (id, s, e) => `https://vsrc.su/embed/tv/${id}/${s}-${e}`, 
+    series: true 
+  },
+  { 
+    name: "autoembed", 
+    movieUrl: id => `https://player.autoembed.cc/embed/movie/${id}`, 
+    seriesUrl: (id, s, e) => `https://player.autoembed.cc/embed/tv/${id}/${s}/${e}`, 
+    series: true 
+  },
+  { 
+    name: "superembed", 
+    movieUrl: id => `https://multiembed.mov/?video_id=${id}&tmdb=1`, 
+    seriesUrl: (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`, 
+    series: true 
+  },
+  { 
+    name: "nontongo", 
+    movieUrl: id => `https://www.NontonGo.win/embed/movie/${id}`, 
+    seriesUrl: (id, s, e) => `https://www.NontonGo.win/embed/tv/${id}/${s}/${e}`, 
+    series: true 
+  },
+  { 
+    name: "moviesapiclub", 
+    movieUrl: id => `https://moviesapi.club/movie/${id}`, 
+    seriesUrl: (id, s, e) => `https://moviesapi.club/tv/${id}-${s}-${e}`, 
+    series: true 
+  },
+  { 
+    name: "warezcdn", 
+    movieUrl: id => `https://embed.warezcdn.cc/filme/${id}`, 
+    seriesUrl: (id, s, e) => `https://embed.warezcdn.cc/serie/${id}/${s}/${e}`, 
+    series: true 
+  },
+  { 
+    name: "cinezo", 
+    movieUrl: id => `https://api.cinezo.net/embed/tmdb-movie-${id}`, 
+    seriesUrl: (id, s, e) => `https://api.cinezo.net/embed/tmdb-tv-${id}/${s}/${e}`, 
+    series: true 
+  },
+  { 
+    name: "cinemaos", 
+    movieUrl: id => `https://cinemaos.tech/player/${id}`, 
+    seriesUrl: (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}`, 
+    series: true 
+  }
+];
+
 
     // DOM
     const searchInput = document.getElementById('search-input');
