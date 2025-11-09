@@ -264,19 +264,18 @@
     .info-button:hover{ background:#121212; border-color: var(--stroke-strong); transform: translateY(-1px); }
     .trailer-button:disabled{ opacity:.55; cursor:not-allowed; }
 
-    /* Sources */
-    .sources-menu{
-      background:#060606;
-      border:1px solid var(--stroke);
-      border-top:none;
-      border-radius: 0 0 var(--radius) var(--radius);
-      padding: 0 8px;
-      margin-top:-6px;
-      overflow:hidden;
-      max-height:0; opacity:0;
-      transition: max-height .25s ease-out, opacity .25s ease-out, padding .25s ease-out;
-    }
-    .sources-menu.active{ max-height: 640px; opacity:1; padding: 10px 8px 12px; }
+.sources-menu{ 
+  /* allow scrolling when long */
+  overflow: auto;            /* was: hidden */
+  max-height: 0;
+}
+
+.sources-menu.active{
+  max-height: 70vh;          /* was: 640px */
+  opacity: 1;
+  padding: 10px 8px 12px;
+}
+
 
     .sources-menu h3{
       margin: 2px 2px 8px;
@@ -414,91 +413,107 @@
 
 // Sources configuration
 const sources = [
+  // vidlink
   { 
     name: "vidlink", 
     movieUrl: id => `https://vidlink.pro/movie/${id}`, 
     seriesUrl: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}`, 
     series: true 
   },
-  { 
-    name: "vidsrcme", 
-    movieUrl: id => `https://vidsrc-embed.ru/embed/movie?tmdb=${id}/`, 
-    seriesUrl: (id, s, e) => `https://vidsrc-embed.ru/embed/tv/${id}/${s}-${e}`, 
-    series: true 
-  },
-  // VIDSRC mirrors
+
+  // vidsrc mirrors (VIDSRC 1–7)
   { 
     name: "VIDSRC 1", 
-    movieUrl: id => `https://vidsrcme.ru/embed/movie?tmdb=${id}/`, 
+    movieUrl: id => `https://vidsrcme.ru/embed/movie/${id}/`, 
     seriesUrl: (id, s, e) => `https://vidsrcme.ru/embed/tv/${id}/${s}-${e}`, 
     series: true 
   },
   { 
     name: "VIDSRC 2", 
-    movieUrl: id => `https://vidsrcme.su/embed/movie?tmdb=${id}/`, 
+    movieUrl: id => `https://vidsrcme.su/embed/movie/${id}/`, 
     seriesUrl: (id, s, e) => `https://vidsrcme.su/embed/tv/${id}/${s}-${e}`, 
     series: true 
   },
   { 
     name: "VIDSRC 3", 
-    movieUrl: id => `https://vidsrc-me.ru/embed/movie?tmdb=${id}/`, 
+    movieUrl: id => `https://vidsrc-me.ru/embed/movie/${id}/`, 
     seriesUrl: (id, s, e) => `https://vidsrc-me.ru/embed/tv/${id}/${s}-${e}`, 
     series: true 
   },
   { 
     name: "VIDSRC 4", 
-    movieUrl: id => `https://vidsrc-me.su/embed/movie?tmdb=${id}/`, 
+    movieUrl: id => `https://vidsrc-me.su/embed/movie/${id}/`, 
     seriesUrl: (id, s, e) => `https://vidsrc-me.su/embed/tv/${id}/${s}-${e}`, 
     series: true 
   },
   { 
     name: "VIDSRC 5", 
-    movieUrl: id => `https://vidsrc-embed.su/embed/movie?tmdb=${id}/`, 
-    seriesUrl: (id, s, e) => `https://vidsrc-embed.su/embed/tv/${id}/${s}-${e}`, 
+    movieUrl: id => `https://vidsrc-embed.ru/embed/movie/${id}/`, 
+    seriesUrl: (id, s, e) => `https://vidsrc-embed.ru/embed/tv/${id}/${s}-${e}`, 
     series: true 
   },
   { 
     name: "VIDSRC 6", 
-    movieUrl: id => `https://vsrc.su/embed/movie?tmdb=${id}/`, 
+    movieUrl: id => `https://vidsrc-embed.su/embed/movie/${id}/`, 
+    seriesUrl: (id, s, e) => `https://vidsrc-embed.su/embed/tv/${id}/${s}-${e}`, 
+    series: true 
+  },
+  { 
+    name: "VIDSRC 7", 
+    movieUrl: id => `https://vsrc.su/embed/movie/${id}/`, 
     seriesUrl: (id, s, e) => `https://vsrc.su/embed/tv/${id}/${s}-${e}`, 
     series: true 
   },
+
+  // autoembed
   { 
     name: "autoembed", 
     movieUrl: id => `https://player.autoembed.cc/embed/movie/${id}`, 
     seriesUrl: (id, s, e) => `https://player.autoembed.cc/embed/tv/${id}/${s}/${e}`, 
     series: true 
   },
+
+  // superembed (multiembed)
   { 
     name: "superembed", 
     movieUrl: id => `https://multiembed.mov/?video_id=${id}&tmdb=1`, 
     seriesUrl: (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}`, 
     series: true 
   },
+
+  // nontongo
   { 
     name: "nontongo", 
     movieUrl: id => `https://www.NontonGo.win/embed/movie/${id}`, 
     seriesUrl: (id, s, e) => `https://www.NontonGo.win/embed/tv/${id}/${s}/${e}`, 
     series: true 
   },
+
+  // moviesapiclub
   { 
     name: "moviesapiclub", 
     movieUrl: id => `https://moviesapi.club/movie/${id}`, 
     seriesUrl: (id, s, e) => `https://moviesapi.club/tv/${id}-${s}-${e}`, 
     series: true 
   },
+
+  // warezcdn
   { 
     name: "warezcdn", 
     movieUrl: id => `https://embed.warezcdn.cc/filme/${id}`, 
     seriesUrl: (id, s, e) => `https://embed.warezcdn.cc/serie/${id}/${s}/${e}`, 
     series: true 
   },
+
+  // cinezo
   { 
     name: "cinezo", 
     movieUrl: id => `https://api.cinezo.net/embed/tmdb-movie-${id}`, 
     seriesUrl: (id, s, e) => `https://api.cinezo.net/embed/tmdb-tv-${id}/${s}/${e}`, 
     series: true 
   },
+
+  // cinemaos
   { 
     name: "cinemaos", 
     movieUrl: id => `https://cinemaos.tech/player/${id}`, 
@@ -506,6 +521,7 @@ const sources = [
     series: true 
   }
 ];
+
 
 
     // DOM
