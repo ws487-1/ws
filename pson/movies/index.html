@@ -413,16 +413,6 @@
 
 // Sources configuration
 const sources = [
-
-  // cinemaos
-  { 
-    name: "cinemaos", 
-    movieUrl: id => `https://cinemaos.tech/player/${id}`, 
-    seriesUrl: (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}`, 
-    series: true 
-  }
-];
-    
   // vidlink
   { 
     name: "vidlink", 
@@ -432,48 +422,13 @@ const sources = [
   },
 
   // vidsrc mirrors (VIDSRC 1–7)
-  { 
-    name: "VIDSRC 1", 
-    movieUrl: id => `https://vidsrcme.ru/embed/movie/${id}/`, 
-    seriesUrl: (id, s, e) => `https://vidsrcme.ru/embed/tv/${id}/${s}-${e}`, 
-    series: true 
-  },
-  { 
-    name: "VIDSRC 2", 
-    movieUrl: id => `https://vidsrcme.su/embed/movie/${id}/`, 
-    seriesUrl: (id, s, e) => `https://vidsrcme.su/embed/tv/${id}/${s}-${e}`, 
-    series: true 
-  },
-  { 
-    name: "VIDSRC 3", 
-    movieUrl: id => `https://vidsrc-me.ru/embed/movie/${id}/`, 
-    seriesUrl: (id, s, e) => `https://vidsrc-me.ru/embed/tv/${id}/${s}-${e}`, 
-    series: true 
-  },
-  { 
-    name: "VIDSRC 4", 
-    movieUrl: id => `https://vidsrc-me.su/embed/movie/${id}/`, 
-    seriesUrl: (id, s, e) => `https://vidsrc-me.su/embed/tv/${id}/${s}-${e}`, 
-    series: true 
-  },
-  { 
-    name: "VIDSRC 5", 
-    movieUrl: id => `https://vidsrc-embed.ru/embed/movie/${id}/`, 
-    seriesUrl: (id, s, e) => `https://vidsrc-embed.ru/embed/tv/${id}/${s}-${e}`, 
-    series: true 
-  },
-  { 
-    name: "VIDSRC 6", 
-    movieUrl: id => `https://vidsrc-embed.su/embed/movie/${id}/`, 
-    seriesUrl: (id, s, e) => `https://vidsrc-embed.su/embed/tv/${id}/${s}-${e}`, 
-    series: true 
-  },
-  { 
-    name: "VIDSRC 7", 
-    movieUrl: id => `https://vsrc.su/embed/movie/${id}/`, 
-    seriesUrl: (id, s, e) => `https://vsrc.su/embed/tv/${id}/${s}-${e}`, 
-    series: true 
-  },
+  { name: "VIDSRC 1", movieUrl: id => `https://vidsrcme.ru/embed/movie/${id}/`,  seriesUrl: (id, s, e) => `https://vidsrcme.ru/embed/tv/${id}/${s}-${e}`, series: true },
+  { name: "VIDSRC 2", movieUrl: id => `https://vidsrcme.su/embed/movie/${id}/`,  seriesUrl: (id, s, e) => `https://vidsrcme.su/embed/tv/${id}/${s}-${e}`, series: true },
+  { name: "VIDSRC 3", movieUrl: id => `https://vidsrc-me.ru/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrc-me.ru/embed/tv/${id}/${s}-${e}`, series: true },
+  { name: "VIDSRC 4", movieUrl: id => `https://vidsrc-me.su/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrc-me.su/embed/tv/${id}/${s}-${e}`, series: true },
+  { name: "VIDSRC 5", movieUrl: id => `https://vidsrc-embed.ru/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrc-embed.ru/embed/tv/${id}/${s}-${e}`, series: true },
+  { name: "VIDSRC 6", movieUrl: id => `https://vidsrc-embed.su/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrc-embed.su/embed/tv/${id}/${s}-${e}`, series: true },
+  { name: "VIDSRC 7", movieUrl: id => `https://vsrc.su/embed/movie/${id}/`,      seriesUrl: (id, s, e) => `https://vsrc.su/embed/tv/${id}/${s}-${e}`, series: true },
 
   // autoembed
   { 
@@ -514,6 +469,16 @@ const sources = [
     seriesUrl: (id, s, e) => `https://api.cinezo.net/embed/tmdb-tv-${id}/${s}/${e}`, 
     series: true 
   },
+
+  // cinemaos
+  { 
+    name: "cinemaos", 
+    movieUrl: id => `https://cinemaos.tech/player/${id}`, 
+    seriesUrl: (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}`, 
+    series: true 
+  }
+];
+
 
 
 
