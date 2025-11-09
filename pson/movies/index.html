@@ -413,6 +413,15 @@
 
 // Sources configuration
 const sources = [
+  
+  // cinemaos
+  { 
+    name: "cinemaos", 
+    movieUrl: id => `https://cinemaos.tech/player/${id}`, 
+    seriesUrl: (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}`, 
+    series: true 
+  },
+  
   // vidlink
   { 
     name: "vidlink", 
@@ -468,15 +477,8 @@ const sources = [
     movieUrl: id => `https://api.cinezo.net/embed/tmdb-movie-${id}`, 
     seriesUrl: (id, s, e) => `https://api.cinezo.net/embed/tmdb-tv-${id}/${s}/${e}`, 
     series: true 
-  },
-
-  // cinemaos
-  { 
-    name: "cinemaos", 
-    movieUrl: id => `https://cinemaos.tech/player/${id}`, 
-    seriesUrl: (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}`, 
-    series: true 
   }
+
 ];
 
 
