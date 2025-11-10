@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -285,16 +284,17 @@
 
     .sources-list{ display:flex; flex-direction:column; gap:6px; }
 
-    .source-item{
-      padding: 8px 10px;
+        .source-item{
+      padding: 6px 10px;
       background:#0a0a0a;
       border:1px solid var(--stroke);
       border-radius: var(--radius-sm);
       display:flex; justify-content:space-between; align-items:center;
-      min-height: 40px;
+      min-height: 34px;
       cursor:pointer;
       transition: border-color .2s ease, background .2s ease, transform .12s ease;
     }
+    
     .source-item:hover{ background:#101010; border-color: var(--stroke-strong); }
     .source-item.selected{ border-color:#fff; background:#121212; }
 
