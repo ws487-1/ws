@@ -14,6 +14,18 @@ const sources = [
   { name: "CINEZO", movieUrl: id => `https://api.cinezo.net/embed/tmdb-movie-${id}`, seriesUrl: (id, s, e) => `https://api.cinezo.net/embed/tmdb-tv-${id}/${s}/${e}` },
   { name: "CINEMAOS", movieUrl: id => `https://cinemaos.tech/player/${id}`, seriesUrl: (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}` },
   { name: "VIDKING", movieUrl: id => `https://www.vidking.net/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://www.vidking.net/embed/tv/${id}/${s}/${e}` },
-  { name: "VIDUP", movieUrl: id => `https://vidup.to/movie/${id}`, seriesUrl: (id, s, e) => `https://vidup.to/tv/${id}/${s}/${e}` }
-
+  { name: "VIDUP", movieUrl: id => `https://vidup.to/movie/${id}`, seriesUrl: (id, s, e) => `https://vidup.to/tv/${id}/${s}/${e}` },
+  { name: "BIDSRC", movieUrl: id => `https://bidsrc.pro/movie/${id}`, seriesUrl: (id, s, e) => `https://bidsrc.pro/tv/${id}/${s}/${e}` },
+  { name: "VIDEASY", movieUrl: id => `https://player.videasy.net/movie/${id}`, seriesUrl: (id, s, e) => `https://player.videasy.net/tv/${id}/${s}/${e}` },
+  { name: "FILMEX", movieUrl: id => `https://fmovies4u.com/embed/tmdb-movie-${id}`, seriesUrl: (id, s, e) => `https://fmovies4u.com/embed/tmdb-tv-${id}/${s}/${e}` },
+  { name: "VIDIFY", movieUrl: id => `https://player.vidify.top/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://player.vidify.top/embed/tv/${id}/${s}/${e}` },
+  { name: "VIDPLUS", movieUrl: id => `https://player.vidplus.to/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://player.vidplus.to/embed/tv/${id}/${s}/${e}` },
+  { name: "VIDFAST", movieUrl: id => `https://vidfast.pro/movie/${id}`, seriesUrl: (id, s, e) => `https://vidfast.pro/tv/${id}/${s}/${e}` },
+  { name: "VIDNEST", movieUrl: id => `https://vidnest.fun/movie/${id}`, seriesUrl: (id, s, e) => `https://vidnest.fun/tv/${id}/${s}/${e}` },
+  { name: "VIDORA", movieUrl: id => `https://vidora.su/movie/${id}`, seriesUrl: (id, s, e) => `https://vidora.su/tv/${id}/${s}/${e}` },
+  { name: "SPENCERDEVS", movieUrl: id => `https://spencerdevs.xyz/movie/${id}`, seriesUrl: (id, s, e) => `https://spencerdevs.xyz/tv/${id}/${s}/${e}` },
+  { name: "VIDROCK", movieUrl: id => `https://vidrock.net/movie/${id}`, seriesUrl: (id, s, e) => `https://vidrock.net/tv/${id}/${s}/${e}` },
+  { name: "111MOVIES", movieUrl: id => `https://111movies.com/movie/${id}`, seriesUrl: (id, s, e) => `https://111movies.com/tv/${id}/${s}/${e}` },
+  { name: "SUPERFLIXAPI", movieUrl: id => `https://superflixapi.asia/filme/${id}`, seriesUrl: (id, s, e) => `https://superflixapi.asia/serie/${id}/${s}/${e}` },
+  { name: "PSTREAM", movieUrl: id => `https://pstream.mov/media/tmdb-movie-${id}`, seriesUrl: (id, s, e) => `https://pstream.mov/media/tmdb-tv-${id}` }
 ];
