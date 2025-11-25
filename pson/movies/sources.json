@@ -12,5 +12,8 @@ const sources = [
   { name: "NONTONGO", movieUrl: id => `https://www.NontonGo.win/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://www.NontonGo.win/embed/tv/${id}/${s}/${e}` },
   { name: "MOVIESAPICLUB", movieUrl: id => `https://moviesapi.club/movie/${id}`, seriesUrl: (id, s, e) => `https://moviesapi.club/tv/${id}-${s}-${e}` },
   { name: "CINEZO", movieUrl: id => `https://api.cinezo.net/embed/tmdb-movie-${id}`, seriesUrl: (id, s, e) => `https://api.cinezo.net/embed/tmdb-tv-${id}/${s}/${e}` },
-  { name: "CINEMAOS", movieUrl: id => `https://cinemaos.tech/player/${id}`, seriesUrl: (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}` }
+  { name: "CINEMAOS", movieUrl: id => `https://cinemaos.tech/player/${id}`, seriesUrl: (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}` },
+  { name: "VIDKING", movieUrl: id => `https://www.vidking.net/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://www.vidking.net/embed/tv/${id}/${s}/${e}` },
+  { name: "VIDUP", movieUrl: id => `https://vidup.to/movie/${id}`, seriesUrl: (id, s, e) => `https://vidup.to/tv/${id}/${s}/${e}` }
+
 ];
