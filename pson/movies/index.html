@@ -706,7 +706,7 @@ const sources = [
       currentMedia = media;
       sourcesList.innerHTML='';
 
-      const filtered = sources.filter(s => media.media_type==='movie' ? true : s.series);
+      const filtered = sources;
 
       filtered.forEach((source, idx)=>{
         const el = document.createElement('div');
