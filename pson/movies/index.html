@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>movies/series</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..800&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..800&display=swap" rel="stylesheet" />
 
   <style>
     :root {
@@ -45,7 +45,11 @@
       padding: 20px;
     }
 
-    h1 { font-weight: 800; margin-bottom: 20px; letter-spacing: -1px; }
+    h1 {
+      font-weight: 800;
+      margin-bottom: 20px;
+      letter-spacing: -1px;
+    }
 
     /* --- Button System --- */
     .btn {
@@ -58,11 +62,12 @@
       line-height: 1.5;
       text-align: center;
       border: 1px solid transparent;
-      padding: 6px 16px; 
+      padding: 6px 16px;
       font-size: 15px;
       border-radius: 6px;
       transition: all .2s ease;
       text-decoration: none;
+      background: transparent;
     }
 
     /* Primary Blue */
@@ -96,22 +101,24 @@
 
     /* Tag Buttons (Quick Browse) */
     .btn-tag {
-      border-radius: 6px; /* Same roundness as other buttons */
-      padding: 4px 0;     /* Compact height */
-      width: 100%;        /* Fill grid cell */
+      border-radius: 6px;
+      padding: 4px 0;
+      width: 100%;
       font-size: 14px;
       background-color: transparent;
       border: 1px solid var(--border-color);
       color: var(--muted-text);
     }
-    .btn-tag:hover, .btn-tag.active {
+    .btn-tag:hover,
+    .btn-tag.active {
       background-color: var(--primary-color);
       color: white;
       border-color: var(--primary-color);
     }
 
     /* --- Inputs --- */
-    input[type="text"], select {
+    input[type="text"],
+    select {
       display: inline-block;
       padding: 6px 12px;
       font-size: 15px;
@@ -124,7 +131,8 @@
       height: 38px;
       box-sizing: border-box;
     }
-    input[type="text"]:focus, select:focus {
+    input[type="text"]:focus,
+    select:focus {
       border-color: var(--primary-color);
     }
 
@@ -141,19 +149,21 @@
       gap: 8px;
       margin-bottom: 25px;
     }
-    .search-area input { flex: 1; }
+    .search-area input {
+      flex: 1;
+    }
 
     /* Browse Grid: 4 cols = 2 rows for 8 items */
     .browse-grid {
       display: grid;
-      grid-template-columns: repeat(2, 1fr); /* Mobile: 2 cols */
+      grid-template-columns: repeat(2, 1fr);
       gap: 10px;
       margin-bottom: 30px;
     }
 
     @media (min-width: 600px) {
       .browse-grid {
-        grid-template-columns: repeat(4, 1fr); /* Desktop: 4 cols (2 rows) */
+        grid-template-columns: repeat(4, 1fr);
       }
     }
 
@@ -162,6 +172,7 @@
       padding: 12px 0;
       border-bottom: 1px solid var(--border-color);
       animation: fadeIn 0.3s ease;
+      transition: all 0.3s ease;
     }
 
     .card-top {
@@ -179,10 +190,25 @@
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
 
-    .content { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center;}
-    
-    .meta-title { margin: 0 0 6px 0; font-size: 1rem; line-height: 1.2; }
-    .meta-title span { font-weight: normal; color: var(--muted-text); font-size: 0.85rem; margin-left: 5px; }
+    .content {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .meta-title {
+      margin: 0 0 6px 0;
+      font-size: 1rem;
+      line-height: 1.2;
+    }
+    .meta-title span {
+      font-weight: normal;
+      color: var(--muted-text);
+      font-size: 0.85rem;
+      margin-left: 5px;
+    }
 
     .controls {
       display: flex;
@@ -191,7 +217,7 @@
       align-items: center;
       margin-bottom: 8px;
     }
-    
+
     .controls select {
       height: 28px;
       padding: 0 24px 0 8px;
@@ -205,448 +231,547 @@
     }
 
     /* --- Player Section --- */
+    .player-top-controls {
+      display: none;
+      justify-content: flex-end;
+      margin-top: 12px;
+      gap: 8px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .player-top-controls.show {
+      display: flex;
+      opacity: 1;
+    }
+
     .player-container {
       width: 100%;
       display: none;
-      margin-top: 12px;
+      margin-top: 6px;
       background: #000;
       border-radius: 8px;
       overflow: hidden;
+      opacity: 0;
+      max-height: 0;
+      transition: opacity 0.4s ease, max-height 0.4s ease;
     }
 
-    .player-header {
-      padding: 8px;
-      background: #1a1a1a;
-      display: flex;
-      justify-content: flex-end;
+    .player-container.opening {
+      display: block;
+      max-height: 0;
+      opacity: 0;
     }
 
+    .player-container.show {
+      display: block;
+      max-height: 2000px;
+      opacity: 1;
+    }
+
+    .player-container.closing {
+      max-height: 0;
+      opacity: 0;
+    }
+
+    /* Use modern aspect-ratio for 16:9 */
     iframe.mini-player {
       width: 100%;
-      height: 240px;
+      aspect-ratio: 16 / 9;
+      height: auto;
       border: none;
       display: block;
     }
 
     @media (min-width: 600px) {
-      .mini-player { height: 400px; }
-      .poster { width: 90px; height: 135px; }
+      .poster {
+        width: 90px;
+        height: 135px;
+      }
     }
 
-    #loadMore { display: none; width: 100%; margin-top: 20px; }
-    #msg { color: var(--muted-text); font-style: italic; margin-bottom: 10px; }
+    #loadMore {
+      display: none;
+      width: 100%;
+      margin-top: 20px;
+    }
+    #msg {
+      color: var(--muted-text);
+      font-style: italic;
+      margin-bottom: 10px;
+    }
 
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   </style>
 </head>
 <body>
+  <div class="page">
+    <div class="top-bar">
+      <h1>movies/series</h1>
+      <button id="themeToggle" class="btn btn-ghost btn-sm">Dark Mode</button>
+    </div>
 
-<div class="page">
-  <div class="top-bar">
-    <h1>movies/series</h1>
-    <button id="themeToggle" class="btn btn-ghost btn-sm">Dark Mode</button>
+    <div class="search-area">
+      <input id="q" type="text" placeholder="Search (e.g. Dune)..." />
+      <button id="go" class="btn btn-primary">Search</button>
+    </div>
+
+    <div class="browse-grid">
+      <button data-type="movie" data-category="popular" class="btn btn-tag browse active">Popular Movies</button>
+      <button data-type="tv" data-category="popular" class="btn btn-tag browse">Popular TV</button>
+      <button data-type="movie" data-category="trending" class="btn btn-tag browse">Trending Movies</button>
+      <button data-type="tv" data-category="trending" class="btn btn-tag browse">Trending TV</button>
+      <button data-type="movie" data-category="top_rated" class="btn btn-tag browse">Top Rated Movies</button>
+      <button data-type="tv" data-category="top_rated" class="btn btn-tag browse">Top Rated TV</button>
+      <button data-type="movie" data-category="now_playing" class="btn btn-tag browse">Now Playing</button>
+      <button data-type="tv" data-category="on_the_air" class="btn btn-tag browse">On Air</button>
+    </div>
+
+    <p id="msg"></p>
+    <div id="results"></div>
+    <button id="loadMore" class="btn btn-ghost">Load more results</button>
   </div>
 
-  <div class="search-area">
-    <input id="q" type="text" placeholder="Search (e.g. Dune)...">
-    <button id="go" class="btn btn-primary">Search</button>
-  </div>
+  <script>
+    // ===== CONFIG =====
+    const API_KEY = '79d7c854f26de5ac978215ce03ff0c87';
 
-  <div class="browse-grid">
-    <button data-type="movie" data-category="popular" class="btn btn-tag browse active">Popular Movies</button>
-    <button data-type="tv" data-category="popular" class="btn btn-tag browse">Popular TV</button>
-    <button data-type="movie" data-category="trending" class="btn btn-tag browse">Trending Movies</button>
-    <button data-type="tv" data-category="trending" class="btn btn-tag browse">Trending TV</button>
-    <button data-type="movie" data-category="top_rated" class="btn btn-tag browse">Top Rated Movies</button>
-    <button data-type="tv" data-category="top_rated" class="btn btn-tag browse">Top Rated TV</button>
-    <button data-type="movie" data-category="now_playing" class="btn btn-tag browse">Now Playing</button>
-    <button data-type="tv" data-category="on_the_air" class="btn btn-tag browse">On Air</button>
-  </div>
+    const sources = [
+      { name: "VIDEASY", movieUrl: id => `https://player.videasy.net/movie/${id}`, seriesUrl: (id, s, e) => `https://player.videasy.net/tv/${id}/${s}/${e}` },
+      { name: "VIDLINK", movieUrl: id => `https://vidlink.pro/movie/${id}`, seriesUrl: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}` },
+      { name: "VIDSRC 1", movieUrl: id => `https://vidsrcme.ru/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrcme.ru/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRC 2", movieUrl: id => `https://vidsrcme.su/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrcme.su/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRC 3", movieUrl: id => `https://vidsrc-me.ru/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrc-me.ru/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRC 4", movieUrl: id => `https://vidsrc-me.su/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrc-me.su/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRC 5", movieUrl: id => `https://vidsrc-embed.ru/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrc-embed.ru/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRC 6", movieUrl: id => `https://vidsrc-embed.su/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrc-embed.su/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRC 7", movieUrl: id => `https://vsrc.su/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vsrc.su/embed/tv/${id}/${s}/${e}` },
+      { name: "AUTOEMBED", movieUrl: id => `https://player.autoembed.cc/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://player.autoembed.cc/embed/tv/${id}/${s}/${e}` },
+      { name: "SUPEREMBED", movieUrl: id => `https://multiembed.mov/?video_id=${id}&tmdb=1`, seriesUrl: (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}` },
+      { name: "NONTONGO", movieUrl: id => `https://www.NontonGo.win/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://www.NontonGo.win/embed/tv/${id}/${s}/${e}` },
+      { name: "MOVIESAPICLUB", movieUrl: id => `https://moviesapi.club/movie/${id}`, seriesUrl: (id, s, e) => `https://moviesapi.club/tv/${id}-${s}-${e}` },
+      { name: "CINEZO", movieUrl: id => `https://api.cinezo.net/embed/tmdb-movie-${id}`, seriesUrl: (id, s, e) => `https://api.cinezo.net/embed/tmdb-tv-${id}/${s}/${e}` },
+      { name: "CINEMAOS", movieUrl: id => `https://cinemaos.tech/player/${id}`, seriesUrl: (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}` },
+      { name: "VIDKING", movieUrl: id => `https://www.vidking.net/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://www.vidking.net/embed/tv/${id}/${s}/${e}` },
+      { name: "VIDUP", movieUrl: id => `https://vidup.to/movie/${id}`, seriesUrl: (id, s, e) => `https://vidup.to/tv/${id}/${s}/${e}` },
+      { name: "BIDSRC", movieUrl: id => `https://bidsrc.pro/movie/${id}`, seriesUrl: (id, s, e) => `https://bidsrc.pro/tv/${id}/${s}/${e}` },
+      { name: "FILMEX", movieUrl: id => `https://fmovies4u.com/embed/tmdb-movie-${id}`, seriesUrl: (id, s, e) => `https://fmovies4u.com/embed/tmdb-tv-${id}/${s}/${e}` },
+      { name: "VIDIFY", movieUrl: id => `https://player.vidify.top/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://player.vidify.top/embed/tv/${id}/${s}/${e}` },
+      { name: "VIDPLUS", movieUrl: id => `https://player.vidplus.to/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://player.vidplus.to/embed/tv/${id}/${s}/${e}` },
+      { name: "VIDFAST", movieUrl: id => `https://vidfast.pro/movie/${id}`, seriesUrl: (id, s, e) => `https://vidfast.pro/tv/${id}/${s}/${e}` },
+      { name: "VIDNEST", movieUrl: id => `https://vidnest.fun/movie/${id}`, seriesUrl: (id, s, e) => `https://vidnest.fun/tv/${id}/${s}/${e}` },
+      { name: "VIDORA", movieUrl: id => `https://vidora.su/movie/${id}`, seriesUrl: (id, s, e) => `https://vidora.su/tv/${id}/${s}/${e}` },
+      { name: "SPENCERDEVS", movieUrl: id => `https://spencerdevs.xyz/movie/${id}`, seriesUrl: (id, s, e) => `https://spencerdevs.xyz/tv/${id}/${s}/${e}` },
+      { name: "VIDROCK", movieUrl: id => `https://vidrock.net/movie/${id}`, seriesUrl: (id, s, e) => `https://vidrock.net/tv/${id}/${s}/${e}` },
+      { name: "111MOVIES", movieUrl: id => `https://111movies.com/movie/${id}`, seriesUrl: (id, s, e) => `https://111movies.com/tv/${id}/${s}/${e}` },
+      { name: "SUPERFLIXAPI", movieUrl: id => `https://superflixapi.asia/filme/${id}`, seriesUrl: (id, s, e) => `https://superflixapi.asia/serie/${id}/${s}/${e}` },
+      { name: "PSTREAM", movieUrl: id => `https://pstream.mov/media/tmdb-movie-${id}`, seriesUrl: (id, s, e) => `https://pstream.mov/media/tmdb-tv-${id}` }
+    ];
 
-  <p id="msg"></p>
-  <div id="results"></div>
-  <button id="loadMore" class="btn btn-ghost">Load more results</button>
-</div>
+    // ===== DOM =====
+    const q = document.getElementById('q');
+    const go = document.getElementById('go');
+    const results = document.getElementById('results');
+    const msg = document.getElementById('msg');
+    const loadMoreBtn = document.getElementById('loadMore');
+    const themeToggle = document.getElementById('themeToggle');
 
-<script>
-  // ===== CONFIG =====
-  const API_KEY = '79d7c854f26de5ac978215ce03ff0c87';
-  
-  const sources = [
-  { name: "VIDEASY", movieUrl: id => `https://player.videasy.net/movie/${id}`, seriesUrl: (id, s, e) => `https://player.videasy.net/tv/${id}/${s}/${e}` },
-  { name: "VIDLINK", movieUrl: id => `https://vidlink.pro/movie/${id}`, seriesUrl: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}` },
-  { name: "VIDSRC 1", movieUrl: id => `https://vidsrcme.ru/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrcme.ru/embed/tv/${id}/${s}-${e}` },
-  { name: "VIDSRC 2", movieUrl: id => `https://vidsrcme.su/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrcme.su/embed/tv/${id}/${s}-${e}` },
-  { name: "VIDSRC 3", movieUrl: id => `https://vidsrc-me.ru/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrc-me.ru/embed/tv/${id}/${s}-${e}` },
-  { name: "VIDSRC 4", movieUrl: id => `https://vidsrc-me.su/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrc-me.su/embed/tv/${id}/${s}-${e}` },
-  { name: "VIDSRC 5", movieUrl: id => `https://vidsrc-embed.ru/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrc-embed.ru/embed/tv/${id}/${s}-${e}` },
-  { name: "VIDSRC 6", movieUrl: id => `https://vidsrc-embed.su/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vidsrc-embed.su/embed/tv/${id}/${s}-${e}` },
-  { name: "VIDSRC 7", movieUrl: id => `https://vsrc.su/embed/movie/${id}/`, seriesUrl: (id, s, e) => `https://vsrc.su/embed/tv/${id}/${s}-${e}` },
-  { name: "AUTOEMBED", movieUrl: id => `https://player.autoembed.cc/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://player.autoembed.cc/embed/tv/${id}/${s}/${e}` },
-  { name: "SUPEREMBED", movieUrl: id => `https://multiembed.mov/?video_id=${id}&tmdb=1`, seriesUrl: (id, s, e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}` },
-  { name: "NONTONGO", movieUrl: id => `https://www.NontonGo.win/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://www.NontonGo.win/embed/tv/${id}/${s}/${e}` },
-  { name: "MOVIESAPICLUB", movieUrl: id => `https://moviesapi.club/movie/${id}`, seriesUrl: (id, s, e) => `https://moviesapi.club/tv/${id}-${s}-${e}` },
-  { name: "CINEZO", movieUrl: id => `https://api.cinezo.net/embed/tmdb-movie-${id}`, seriesUrl: (id, s, e) => `https://api.cinezo.net/embed/tmdb-tv-${id}/${s}/${e}` },
-  { name: "CINEMAOS", movieUrl: id => `https://cinemaos.tech/player/${id}`, seriesUrl: (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}` },
-  { name: "VIDKING", movieUrl: id => `https://www.vidking.net/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://www.vidking.net/embed/tv/${id}/${s}/${e}` },
-  { name: "VIDUP", movieUrl: id => `https://vidup.to/movie/${id}`, seriesUrl: (id, s, e) => `https://vidup.to/tv/${id}/${s}/${e}` },
-  { name: "BIDSRC", movieUrl: id => `https://bidsrc.pro/movie/${id}`, seriesUrl: (id, s, e) => `https://bidsrc.pro/tv/${id}/${s}/${e}` },
-  { name: "FILMEX", movieUrl: id => `https://fmovies4u.com/embed/tmdb-movie-${id}`, seriesUrl: (id, s, e) => `https://fmovies4u.com/embed/tmdb-tv-${id}/${s}/${e}` },
-  { name: "VIDIFY", movieUrl: id => `https://player.vidify.top/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://player.vidify.top/embed/tv/${id}/${s}/${e}` },
-  { name: "VIDPLUS", movieUrl: id => `https://player.vidplus.to/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://player.vidplus.to/embed/tv/${id}/${s}/${e}` },
-  { name: "VIDFAST", movieUrl: id => `https://vidfast.pro/movie/${id}`, seriesUrl: (id, s, e) => `https://vidfast.pro/tv/${id}/${s}/${e}` },
-  { name: "VIDNEST", movieUrl: id => `https://vidnest.fun/movie/${id}`, seriesUrl: (id, s, e) => `https://vidnest.fun/tv/${id}/${s}/${e}` },
-  { name: "VIDORA", movieUrl: id => `https://vidora.su/movie/${id}`, seriesUrl: (id, s, e) => `https://vidora.su/tv/${id}/${s}/${e}` },
-  { name: "SPENCERDEVS", movieUrl: id => `https://spencerdevs.xyz/movie/${id}`, seriesUrl: (id, s, e) => `https://spencerdevs.xyz/tv/${id}/${s}/${e}` },
-  { name: "VIDROCK", movieUrl: id => `https://vidrock.net/movie/${id}`, seriesUrl: (id, s, e) => `https://vidrock.net/tv/${id}/${s}/${e}` },
-  { name: "111MOVIES", movieUrl: id => `https://111movies.com/movie/${id}`, seriesUrl: (id, s, e) => `https://111movies.com/tv/${id}/${s}/${e}` },
-  { name: "SUPERFLIXAPI", movieUrl: id => `https://superflixapi.asia/filme/${id}`, seriesUrl: (id, s, e) => `https://superflixapi.asia/serie/${id}/${s}/${e}` },
-  { name: "PSTREAM", movieUrl: id => `https://pstream.mov/media/tmdb-movie-${id}`, seriesUrl: (id, s, e) => `https://pstream.mov/media/tmdb-tv-${id}` }
-  
-];
+    // ===== STATE =====
+    let mode = 'category';
+    let queryText = '';
+    let type = 'movie';
+    let category = 'popular';
+    let page = 1;
+    let totalPages = 1;
+    let currentOpenPlayer = null; // Track currently open player
 
-  // ===== DOM =====
-  const q = document.getElementById('q');
-  const go = document.getElementById('go');
-  const results = document.getElementById('results');
-  const msg = document.getElementById('msg');
-  const loadMoreBtn = document.getElementById('loadMore');
-  const themeToggle = document.getElementById('themeToggle');
-
-  // ===== STATE =====
-  let mode = 'category'; 
-  let queryText = '';
-  let type = 'movie';
-  let category = 'popular';
-  let page = 1;
-  let totalPages = 1;
-
-  // ===== DARK MODE =====
-  function initTheme() {
-    const stored = localStorage.getItem('theme');
-    if (stored === 'dark') {
-      document.body.classList.add('dark-mode');
-      themeToggle.textContent = 'Light Mode';
-    } else {
-      themeToggle.textContent = 'Dark Mode';
-    }
-  }
-
-  themeToggle.addEventListener('click', () => {
-    document.body.classList.toggle('dark-mode');
-    const isDark = document.body.classList.contains('dark-mode');
-    themeToggle.textContent = isDark ? 'Light Mode' : 'Dark Mode';
-    localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  });
-
-  // ===== EVENTS =====
-  go.addEventListener('click', () => startSearch(q.value.trim()));
-  q.addEventListener('keydown', (e) => { if (e.key === 'Enter') startSearch(q.value.trim()); });
-  
-  document.querySelectorAll('.browse').forEach(b => {
-    b.addEventListener('click', () => {
-      document.querySelectorAll('.browse').forEach(btn => btn.classList.remove('active'));
-      b.classList.add('active');
-      startCategory(b.dataset.type, b.dataset.category);
-    });
-  });
-
-  loadMoreBtn.addEventListener('click', () => loadMore());
-
-  // ===== HELPERS =====
-  function setMsg(text) { msg.textContent = text || ''; }
-  function posterUrl(path) { return path ? `https://image.tmdb.org/t/p/w185${path}` : ''; }
-  function toggleLoadMore() {
-    loadMoreBtn.style.display = (page < totalPages) ? 'block' : 'none';
-  }
-
-  // ===== LOGIC =====
-  function startSearch(term) {
-    if (!term) { setMsg('Enter a search term.'); return; }
-    mode = 'search';
-    queryText = term;
-    page = 1;
-    results.innerHTML = '';
-    document.querySelectorAll('.browse').forEach(b => b.classList.remove('active'));
-    setMsg('Searching...');
-    fetchAndRender(false);
-  }
-
-  function startCategory(t, c) {
-    mode = 'category';
-    type = t;
-    category = c;
-    page = 1;
-    results.innerHTML = '';
-    setMsg('Loading...');
-    fetchAndRender(false);
-  }
-
-  async function loadMore() {
-    if (page >= totalPages) return;
-    page += 1;
-    loadMoreBtn.textContent = 'Loading...';
-    await fetchAndRender(true);
-    loadMoreBtn.textContent = 'Load more results';
-  }
-
-  async function fetchAndRender(append) {
-    try {
-      let endpoint = '';
-      if (mode === 'search') {
-        endpoint = `https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${encodeURIComponent(queryText)}&page=${page}`;
+    // ===== DARK MODE =====
+    function initTheme() {
+      const stored = localStorage.getItem('theme');
+      // Default to dark mode if no preference is stored
+      if (stored === 'light') {
+        themeToggle.textContent = 'Dark Mode';
       } else {
-        if (category === 'trending') {
-          endpoint = `https://api.themoviedb.org/3/trending/${type}/day?api_key=${API_KEY}&page=${page}`;
-        } else {
-          endpoint = `https://api.themoviedb.org/3/${type}/${category}?api_key=${API_KEY}&page=${page}`;
-        }
+        document.body.classList.add('dark-mode');
+        themeToggle.textContent = 'Light Mode';
       }
-
-      const res = await fetch(endpoint);
-      const data = await res.json();
-      const list = Array.isArray(data.results) ? data.results : [];
-      const items = (mode === 'category') ? list.map(r => ({ ...r, media_type: type })) : list;
-
-      totalPages = Number(data.total_pages || 1);
-      renderResults(items, append);
-      setMsg('');
-      toggleLoadMore();
-    } catch (e) {
-      console.error(e);
-      setMsg('Error fetching data.');
-      loadMoreBtn.style.display = 'none';
-    }
-  }
-
-  // ===== RENDER =====
-  function renderResults(items, append=false) {
-    if (!append) {
-      results.innerHTML = '';
-      if (!items.length) setMsg('No results found.');
     }
 
-    items.forEach(item => {
-      if (item.media_type === 'person') return;
-
-      const title = item.title || item.name || '(untitled)';
-      const year = (item.release_date || item.first_air_date || '').split('-')[0] || 'N/A';
-      const isTV = item.media_type === 'tv';
-      const img = posterUrl(item.poster_path);
-
-      // Card
-      const card = document.createElement('div');
-      card.className = 'movie-card';
-
-      // Top Row (Poster + Content)
-      const topRow = document.createElement('div');
-      topRow.className = 'card-top';
-
-      // Poster
-      const poster = document.createElement('img');
-      poster.className = 'poster';
-      poster.src = img || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iODQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2VZWUiLz48L3N2Zz4=';
-      poster.alt = title;
-
-      // Content
-      const content = document.createElement('div');
-      content.className = 'content';
-
-      const h3 = document.createElement('h3');
-      h3.className = 'meta-title';
-      h3.innerHTML = `<strong>${title}</strong> <span>(${year}) • ${isTV ? 'TV' : 'Movie'}</span>`;
-      content.appendChild(h3);
-
-      // Controls
-      const controls = document.createElement('div');
-      controls.className = 'controls';
-
-      const tmdbBtn = createBtn('TMDB', 'btn-ghost btn-sm', () => {
-        window.open(`https://www.themoviedb.org/${item.media_type}/${item.id}`, '_blank');
-      });
-      
-      const trailerBtn = createBtn('Trailer', 'btn-ghost btn-sm');
-      trailerBtn.disabled = true;
-
-      const srcSelect = document.createElement('select');
-
-// placeholder
-const placeholder = document.createElement('option');
-placeholder.textContent = 'Source';
-placeholder.disabled = true;
-placeholder.selected = true;
-srcSelect.appendChild(placeholder);
-
-// real sources
-sources.forEach(s => {
-  const opt = document.createElement('option');
-  opt.value = s.name;
-  opt.textContent = s.name;
-  srcSelect.appendChild(opt);
-});
-
-srcSelect.selectedIndex = 1;
-
-      controls.append(tmdbBtn, trailerBtn, srcSelect);
-
-      const seasonSelect = document.createElement('select');
-      const episodeSelect = document.createElement('select');
-      if (isTV) {
-        controls.append(seasonSelect, episodeSelect);
-        loadSeasons(item.id, seasonSelect, episodeSelect);
-        seasonSelect.addEventListener('change', () => loadEpisodes(item.id, seasonSelect.value, episodeSelect));
-      }
-
-      content.appendChild(controls);
-
-      // Actions
-      const actions = document.createElement('div');
-      actions.className = 'actions-row';
-
-      const playBtn = createBtn('Play', 'btn btn-primary');
-      const openBtn = createBtn('New Tab', 'btn btn-ghost');
-      const dlBtn = createBtn('Download', 'btn btn-ghost');
-
-      actions.append(dlBtn, openBtn, playBtn);
-      content.appendChild(actions);
-
-      topRow.appendChild(poster);
-      topRow.appendChild(content);
-      card.appendChild(topRow);
-
-      // Player (Underneath)
-      const playerContainer = document.createElement('div');
-      playerContainer.className = 'player-container';
-
-      const playerHeader = document.createElement('div');
-      playerHeader.className = 'player-header';
-      
-      const closeBtn = createBtn('Close Player', 'btn btn-ghost btn-sm', () => {
-        iframe.src = '';
-        playerContainer.style.display = 'none';
-      });
-      closeBtn.style.color = '#fff'; 
-      closeBtn.style.borderColor = '#555';
-
-      playerHeader.appendChild(closeBtn);
-
-      const iframe = document.createElement('iframe');
-      iframe.className = 'mini-player';
-      iframe.allowFullscreen = true;
-
-      playerContainer.append(playerHeader, iframe);
-      card.appendChild(playerContainer);
-
-      // Logic
-      const getUrl = () => {
-        const src = sources.find(s => s.name === srcSelect.value);
-        if (!src) return null;
-        if (!isTV) return src.movieUrl(item.id);
-        return src.seriesUrl(item.id, seasonSelect.value || 1, episodeSelect.value || 1);
-      };
-
-      playBtn.onclick = () => {
-        const url = getUrl();
-        if (url) {
-          iframe.src = url;
-          playerContainer.style.display = 'block';
-        }
-      };
-
-      openBtn.onclick = () => {
-        const url = getUrl();
-        if (url) window.open(url, '_blank');
-      };
-
-      dlBtn.onclick = () => {
-        const s = seasonSelect.value || 1;
-        const e = episodeSelect.value || 1;
-        const dlUrl = isTV 
-          ? `https://dl.vidsrc.vip/tv/${item.id}/${s}/${e}` 
-          : `https://dl.vidsrc.vip/movie/${item.id}`;
-        window.open(dlUrl, '_blank');
-      };
-
-      fetchTrailer(item.id, item.media_type).then(url => {
-        if (url) {
-          trailerBtn.disabled = false;
-          trailerBtn.onclick = () => window.open(url, '_blank');
-        }
-      });
-
-      results.appendChild(card);
+    themeToggle.addEventListener('click', () => {
+      document.body.classList.toggle('dark-mode');
+      const isDark = document.body.classList.contains('dark-mode');
+      themeToggle.textContent = isDark ? 'Light Mode' : 'Dark Mode';
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
     });
-  }
 
-  function createBtn(text, className, onClick) {
-    const b = document.createElement('button');
-    b.textContent = text;
-    b.className = className;
-    if (onClick) b.addEventListener('click', onClick);
-    return b;
-  }
+    // ===== EVENTS =====
+    go.addEventListener('click', () => startSearch(q.value.trim()));
+    q.addEventListener('keydown', (e) => { if (e.key === 'Enter') startSearch(q.value.trim()); });
 
-  // ===== API =====
-  async function fetchTrailer(tmdbId, mediaType) {
-    try {
-      const res = await fetch(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}/videos?api_key=${API_KEY}`);
-      const data = await res.json();
-      const vids = data.results || [];
-      const trailer = vids.find(v => v.type === 'Trailer' && v.site === 'YouTube');
-      return trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null;
-    } catch (e) { return null; }
-  }
+    document.querySelectorAll('.browse').forEach(b => {
+      b.addEventListener('click', () => {
+        document.querySelectorAll('.browse').forEach(btn => btn.classList.remove('active'));
+        b.classList.add('active');
+        startCategory(b.dataset.type, b.dataset.category);
+      });
+    });
 
-  async function loadSeasons(tvId, seasonSelect, episodeSelect) {
-    seasonSelect.innerHTML = '';
-    episodeSelect.innerHTML = '';
-    try {
-      const res = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}`);
-      const data = await res.json();
-      const seasons = (data.seasons || []).filter(s => s.season_number !== 0);
+    loadMoreBtn.addEventListener('click', () => loadMore());
+
+    // ===== HELPERS =====
+    function setMsg(text) { msg.textContent = text || ''; }
+    function posterUrl(path) { return path ? `https://image.tmdb.org/t/p/w185${path}` : ''; }
+    function toggleLoadMore() {
+      loadMoreBtn.style.display = (page < totalPages) ? 'block' : 'none';
+    }
+
+    // ===== PLAYER MANAGEMENT =====
+    function closeCurrentPlayer() {
+      if (!currentOpenPlayer) return;
       
-      if (seasons.length === 0) {
-        const opt = document.createElement('option');
-        opt.value = 1; opt.textContent = 'S1';
-        seasonSelect.appendChild(opt);
+      const { playerContainer, playerTopControls, iframe } = currentOpenPlayer;
+      
+      // Add closing class for animation
+      playerContainer.classList.add('closing');
+      playerTopControls.classList.remove('show');
+      
+      setTimeout(() => {
+        iframe.src = '';
+        playerContainer.classList.remove('show', 'closing');
+        playerContainer.style.display = 'none';
+        playerTopControls.style.display = 'none';
+        currentOpenPlayer = null;
+      }, 400);
+    }
+
+    function openPlayer(playerContainer, playerTopControls, iframe, url, card) {
+      // Close any currently open player first
+      if (currentOpenPlayer) {
+        closeCurrentPlayer();
+      }
+      
+      // Small delay to allow previous player to close
+      setTimeout(() => {
+        // Set up the new player
+        iframe.src = url;
+        
+        // Start opening animation
+        playerContainer.classList.add('opening');
+        playerContainer.style.display = 'block';
+        playerTopControls.style.display = 'flex';
+        
+        // Trigger reflow
+        playerContainer.offsetHeight;
+        
+        // Add show class for animation
+        setTimeout(() => {
+          playerContainer.classList.remove('opening');
+          playerContainer.classList.add('show');
+          playerTopControls.classList.add('show');
+          
+          // Scroll into view smoothly
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 10);
+        
+        // Store reference to current player
+        currentOpenPlayer = { playerContainer, playerTopControls, iframe };
+      }, currentOpenPlayer ? 420 : 0);
+    }
+
+    // ===== LOGIC =====
+    function startSearch(term) {
+      if (!term) { setMsg('Enter a search term.'); return; }
+      mode = 'search';
+      queryText = term;
+      page = 1;
+      results.innerHTML = '';
+      closeCurrentPlayer(); // Close player when starting new search
+      document.querySelectorAll('.browse').forEach(b => b.classList.remove('active'));
+      setMsg('Searching...');
+      fetchAndRender(false);
+    }
+
+    function startCategory(t, c) {
+      mode = 'category';
+      type = t;
+      category = c;
+      page = 1;
+      results.innerHTML = '';
+      closeCurrentPlayer(); // Close player when changing category
+      setMsg('Loading...');
+      fetchAndRender(false);
+    }
+
+    async function loadMore() {
+      if (page >= totalPages) return;
+      page += 1;
+      loadMoreBtn.textContent = 'Loading...';
+      await fetchAndRender(true);
+      loadMoreBtn.textContent = 'Load more results';
+    }
+
+    async function fetchAndRender(append) {
+      try {
+        let endpoint = '';
+        if (mode === 'search') {
+          endpoint = `https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${encodeURIComponent(queryText)}&page=${page}`;
+        } else {
+          if (category === 'trending') {
+            endpoint = `https://api.themoviedb.org/3/trending/${type}/day?api_key=${API_KEY}&page=${page}`;
+          } else {
+            endpoint = `https://api.themoviedb.org/3/${type}/${category}?api_key=${API_KEY}&page=${page}`;
+          }
+        }
+
+        const res = await fetch(endpoint);
+        const data = await res.json();
+        const list = Array.isArray(data.results) ? data.results : [];
+        const items = (mode === 'category') ? list.map(r => ({ ...r, media_type: type })) : list;
+
+        totalPages = Number(data.total_pages || 1);
+        renderResults(items, append);
+        setMsg('');
+        toggleLoadMore();
+      } catch (e) {
+        console.error(e);
+        setMsg('Error fetching data.');
+        loadMoreBtn.style.display = 'none';
+      }
+    }
+
+    // ===== RENDER =====
+    function renderResults(items, append=false) {
+      if (!append) {
+        results.innerHTML = '';
+        if (!items.length) setMsg('No results found.');
       }
 
-      seasons.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.season_number;
-        opt.textContent = `S${s.season_number}`;
-        seasonSelect.appendChild(opt);
+      items.forEach(item => {
+        if (item.media_type === 'person') return;
+
+        const title = item.title || item.name || '(untitled)';
+        const year = (item.release_date || item.first_air_date || '').split('-')[0] || 'N/A';
+        const isTV = item.media_type === 'tv';
+        const img = posterUrl(item.poster_path);
+
+        // Card
+        const card = document.createElement('div');
+        card.className = 'movie-card';
+
+        // Top Row (Poster + Content)
+        const topRow = document.createElement('div');
+        topRow.className = 'card-top';
+
+        // Poster
+        const poster = document.createElement('img');
+        poster.className = 'poster';
+        poster.src = img || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iODQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2VZWUiLz48L3N2Zz4=';
+        poster.alt = title;
+
+        // Content
+        const content = document.createElement('div');
+        content.className = 'content';
+
+        const h3 = document.createElement('h3');
+        h3.className = 'meta-title';
+        h3.innerHTML = `<strong>${title}</strong> <span>(${year}) • ${isTV ? 'TV' : 'Movie'}</span>`;
+        content.appendChild(h3);
+
+        // Controls
+        const controls = document.createElement('div');
+        controls.className = 'controls';
+
+        const tmdbBtn = createBtn('TMDB', 'btn-ghost btn-sm', () => {
+          window.open(`https://www.themoviedb.org/${item.media_type}/${item.id}`, '_blank');
+        });
+
+        const trailerBtn = createBtn('Trailer', 'btn-ghost btn-sm');
+        trailerBtn.disabled = true;
+
+        const srcSelect = document.createElement('select');
+
+        // placeholder
+        const placeholder = document.createElement('option');
+        placeholder.textContent = 'Source';
+        placeholder.disabled = true;
+        placeholder.selected = true;
+        srcSelect.appendChild(placeholder);
+
+        // real sources
+        sources.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.name;
+          opt.textContent = s.name;
+          srcSelect.appendChild(opt);
+        });
+
+        srcSelect.selectedIndex = 1;
+
+        controls.append(tmdbBtn, trailerBtn, srcSelect);
+
+        const seasonSelect = document.createElement('select');
+        const episodeSelect = document.createElement('select');
+        if (isTV) {
+          controls.append(seasonSelect, episodeSelect);
+          loadSeasons(item.id, seasonSelect, episodeSelect);
+          seasonSelect.addEventListener('change', () => loadEpisodes(item.id, seasonSelect.value, episodeSelect));
+        }
+
+        content.appendChild(controls);
+
+        // Actions
+        const actions = document.createElement('div');
+        actions.className = 'actions-row';
+
+        const playBtn = createBtn('Play', 'btn btn-primary');
+        const openBtn = createBtn('New Tab', 'btn btn-ghost');
+        const dlBtn = createBtn('Download', 'btn btn-ghost');
+
+        actions.append(dlBtn, openBtn, playBtn);
+        content.appendChild(actions);
+
+        topRow.appendChild(poster);
+        topRow.appendChild(content);
+        card.appendChild(topRow);
+
+        // Player Controls above the player
+        const playerTopControls = document.createElement('div');
+        playerTopControls.className = 'player-top-controls';
+
+        const closeBtn = createBtn('Close Player', 'btn btn-ghost btn-sm', () => {
+          closeCurrentPlayer();
+        });
+
+        playerTopControls.appendChild(closeBtn);
+
+        // Player container
+        const playerContainer = document.createElement('div');
+        playerContainer.className = 'player-container';
+
+        const iframe = document.createElement('iframe');
+        iframe.className = 'mini-player';
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
+
+        playerContainer.appendChild(iframe);
+
+        card.appendChild(playerTopControls);
+        card.appendChild(playerContainer);
+
+        // Logic to compute embed URL
+        const getUrl = () => {
+          const src = sources.find(s => s.name === srcSelect.value);
+          if (!src) return null;
+          if (!isTV) return src.movieUrl(item.id);
+          return src.seriesUrl(item.id, seasonSelect.value || 1, episodeSelect.value || 1);
+        };
+
+        playBtn.onclick = () => {
+          const url = getUrl();
+          if (url) {
+            openPlayer(playerContainer, playerTopControls, iframe, url, card);
+          } else {
+            alert('Please select a source from the "Source" dropdown.');
+          }
+        };
+
+        openBtn.onclick = () => {
+          const url = getUrl();
+          if (url) window.open(url, '_blank');
+        };
+
+        dlBtn.onclick = () => {
+          const s = seasonSelect.value || 1;
+          const e = episodeSelect.value || 1;
+          const dlUrl = isTV
+            ? `https://dl.vidsrc.vip/tv/${item.id}/${s}/${e}`
+            : `https://dl.vidsrc.vip/movie/${item.id}`;
+          window.open(dlUrl, '_blank');
+        };
+
+        fetchTrailer(item.id, item.media_type).then(url => {
+          if (url) {
+            trailerBtn.disabled = false;
+            trailerBtn.onclick = () => window.open(url, '_blank');
+          }
+        });
+
+        results.appendChild(card);
       });
-      
-      const firstSeason = seasons.length ? seasons[0].season_number : 1;
-      await loadEpisodes(tvId, firstSeason, episodeSelect);
-    } catch (e) {}
-  }
+    }
 
-  async function loadEpisodes(tvId, seasonNumber, episodeSelect) {
-    episodeSelect.innerHTML = '';
-    try {
-      const res = await fetch(`https://api.themoviedb.org/3/tv/${tvId}/season/${seasonNumber}?api_key=${API_KEY}`);
-      const data = await res.json();
-      const episodes = data.episodes || [];
+    function createBtn(text, className, onClick) {
+      const b = document.createElement('button');
+      b.textContent = text;
+      b.className = className;
+      if (onClick) b.addEventListener('click', onClick);
+      return b;
+    }
 
-      if(episodes.length === 0) {
-         const opt = document.createElement('option');
-         opt.value = 1; opt.textContent = 'E1';
-         episodeSelect.appendChild(opt);
-      }
+    // ===== API =====
+    async function fetchTrailer(tmdbId, mediaType) {
+      try {
+        const res = await fetch(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}/videos?api_key=${API_KEY}`);
+        const data = await res.json();
+        const vids = data.results || [];
+        const trailer = vids.find(v => v.type === 'Trailer' && v.site === 'YouTube');
+        return trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null;
+      } catch (e) { return null; }
+    }
 
-      episodes.forEach(ep => {
-        const opt = document.createElement('option');
-        opt.value = ep.episode_number;
-        opt.textContent = `E${ep.episode_number}`;
-        episodeSelect.appendChild(opt);
-      });
-    } catch (e) {}
-  }
+    async function loadSeasons(tvId, seasonSelect, episodeSelect) {
+      seasonSelect.innerHTML = '';
+      episodeSelect.innerHTML = '';
+      try {
+        const res = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}`);
+        const data = await res.json();
+        const seasons = (data.seasons || []).filter(s => s.season_number !== 0);
 
-  initTheme();
-  startCategory('movie', 'popular');
-</script>
+        if (seasons.length === 0) {
+          const opt = document.createElement('option');
+          opt.value = 1; opt.textContent = 'S1';
+          seasonSelect.appendChild(opt);
+        }
 
+        seasons.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.season_number;
+          opt.textContent = `S${s.season_number}`;
+          seasonSelect.appendChild(opt);
+        });
+
+        const firstSeason = seasons.length ? seasons[0].season_number : 1;
+        await loadEpisodes(tvId, firstSeason, episodeSelect);
+      } catch (e) {}
+    }
+
+    async function loadEpisodes(tvId, seasonNumber, episodeSelect) {
+      episodeSelect.innerHTML = '';
+      try {
+        const res = await fetch(`https://api.themoviedb.org/3/tv/${tvId}/season/${seasonNumber}?api_key=${API_KEY}`);
+        const data = await res.json();
+        const episodes = data.episodes || [];
+
+        if(episodes.length === 0) {
+           const opt = document.createElement('option');
+           opt.value = 1; opt.textContent = 'E1';
+           episodeSelect.appendChild(opt);
+        }
+
+        episodes.forEach(ep => {
+          const opt = document.createElement('option');
+          opt.value = ep.episode_number;
+          opt.textContent = `E${ep.episode_number}`;
+          episodeSelect.appendChild(opt);
+        });
+      } catch (e) {}
+    }
+
+    initTheme();
+    startCategory('movie', 'popular');
+  </script>
 </body>
 </html>
