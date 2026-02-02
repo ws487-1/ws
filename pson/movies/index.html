@@ -43,12 +43,25 @@
       max-width: 900px;
       margin: 0 auto;
       padding: 20px;
+      transition: opacity 0.3s ease;
+    }
+
+    .page.fade-out {
+      opacity: 0;
     }
 
     h1 {
       font-weight: 800;
       margin-bottom: 20px;
       letter-spacing: -1px;
+    }
+
+    h2 {
+      font-weight: 700;
+      font-size: 1.3rem;
+      margin-top: 40px;
+      margin-bottom: 20px;
+      letter-spacing: -0.5px;
     }
 
     /* --- Button System --- */
@@ -99,6 +112,22 @@
       border-radius: 4px;
     }
 
+    /* Square Icon Button */
+    .btn-icon {
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-icon img {
+      width: 20px;
+      height: 20px;
+      display: block;
+    }
+
     /* Tag Buttons (Quick Browse) */
     .btn-tag {
       border-radius: 6px;
@@ -144,6 +173,12 @@
       margin-bottom: 25px;
     }
 
+    .top-bar-buttons {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
     .search-area {
       display: flex;
       gap: 8px;
@@ -165,6 +200,165 @@
       .browse-grid {
         grid-template-columns: repeat(4, 1fr);
       }
+    }
+
+    /* --- Settings Overlay --- */
+    .settings-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--bg-color);
+      z-index: 1000;
+      display: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      overflow-y: auto;
+    }
+
+    .settings-overlay.show {
+      display: block;
+      opacity: 1;
+    }
+
+    .settings-content {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 40px;
+    }
+
+    .setting-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .setting-label {
+      font-weight: 500;
+      font-size: 1rem;
+    }
+
+    .save-indicator {
+      color: var(--primary-color);
+      font-size: 0.85rem;
+      margin-left: 8px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .save-indicator.show {
+      opacity: 1;
+    }
+
+    /* Color Picker Styling */
+    .color-picker-section {
+      padding: 20px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .color-picker-container {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    input[type="color"] {
+      width: 60px;
+      height: 40px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      cursor: pointer;
+      background-color: var(--input-bg);
+    }
+
+    .color-preview {
+      flex: 1;
+      padding: 10px 12px;
+      background-color: var(--input-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      color: var(--text-color);
+      outline: 0;
+    }
+
+    .color-preview:focus {
+      border-color: var(--primary-color);
+    }
+
+    .color-presets {
+      display: flex;
+      gap: 10px;
+      justify-content: space-between;
+      max-width: 100%;
+    }
+
+    .color-preset {
+      width: 40px;
+      height: 40px;
+      border: 2px solid var(--border-color);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s;
+      flex-shrink: 0;
+    }
+
+    .color-preset:hover {
+      transform: scale(1.1);
+      border-color: var(--text-color);
+    }
+
+    .color-preset.active {
+      border-color: var(--text-color);
+      border-width: 3px;
+    }
+
+    /* Download Section */
+    .download-section {
+      padding: 20px 0;
+    }
+
+    .download-btn {
+      display: inline-block;
+      background-color: var(--primary-color);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: 600;
+      transition: background-color 0.2s;
+      margin-bottom: 20px;
+    }
+
+    .download-btn:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .install-steps {
+      color: var(--muted-text);
+      font-size: 0.9rem;
+      line-height: 1.8;
+    }
+
+    .install-steps ol {
+      margin: 12px 0;
+      padding-left: 20px;
+    }
+
+    .install-steps li {
+      margin-bottom: 8px;
     }
 
     /* --- Movie Card Styling --- */
@@ -290,6 +484,27 @@
       }
     }
 
+    @media (max-width: 600px) {
+      .setting-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      select {
+        width: 100%;
+      }
+
+      .color-presets {
+        gap: 8px;
+      }
+
+      .color-preset {
+        width: 36px;
+        height: 36px;
+      }
+    }
+
     #loadMore {
       display: none;
       width: 100%;
@@ -311,7 +526,12 @@
   <div class="page">
     <div class="top-bar">
       <h1>movies/series</h1>
-      <button id="themeToggle" class="btn btn-ghost btn-sm">Dark Mode</button>
+      <div class="top-bar-buttons">
+        <button id="themeToggle" class="btn btn-ghost btn-sm">Dark Mode</button>
+        <button id="settingsToggle" class="btn btn-ghost btn-icon">
+          <img src="https://wills.im/pson/movies/settings.svg" alt="Settings">
+        </button>
+      </div>
     </div>
 
     <div class="search-area">
@@ -333,6 +553,137 @@
     <p id="msg"></p>
     <div id="results"></div>
     <button id="loadMore" class="btn btn-ghost">Load more results</button>
+  </div>
+
+  <!-- Settings Overlay -->
+  <div id="settingsOverlay" class="settings-overlay">
+    <div class="settings-content">
+      <div class="settings-header">
+        <h1>Settings</h1>
+        <button id="settingsClose" class="btn btn-ghost btn-sm">Close</button>
+      </div>
+
+      <div class="setting-row">
+        <label class="setting-label" for="defaultMovieSource">Default Movie Source</label>
+        <div style="display: flex; align-items: center;">
+          <select id="defaultMovieSource">
+            <option value="">No Default (Manual Selection)</option>
+            <option value="VIDEASY">VIDEASY</option>
+            <option value="VIDLINK">VIDLINK</option>
+            <option value="VIDSRC 1">VIDSRC 1</option>
+            <option value="VIDSRC 2">VIDSRC 2</option>
+            <option value="VIDSRC 3">VIDSRC 3</option>
+            <option value="VIDSRC 4">VIDSRC 4</option>
+            <option value="VIDSRC 5">VIDSRC 5</option>
+            <option value="VIDSRC 6">VIDSRC 6</option>
+            <option value="VIDSRC 7">VIDSRC 7</option>
+            <option value="AUTOEMBED">AUTOEMBED</option>
+            <option value="SUPEREMBED">SUPEREMBED</option>
+            <option value="NONTONGO">NONTONGO</option>
+            <option value="MOVIESAPICLUB">MOVIESAPICLUB</option>
+            <option value="CINEZO">CINEZO</option>
+            <option value="CINEMAOS">CINEMAOS</option>
+            <option value="VIDKING">VIDKING</option>
+            <option value="VIDUP">VIDUP</option>
+            <option value="BIDSRC">BIDSRC</option>
+            <option value="FILMEX">FILMEX</option>
+            <option value="VIDIFY">VIDIFY</option>
+            <option value="VIDPLUS">VIDPLUS</option>
+            <option value="VIDFAST">VIDFAST</option>
+            <option value="VIDNEST">VIDNEST</option>
+            <option value="VIDORA">VIDORA</option>
+            <option value="SPENCERDEVS">SPENCERDEVS</option>
+            <option value="VIDROCK">VIDROCK</option>
+            <option value="111MOVIES">111MOVIES</option>
+            <option value="SUPERFLIXAPI">SUPERFLIXAPI</option>
+            <option value="PSTREAM">PSTREAM</option>
+          </select>
+          <span class="save-indicator" id="movieSourceSaved">✓</span>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <label class="setting-label" for="defaultTVSource">Default TV Source</label>
+        <div style="display: flex; align-items: center;">
+          <select id="defaultTVSource">
+            <option value="">No Default (Manual Selection)</option>
+            <option value="VIDEASY">VIDEASY</option>
+            <option value="VIDLINK">VIDLINK</option>
+            <option value="VIDSRC 1">VIDSRC 1</option>
+            <option value="VIDSRC 2">VIDSRC 2</option>
+            <option value="VIDSRC 3">VIDSRC 3</option>
+            <option value="VIDSRC 4">VIDSRC 4</option>
+            <option value="VIDSRC 5">VIDSRC 5</option>
+            <option value="VIDSRC 6">VIDSRC 6</option>
+            <option value="VIDSRC 7">VIDSRC 7</option>
+            <option value="AUTOEMBED">AUTOEMBED</option>
+            <option value="SUPEREMBED">SUPEREMBED</option>
+            <option value="NONTONGO">NONTONGO</option>
+            <option value="MOVIESAPICLUB">MOVIESAPICLUB</option>
+            <option value="CINEZO">CINEZO</option>
+            <option value="CINEMAOS">CINEMAOS</option>
+            <option value="VIDKING">VIDKING</option>
+            <option value="VIDUP">VIDUP</option>
+            <option value="BIDSRC">BIDSRC</option>
+            <option value="FILMEX">FILMEX</option>
+            <option value="VIDIFY">VIDIFY</option>
+            <option value="VIDPLUS">VIDPLUS</option>
+            <option value="VIDFAST">VIDFAST</option>
+            <option value="VIDNEST">VIDNEST</option>
+            <option value="VIDORA">VIDORA</option>
+            <option value="SPENCERDEVS">SPENCERDEVS</option>
+            <option value="VIDROCK">VIDROCK</option>
+            <option value="111MOVIES">111MOVIES</option>
+            <option value="SUPERFLIXAPI">SUPERFLIXAPI</option>
+            <option value="PSTREAM">PSTREAM</option>
+          </select>
+          <span class="save-indicator" id="tvSourceSaved">✓</span>
+        </div>
+      </div>
+
+      <h2>Appearance</h2>
+
+      <div class="color-picker-section">
+        <div class="color-picker-container">
+          <input type="color" id="accentColor" value="#0d6efd">
+          <input type="text" class="color-preview" id="colorHex" value="#0d6efd" maxlength="7" placeholder="#0d6efd">
+        </div>
+        <div class="color-presets">
+          <div class="color-preset active" data-color="#0d6efd" style="background-color: #0d6efd;" title="Default Blue"></div>
+          <div class="color-preset" data-color="#dc3545" style="background-color: #dc3545;" title="Red"></div>
+          <div class="color-preset" data-color="#198754" style="background-color: #198754;" title="Green"></div>
+          <div class="color-preset" data-color="#fd7e14" style="background-color: #fd7e14;" title="Orange"></div>
+          <div class="color-preset" data-color="#6f42c1" style="background-color: #6f42c1;" title="Purple"></div>
+          <div class="color-preset" data-color="#d63384" style="background-color: #d63384;" title="Pink"></div>
+          <div class="color-preset" data-color="#0dcaf0" style="background-color: #0dcaf0;" title="Cyan"></div>
+          <div class="color-preset" data-color="#20c997" style="background-color: #20c997;" title="Teal"></div>
+        </div>
+      </div>
+
+      <h2>Download App</h2>
+
+      <div class="download-section">
+        <div style="text-align: center;">
+          <a href="https://github.com/ws487-1/ws/raw/refs/heads/main/pson/movies/wills.im.mobileconfig" class="download-btn">
+            Download App
+          </a>
+        </div>
+        
+        <div class="install-steps">
+          <strong>Installation Instructions:</strong>
+          <ol>
+            <li>Tap the "Download App" button above</li>
+            <li>Your browser will download a .mobileconfig file</li>
+            <li>Go to Settings → General → VPN & Device Management</li>
+            <li>Under "Downloaded Profile", tap on the movies/series profile</li>
+            <li>Tap "Install" in the top right corner</li>
+            <li>Enter your passcode if prompted</li>
+            <li>Tap "Install" again to confirm</li>
+            <li>The app icon will appear on your home screen!</li>
+          </ol>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -378,6 +729,10 @@
     const msg = document.getElementById('msg');
     const loadMoreBtn = document.getElementById('loadMore');
     const themeToggle = document.getElementById('themeToggle');
+    const settingsToggle = document.getElementById('settingsToggle');
+    const settingsOverlay = document.getElementById('settingsOverlay');
+    const settingsClose = document.getElementById('settingsClose');
+    const pageDiv = document.querySelector('.page');
 
     // ===== STATE =====
     let mode = 'category';
@@ -386,26 +741,161 @@
     let category = 'popular';
     let page = 1;
     let totalPages = 1;
-    let currentOpenPlayer = null; // Track currently open player
+    let currentOpenPlayer = null;
 
-    // ===== DARK MODE =====
-    function initTheme() {
+    // ===== SETTINGS FUNCTIONS =====
+    function loadAllSettings() {
+      // Load theme
       const stored = localStorage.getItem('theme');
-      // Default to dark mode if no preference is stored
       if (stored === 'light') {
         themeToggle.textContent = 'Dark Mode';
       } else {
         document.body.classList.add('dark-mode');
         themeToggle.textContent = 'Light Mode';
       }
+
+      // Load accent color
+      const accentColor = localStorage.getItem('accentColor') || '#0d6efd';
+      applyAccentColor(accentColor);
+      if (document.getElementById('accentColor')) {
+        document.getElementById('accentColor').value = accentColor;
+        document.getElementById('colorHex').value = accentColor;
+        updateActivePreset(accentColor);
+      }
+
+      // Load default sources
+      const defaultMovieSource = localStorage.getItem('defaultMovieSource') || '';
+      const defaultTVSource = localStorage.getItem('defaultTVSource') || '';
+      if (document.getElementById('defaultMovieSource')) {
+        document.getElementById('defaultMovieSource').value = defaultMovieSource;
+      }
+      if (document.getElementById('defaultTVSource')) {
+        document.getElementById('defaultTVSource').value = defaultTVSource;
+      }
     }
 
+    function applyAccentColor(color) {
+      document.documentElement.style.setProperty('--primary-color', color);
+      const hoverColor = adjustBrightness(color, -10);
+      document.documentElement.style.setProperty('--primary-hover', hoverColor);
+    }
+
+    function adjustBrightness(color, percent) {
+      const num = parseInt(color.replace("#", ""), 16);
+      const amt = Math.round(2.55 * percent);
+      const R = Math.max(0, Math.min(255, (num >> 16) + amt));
+      const G = Math.max(0, Math.min(255, (num >> 8 & 0x00FF) + amt));
+      const B = Math.max(0, Math.min(255, (num & 0x0000FF) + amt));
+      return "#" + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+    }
+
+    function updateActivePreset(color) {
+      document.querySelectorAll('.color-preset').forEach(preset => {
+        preset.classList.remove('active');
+        if (preset.dataset.color.toLowerCase() === color.toLowerCase()) {
+          preset.classList.add('active');
+        }
+      });
+    }
+
+    function showSaveIndicator(indicatorId) {
+      const indicator = document.getElementById(indicatorId);
+      if (indicator) {
+        indicator.classList.add('show');
+        setTimeout(() => {
+          indicator.classList.remove('show');
+        }, 2000);
+      }
+    }
+
+    function initSettingsListeners() {
+      // Default Movie Source
+      const defaultMovieSource = document.getElementById('defaultMovieSource');
+      if (defaultMovieSource) {
+        defaultMovieSource.addEventListener('change', (e) => {
+          localStorage.setItem('defaultMovieSource', e.target.value);
+          showSaveIndicator('movieSourceSaved');
+        });
+      }
+
+      // Default TV Source
+      const defaultTVSource = document.getElementById('defaultTVSource');
+      if (defaultTVSource) {
+        defaultTVSource.addEventListener('change', (e) => {
+          localStorage.setItem('defaultTVSource', e.target.value);
+          showSaveIndicator('tvSourceSaved');
+        });
+      }
+
+      // Accent Color Picker
+      const accentColorInput = document.getElementById('accentColor');
+      if (accentColorInput) {
+        accentColorInput.addEventListener('input', (e) => {
+          const color = e.target.value;
+          document.getElementById('colorHex').value = color;
+          applyAccentColor(color);
+          updateActivePreset(color);
+          localStorage.setItem('accentColor', color);
+        });
+      }
+
+      // Color Hex Input
+      const colorHexInput = document.getElementById('colorHex');
+      if (colorHexInput) {
+        colorHexInput.addEventListener('input', (e) => {
+          let color = e.target.value;
+          if (!color.startsWith('#')) {
+            color = '#' + color;
+          }
+          if (/^#[0-9A-F]{6}$/i.test(color)) {
+            document.getElementById('accentColor').value = color;
+            applyAccentColor(color);
+            updateActivePreset(color);
+            localStorage.setItem('accentColor', color);
+          }
+        });
+      }
+
+      // Color Presets
+      document.querySelectorAll('.color-preset').forEach(preset => {
+        preset.addEventListener('click', () => {
+          const color = preset.dataset.color;
+          document.getElementById('accentColor').value = color;
+          document.getElementById('colorHex').value = color;
+          applyAccentColor(color);
+          updateActivePreset(color);
+          localStorage.setItem('accentColor', color);
+        });
+      });
+    }
+
+    // ===== DARK MODE =====
     themeToggle.addEventListener('click', () => {
       document.body.classList.toggle('dark-mode');
       const isDark = document.body.classList.contains('dark-mode');
       themeToggle.textContent = isDark ? 'Light Mode' : 'Dark Mode';
       localStorage.setItem('theme', isDark ? 'dark' : 'light');
     });
+
+    // ===== SETTINGS TOGGLE =====
+    function openSettings() {
+      pageDiv.classList.add('fade-out');
+      setTimeout(() => {
+        settingsOverlay.classList.add('show');
+        loadAllSettings();
+        initSettingsListeners();
+      }, 300);
+    }
+
+    function closeSettings() {
+      settingsOverlay.classList.remove('show');
+      setTimeout(() => {
+        pageDiv.classList.remove('fade-out');
+      }, 300);
+    }
+
+    settingsToggle.addEventListener('click', openSettings);
+    settingsClose.addEventListener('click', closeSettings);
 
     // ===== EVENTS =====
     go.addEventListener('click', () => startSearch(q.value.trim()));
@@ -434,7 +924,6 @@
       
       const { playerContainer, playerTopControls, iframe } = currentOpenPlayer;
       
-      // Add closing class for animation
       playerContainer.classList.add('closing');
       playerTopControls.classList.remove('show');
       
@@ -448,35 +937,27 @@
     }
 
     function openPlayer(playerContainer, playerTopControls, iframe, url, card) {
-      // Close any currently open player first
       if (currentOpenPlayer) {
         closeCurrentPlayer();
       }
       
-      // Small delay to allow previous player to close
       setTimeout(() => {
-        // Set up the new player
         iframe.src = url;
         
-        // Start opening animation
         playerContainer.classList.add('opening');
         playerContainer.style.display = 'block';
         playerTopControls.style.display = 'flex';
         
-        // Trigger reflow
         playerContainer.offsetHeight;
         
-        // Add show class for animation
         setTimeout(() => {
           playerContainer.classList.remove('opening');
           playerContainer.classList.add('show');
           playerTopControls.classList.add('show');
           
-          // Scroll into view smoothly
           card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 10);
         
-        // Store reference to current player
         currentOpenPlayer = { playerContainer, playerTopControls, iframe };
       }, currentOpenPlayer ? 420 : 0);
     }
@@ -488,7 +969,7 @@
       queryText = term;
       page = 1;
       results.innerHTML = '';
-      closeCurrentPlayer(); // Close player when starting new search
+      closeCurrentPlayer();
       document.querySelectorAll('.browse').forEach(b => b.classList.remove('active'));
       setMsg('Searching...');
       fetchAndRender(false);
@@ -500,7 +981,7 @@
       category = c;
       page = 1;
       results.innerHTML = '';
-      closeCurrentPlayer(); // Close player when changing category
+      closeCurrentPlayer();
       setMsg('Loading...');
       fetchAndRender(false);
     }
@@ -557,21 +1038,17 @@
         const isTV = item.media_type === 'tv';
         const img = posterUrl(item.poster_path);
 
-        // Card
         const card = document.createElement('div');
         card.className = 'movie-card';
 
-        // Top Row (Poster + Content)
         const topRow = document.createElement('div');
         topRow.className = 'card-top';
 
-        // Poster
         const poster = document.createElement('img');
         poster.className = 'poster';
         poster.src = img || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iODQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2VZWUiLz48L3N2Zz4=';
         poster.alt = title;
 
-        // Content
         const content = document.createElement('div');
         content.className = 'content';
 
@@ -580,7 +1057,6 @@
         h3.innerHTML = `<strong>${title}</strong> <span>(${year}) • ${isTV ? 'TV' : 'Movie'}</span>`;
         content.appendChild(h3);
 
-        // Controls
         const controls = document.createElement('div');
         controls.className = 'controls';
 
@@ -593,14 +1069,12 @@
 
         const srcSelect = document.createElement('select');
 
-        // placeholder
         const placeholder = document.createElement('option');
         placeholder.textContent = 'Source';
         placeholder.disabled = true;
         placeholder.selected = true;
         srcSelect.appendChild(placeholder);
 
-        // real sources
         sources.forEach(s => {
           const opt = document.createElement('option');
           opt.value = s.name;
@@ -608,7 +1082,18 @@
           srcSelect.appendChild(opt);
         });
 
-        srcSelect.selectedIndex = 1;
+        // Apply default source based on media type
+        const defaultSource = isTV ? localStorage.getItem('defaultTVSource') : localStorage.getItem('defaultMovieSource');
+        if (defaultSource) {
+          const sourceIndex = sources.findIndex(s => s.name === defaultSource);
+          if (sourceIndex !== -1) {
+            srcSelect.selectedIndex = sourceIndex + 1; // +1 because of placeholder
+          } else {
+            srcSelect.selectedIndex = 1;
+          }
+        } else {
+          srcSelect.selectedIndex = 1;
+        }
 
         controls.append(tmdbBtn, trailerBtn, srcSelect);
 
@@ -622,7 +1107,6 @@
 
         content.appendChild(controls);
 
-        // Actions
         const actions = document.createElement('div');
         actions.className = 'actions-row';
 
@@ -637,7 +1121,6 @@
         topRow.appendChild(content);
         card.appendChild(topRow);
 
-        // Player Controls above the player
         const playerTopControls = document.createElement('div');
         playerTopControls.className = 'player-top-controls';
 
@@ -647,7 +1130,6 @@
 
         playerTopControls.appendChild(closeBtn);
 
-        // Player container
         const playerContainer = document.createElement('div');
         playerContainer.className = 'player-container';
 
@@ -661,7 +1143,6 @@
         card.appendChild(playerTopControls);
         card.appendChild(playerContainer);
 
-        // Logic to compute embed URL
         const getUrl = () => {
           const src = sources.find(s => s.name === srcSelect.value);
           if (!src) return null;
@@ -770,7 +1251,8 @@
       } catch (e) {}
     }
 
-    initTheme();
+    // ===== INIT =====
+    loadAllSettings();
     startCategory('movie', 'popular');
   </script>
 </body>
