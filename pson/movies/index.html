@@ -31,6 +31,10 @@
       --secondary-hover: #3a3a3a;
     }
 
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+
     body {
       font-family: "Inter", system-ui, -apple-system, sans-serif;
       background-color: var(--bg-color);
@@ -43,11 +47,12 @@
       max-width: 900px;
       margin: 0 auto;
       padding: 20px;
-      transition: opacity 0.3s ease;
+      transition: opacity 0.4s ease;
     }
 
     .page.fade-out {
       opacity: 0;
+      pointer-events: none;
     }
 
     h1 {
@@ -59,8 +64,8 @@
     h2 {
       font-weight: 700;
       font-size: 1.3rem;
-      margin-top: 40px;
-      margin-bottom: 20px;
+      margin-top: 30px;
+      margin-bottom: 15px;
       letter-spacing: -0.5px;
     }
 
@@ -81,6 +86,18 @@
       transition: all .2s ease;
       text-decoration: none;
       background: transparent;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .btn:focus {
+      outline: none;
+      box-shadow: none;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
     }
 
     /* Primary Blue */
@@ -104,6 +121,12 @@
       background-color: var(--secondary-bg);
       border-color: var(--muted-text);
     }
+    .btn-ghost:active {
+      background-color: var(--secondary-bg);
+    }
+    .btn-ghost:focus {
+      background-color: transparent;
+    }
 
     /* Small Utility */
     .btn-sm {
@@ -126,6 +149,7 @@
       width: 20px;
       height: 20px;
       display: block;
+      pointer-events: none;
     }
 
     /* Tag Buttons (Quick Browse) */
@@ -213,8 +237,9 @@
       z-index: 1000;
       display: none;
       opacity: 0;
-      transition: opacity 0.3s ease;
+      transition: opacity 0.4s ease;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
     .settings-overlay.show {
@@ -232,14 +257,14 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 40px;
+      margin-bottom: 30px;
     }
 
     .setting-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 16px 0;
+      padding: 12px 0;
       border-bottom: 1px solid var(--border-color);
     }
 
@@ -262,7 +287,7 @@
 
     /* Color Picker Styling */
     .color-picker-section {
-      padding: 20px 0;
+      padding: 15px 0;
       border-bottom: 1px solid var(--border-color);
     }
 
@@ -270,7 +295,7 @@
       display: flex;
       gap: 12px;
       align-items: center;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
     }
 
     input[type="color"] {
@@ -327,19 +352,19 @@
 
     /* Download Section */
     .download-section {
-      padding: 20px 0;
+      padding: 15px 0;
     }
 
     .download-btn {
       display: inline-block;
       background-color: var(--primary-color);
       color: white;
-      padding: 10px 20px;
+      padding: 10px 32px;
       border-radius: 6px;
       text-decoration: none;
       font-weight: 600;
       transition: background-color 0.2s;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
     }
 
     .download-btn:hover {
@@ -560,14 +585,14 @@
     <div class="settings-content">
       <div class="settings-header">
         <h1>Settings</h1>
-        <button id="settingsClose" class="btn btn-ghost btn-sm">Close</button>
+        <button id="settingsClose" class="btn btn-ghost btn-sm">Back</button>
       </div>
 
       <div class="setting-row">
         <label class="setting-label" for="defaultMovieSource">Default Movie Source</label>
         <div style="display: flex; align-items: center;">
           <select id="defaultMovieSource">
-            <option value="">No Default (Manual Selection)</option>
+            <option value="">Automatic</option>
             <option value="VIDEASY">VIDEASY</option>
             <option value="VIDLINK">VIDLINK</option>
             <option value="VIDSRC 1">VIDSRC 1</option>
@@ -606,7 +631,7 @@
         <label class="setting-label" for="defaultTVSource">Default TV Source</label>
         <div style="display: flex; align-items: center;">
           <select id="defaultTVSource">
-            <option value="">No Default (Manual Selection)</option>
+            <option value="">Automatic</option>
             <option value="VIDEASY">VIDEASY</option>
             <option value="VIDLINK">VIDLINK</option>
             <option value="VIDSRC 1">VIDSRC 1</option>
@@ -645,22 +670,22 @@
 
       <div class="color-picker-section">
         <div class="color-picker-container">
-          <input type="color" id="accentColor" value="#0d6efd">
-          <input type="text" class="color-preview" id="colorHex" value="#0d6efd" maxlength="7" placeholder="#0d6efd">
+          <input type="color" id="accentColor" value="#577590">
+          <input type="text" class="color-preview" id="colorHex" value="#577590" maxlength="7" placeholder="#577590">
         </div>
         <div class="color-presets">
-          <div class="color-preset active" data-color="#0d6efd" style="background-color: #0d6efd;" title="Default Blue"></div>
-          <div class="color-preset" data-color="#dc3545" style="background-color: #dc3545;" title="Red"></div>
-          <div class="color-preset" data-color="#198754" style="background-color: #198754;" title="Green"></div>
-          <div class="color-preset" data-color="#fd7e14" style="background-color: #fd7e14;" title="Orange"></div>
-          <div class="color-preset" data-color="#6f42c1" style="background-color: #6f42c1;" title="Purple"></div>
-          <div class="color-preset" data-color="#d63384" style="background-color: #d63384;" title="Pink"></div>
-          <div class="color-preset" data-color="#0dcaf0" style="background-color: #0dcaf0;" title="Cyan"></div>
-          <div class="color-preset" data-color="#20c997" style="background-color: #20c997;" title="Teal"></div>
-        </div>
+  <div class="color-preset" data-color="#f94144" style="background-color: #f94144;" title="Strawberry Red"></div>
+  <div class="color-preset" data-color="#f3722c" style="background-color: #f3722c;" title="Atomic Tangerine"></div>
+  <div class="color-preset" data-color="#f8961e" style="background-color: #f8961e;" title="Carrot Orange"></div>
+  <div class="color-preset" data-color="#f9c74f" style="background-color: #f9c74f;" title="Tuscan Sun"></div>
+  <div class="color-preset" data-color="#90be6d" style="background-color: #90be6d;" title="Willow Green"></div>
+  <div class="color-preset" data-color="#43aa8b" style="background-color: #43aa8b;" title="Seagrass"></div>
+  <div class="color-preset" data-color="#4d908e" style="background-color: #4d908e;" title="Dark Cyan"></div>
+  <div class="color-preset" data-color="#577590" style="background-color: #577590;" title="Blue Slate"></div>
+</div>
       </div>
 
-      <h2>Download App</h2>
+      <h2>Download iOS App</h2>
 
       <div class="download-section">
         <div style="text-align: center;">
@@ -679,7 +704,7 @@
             <li>Tap "Install" in the top right corner</li>
             <li>Enter your passcode if prompted</li>
             <li>Tap "Install" again to confirm</li>
-            <li>The app icon will appear on your home screen!</li>
+            <li>The app icon will appear on your home screen</li>
           </ol>
         </div>
       </div>
@@ -742,6 +767,7 @@
     let page = 1;
     let totalPages = 1;
     let currentOpenPlayer = null;
+    let isTransitioning = false;
 
     // ===== SETTINGS FUNCTIONS =====
     function loadAllSettings() {
@@ -755,7 +781,7 @@
       }
 
       // Load accent color
-      const accentColor = localStorage.getItem('accentColor') || '#0d6efd';
+      const accentColor = localStorage.getItem('accentColor') || '#577590';
       applyAccentColor(accentColor);
       if (document.getElementById('accentColor')) {
         document.getElementById('accentColor').value = accentColor;
@@ -870,7 +896,9 @@
     }
 
     // ===== DARK MODE =====
-    themeToggle.addEventListener('click', () => {
+    themeToggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.target.blur();
       document.body.classList.toggle('dark-mode');
       const isDark = document.body.classList.contains('dark-mode');
       themeToggle.textContent = isDark ? 'Light Mode' : 'Dark Mode';
@@ -879,23 +907,64 @@
 
     // ===== SETTINGS TOGGLE =====
     function openSettings() {
+      if (isTransitioning) return;
+      isTransitioning = true;
+
+      settingsToggle.blur();
+
       pageDiv.classList.add('fade-out');
+      
       setTimeout(() => {
-        settingsOverlay.classList.add('show');
-        loadAllSettings();
-        initSettingsListeners();
-      }, 300);
+        pageDiv.style.display = 'none';
+        settingsOverlay.style.display = 'block';
+        
+        settingsOverlay.offsetHeight;
+        
+        requestAnimationFrame(() => {
+          settingsOverlay.classList.add('show');
+          loadAllSettings();
+          initSettingsListeners();
+          
+          setTimeout(() => {
+            isTransitioning = false;
+          }, 400);
+        });
+      }, 400);
     }
 
     function closeSettings() {
+      if (isTransitioning) return;
+      isTransitioning = true;
+
+      settingsClose.blur();
+
       settingsOverlay.classList.remove('show');
+      
       setTimeout(() => {
-        pageDiv.classList.remove('fade-out');
-      }, 300);
+        settingsOverlay.style.display = 'none';
+        pageDiv.style.display = 'block';
+        
+        pageDiv.offsetHeight;
+        
+        requestAnimationFrame(() => {
+          pageDiv.classList.remove('fade-out');
+          
+          setTimeout(() => {
+            isTransitioning = false;
+          }, 400);
+        });
+      }, 400);
     }
 
-    settingsToggle.addEventListener('click', openSettings);
-    settingsClose.addEventListener('click', closeSettings);
+    settingsToggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      openSettings();
+    });
+
+    settingsClose.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeSettings();
+    });
 
     // ===== EVENTS =====
     go.addEventListener('click', () => startSearch(q.value.trim()));
