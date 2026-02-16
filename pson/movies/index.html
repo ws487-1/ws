@@ -44,7 +44,7 @@
     }
 
     .page {
-      max-width: 900px;
+      max-width: 90%;
       margin: 0 auto;
       padding: 20px;
       transition: opacity 0.4s ease;
@@ -76,6 +76,7 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
+      gap: 8px;
       font-weight: 500;
       line-height: 1.5;
       text-align: center;
@@ -98,6 +99,18 @@
 
     .btn:active {
       transform: scale(0.98);
+    }
+
+    .btn img {
+      width: 18px;
+      height: 18px;
+      display: block;
+    }
+
+    /* Icon inversions for dark mode */
+    body.dark-mode .btn-nav-history img,
+    body.dark-mode .btn-nav-browse img {
+      filter: invert(1);
     }
 
     /* Primary Blue */
@@ -155,9 +168,10 @@
     /* Tag Buttons (Quick Browse) */
     .btn-tag {
       border-radius: 6px;
-      padding: 4px 0;
+      padding: 3px 10px;
       width: 100%;
-      font-size: 14px;
+      font-size: 13px;
+      height: 28px;
       background-color: transparent;
       border: 1px solid var(--border-color);
       color: var(--muted-text);
@@ -206,10 +220,34 @@
     .search-area {
       display: flex;
       gap: 8px;
-      margin-bottom: 25px;
+      margin-bottom: 15px;
     }
     .search-area input {
       flex: 1;
+    }
+
+    /* New Navigation Buttons */
+    .nav-buttons {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .nav-buttons .btn {
+      flex: 1;
+    }
+
+    /* Browse Section (Collapsible) */
+    .browse-section {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease, margin-bottom 0.3s ease;
+      margin-bottom: 0;
+    }
+
+    .browse-section.show {
+      max-height: 500px;
+      margin-bottom: 25px;
     }
 
     /* Browse Grid: 4 cols = 2 rows for 8 items */
@@ -217,7 +255,6 @@
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 10px;
-      margin-bottom: 30px;
     }
 
     @media (min-width: 600px) {
@@ -248,7 +285,7 @@
     }
 
     .settings-content {
-      max-width: 900px;
+      max-width: 90%;
       margin: 0 auto;
       padding: 20px;
     }
@@ -262,10 +299,20 @@
 
     .setting-row {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
       padding: 12px 0;
       border-bottom: 1px solid var(--border-color);
+    }
+
+    .setting-row > div {
+      width: 100%;
+      position: relative;
+    }
+
+    .setting-row select {
+      width: 100%;
     }
 
     .setting-label {
@@ -276,9 +323,13 @@
     .save-indicator {
       color: var(--primary-color);
       font-size: 0.85rem;
-      margin-left: 8px;
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
       opacity: 0;
       transition: opacity 0.3s;
+      pointer-events: none;
     }
 
     .save-indicator.show {
@@ -400,8 +451,8 @@
     }
 
     .poster {
-      width: 70px;
-      height: 105px;
+      width: 84px;
+      height: 126px;
       object-fit: cover;
       border-radius: 6px;
       background: #eee;
@@ -431,10 +482,27 @@
 
     .controls {
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 8px;
+    }
+
+.controls-top-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  width: 100%;
+}
+
+.controls-top-row .btn {
+  width: 100%;
+}
+
+
+    .controls-middle-row {
+      display: flex;
       gap: 6px;
       align-items: center;
-      margin-bottom: 8px;
     }
 
     .controls select {
@@ -442,11 +510,16 @@
       padding: 0 24px 0 8px;
       font-size: 13px;
       border-radius: 4px;
+      flex: 1;
     }
 
     .actions-row {
       display: flex;
       gap: 8px;
+    }
+
+    .actions-row .btn {
+      flex: 1;
     }
 
     /* --- Player Section --- */
@@ -529,6 +602,23 @@
         height: 36px;
       }
     }
+    
+    /* Heart icon color control */
+.btn-heart img.heart-empty {
+  filter: invert(1);
+}
+
+body.dark-mode .btn-heart img.heart-empty {
+  filter: invert(1);
+}
+
+body:not(.dark-mode) .btn-heart img.heart-empty {
+  filter: invert(0);
+}
+
+.btn-heart img.heart-filled {
+  filter: none;
+}
 
     #loadMore {
       display: none;
@@ -564,15 +654,31 @@
       <button id="go" class="btn btn-primary">Search</button>
     </div>
 
-    <div class="browse-grid">
-      <button data-type="movie" data-category="popular" class="btn btn-tag browse active">Popular Movies</button>
-      <button data-type="tv" data-category="popular" class="btn btn-tag browse">Popular TV</button>
-      <button data-type="movie" data-category="trending" class="btn btn-tag browse">Trending Movies</button>
-      <button data-type="tv" data-category="trending" class="btn btn-tag browse">Trending TV</button>
-      <button data-type="movie" data-category="top_rated" class="btn btn-tag browse">Top Rated Movies</button>
-      <button data-type="tv" data-category="top_rated" class="btn btn-tag browse">Top Rated TV</button>
-      <button data-type="movie" data-category="now_playing" class="btn btn-tag browse">Now Playing</button>
-      <button data-type="tv" data-category="on_the_air" class="btn btn-tag browse">On Air</button>
+    <div class="nav-buttons">
+      <button id="historyBtn" class="btn btn-ghost btn-nav-history">
+        History
+        <img src="https://areyouabot.neocities.org/history.png" alt="">
+      </button>
+      <button id="heartBtn" class="btn btn-ghost btn-nav-heart">
+        <img src="https://areyouabot.neocities.org/heart.png" alt="">
+      </button>
+      <button id="browseBtn" class="btn btn-ghost btn-nav-browse">
+        Browse
+        <img src="https://areyouabot.neocities.org/downarrow.png" alt="">
+      </button>
+    </div>
+
+    <div class="browse-section" id="browseSection">
+      <div class="browse-grid">
+        <button data-type="movie" data-category="popular" class="btn btn-tag browse">Popular Movies</button>
+        <button data-type="tv" data-category="popular" class="btn btn-tag browse">Popular TV</button>
+        <button data-type="movie" data-category="trending" class="btn btn-tag browse">Trending Movies</button>
+        <button data-type="tv" data-category="trending" class="btn btn-tag browse">Trending TV</button>
+        <button data-type="movie" data-category="top_rated" class="btn btn-tag browse">Top Rated Movies</button>
+        <button data-type="tv" data-category="top_rated" class="btn btn-tag browse">Top Rated TV</button>
+        <button data-type="movie" data-category="now_playing" class="btn btn-tag browse">Now Playing</button>
+        <button data-type="tv" data-category="on_the_air" class="btn btn-tag browse">On Air</button>
+      </div>
     </div>
 
     <p id="msg"></p>
@@ -590,7 +696,7 @@
 
       <div class="setting-row">
         <label class="setting-label" for="defaultMovieSource">Default Movie Source</label>
-        <div style="display: flex; align-items: center;">
+        <div style="display: flex; align-items: center; flex: 1;">
           <select id="defaultMovieSource">
             <option value="">Automatic</option>
             <option value="VIDEASY">VIDEASY</option>
@@ -629,7 +735,7 @@
 
       <div class="setting-row">
         <label class="setting-label" for="defaultTVSource">Default TV Source</label>
-        <div style="display: flex; align-items: center;">
+        <div style="display: flex; align-items: center; flex: 1;">
           <select id="defaultTVSource">
             <option value="">Automatic</option>
             <option value="VIDEASY">VIDEASY</option>
@@ -674,15 +780,15 @@
           <input type="text" class="color-preview" id="colorHex" value="#577590" maxlength="7" placeholder="#577590">
         </div>
         <div class="color-presets">
-  <div class="color-preset" data-color="#f94144" style="background-color: #f94144;" title="Strawberry Red"></div>
-  <div class="color-preset" data-color="#f3722c" style="background-color: #f3722c;" title="Atomic Tangerine"></div>
-  <div class="color-preset" data-color="#f8961e" style="background-color: #f8961e;" title="Carrot Orange"></div>
-  <div class="color-preset" data-color="#f9c74f" style="background-color: #f9c74f;" title="Tuscan Sun"></div>
-  <div class="color-preset" data-color="#90be6d" style="background-color: #90be6d;" title="Willow Green"></div>
-  <div class="color-preset" data-color="#43aa8b" style="background-color: #43aa8b;" title="Seagrass"></div>
-  <div class="color-preset" data-color="#4d908e" style="background-color: #4d908e;" title="Dark Cyan"></div>
-  <div class="color-preset" data-color="#577590" style="background-color: #577590;" title="Blue Slate"></div>
-</div>
+          <div class="color-preset" data-color="#f94144" style="background-color: #f94144;" title="Strawberry Red"></div>
+          <div class="color-preset" data-color="#f3722c" style="background-color: #f3722c;" title="Atomic Tangerine"></div>
+          <div class="color-preset" data-color="#f8961e" style="background-color: #f8961e;" title="Carrot Orange"></div>
+          <div class="color-preset" data-color="#f9c74f" style="background-color: #f9c74f;" title="Tuscan Sun"></div>
+          <div class="color-preset" data-color="#90be6d" style="background-color: #90be6d;" title="Willow Green"></div>
+          <div class="color-preset" data-color="#43aa8b" style="background-color: #43aa8b;" title="Seagrass"></div>
+          <div class="color-preset" data-color="#4d908e" style="background-color: #4d908e;" title="Dark Cyan"></div>
+          <div class="color-preset" data-color="#577590" style="background-color: #577590;" title="Blue Slate"></div>
+        </div>
       </div>
 
       <h2>Download iOS App</h2>
@@ -758,6 +864,10 @@
     const settingsOverlay = document.getElementById('settingsOverlay');
     const settingsClose = document.getElementById('settingsClose');
     const pageDiv = document.querySelector('.page');
+    const historyBtn = document.getElementById('historyBtn');
+    const heartBtn = document.getElementById('heartBtn');
+    const browseBtn = document.getElementById('browseBtn');
+    const browseSection = document.getElementById('browseSection');
 
     // ===== STATE =====
     let mode = 'category';
@@ -768,6 +878,7 @@
     let totalPages = 1;
     let currentOpenPlayer = null;
     let isTransitioning = false;
+    let browseSectionOpen = false;
 
     // ===== SETTINGS FUNCTIONS =====
     function loadAllSettings() {
@@ -966,6 +1077,32 @@
       closeSettings();
     });
 
+    // ===== BROWSE SECTION TOGGLE =====
+    function toggleBrowseSection() {
+      browseSectionOpen = !browseSectionOpen;
+      if (browseSectionOpen) {
+        browseSection.classList.add('show');
+      } else {
+        browseSection.classList.remove('show');
+      }
+    }
+
+    // ===== NAVIGATION BUTTONS =====
+    historyBtn.addEventListener('click', () => {
+      historyBtn.blur();
+      setMsg('i cant be assed to do this rn so wait a bit');
+    });
+
+    heartBtn.addEventListener('click', () => {
+  heartBtn.blur();
+  showFavorites();
+});
+
+    browseBtn.addEventListener('click', () => {
+      browseBtn.blur();
+      toggleBrowseSection();
+    });
+
     // ===== EVENTS =====
     go.addEventListener('click', () => startSearch(q.value.trim()));
     q.addEventListener('keydown', (e) => { if (e.key === 'Enter') startSearch(q.value.trim()); });
@@ -974,7 +1111,18 @@
       b.addEventListener('click', () => {
         document.querySelectorAll('.browse').forEach(btn => btn.classList.remove('active'));
         b.classList.add('active');
-        startCategory(b.dataset.type, b.dataset.category);
+        
+        // Save selected category to localStorage
+        const selectedType = b.dataset.type;
+        const selectedCategory = b.dataset.category;
+        localStorage.setItem('selectedBrowseType', selectedType);
+        localStorage.setItem('selectedBrowseCategory', selectedCategory);
+        
+        // Close browse section after selection
+        browseSection.classList.remove('show');
+        browseSectionOpen = false;
+        
+        startCategory(selectedType, selectedCategory);
       });
     });
 
@@ -982,7 +1130,7 @@
 
     // ===== HELPERS =====
     function setMsg(text) { msg.textContent = text || ''; }
-    function posterUrl(path) { return path ? `https://image.tmdb.org/t/p/w185${path}` : ''; }
+    function posterUrl(path) { return path ? `https://image.tmdb.org/t/p/w500${path}` : ''; }
     function toggleLoadMore() {
       loadMoreBtn.style.display = (page < totalPages) ? 'block' : 'none';
     }
@@ -1039,7 +1187,6 @@
       page = 1;
       results.innerHTML = '';
       closeCurrentPlayer();
-      document.querySelectorAll('.browse').forEach(b => b.classList.remove('active'));
       setMsg('Searching...');
       fetchAndRender(false);
     }
@@ -1129,12 +1276,71 @@
         const controls = document.createElement('div');
         controls.className = 'controls';
 
+        // TOP ROW: TMDB, Trailer, Info
+        const controlsTopRow = document.createElement('div');
+        controlsTopRow.className = 'controls-top-row';
+
         const tmdbBtn = createBtn('TMDB', 'btn-ghost btn-sm', () => {
           window.open(`https://www.themoviedb.org/${item.media_type}/${item.id}`, '_blank');
         });
 
         const trailerBtn = createBtn('Trailer', 'btn-ghost btn-sm');
         trailerBtn.disabled = true;
+
+const heartBtn = document.createElement('button');
+heartBtn.className = 'btn btn-ghost btn-sm btn-heart';
+
+const heartImg = document.createElement('img');
+heartImg.alt = 'Favorite';
+heartImg.style.width = '18px';
+heartImg.style.height = '18px';
+
+heartBtn.appendChild(heartImg);
+
+// Check if already favorited
+const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+const isFavorited = favorites.some(fav => fav.id === item.id && fav.media_type === item.media_type);
+
+if (isFavorited) {
+  heartImg.src = 'https://areyouabot.neocities.org/heart.png';
+  heartImg.className = 'heart-filled';
+} else {
+  heartImg.src = 'https://areyouabot.neocities.org/heartempty.png';
+  heartImg.className = 'heart-empty';
+}
+
+heartBtn.onclick = () => {
+  const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+  const index = favorites.findIndex(fav => fav.id === item.id && fav.media_type === item.media_type);
+  
+  if (index > -1) {
+    // Remove from favorites
+    favorites.splice(index, 1);
+    heartImg.src = 'https://areyouabot.neocities.org/heartempty.png';
+    heartImg.className = 'heart-empty';
+  } else {
+    // Add to favorites
+    favorites.push({
+      id: item.id,
+      media_type: item.media_type,
+      title: title,
+      year: year,
+      poster_path: item.poster_path,
+      overview: item.overview
+    });
+    heartImg.src = 'https://areyouabot.neocities.org/heart.png';
+    heartImg.className = 'heart-filled';
+  }
+  
+  localStorage.setItem('favorites', JSON.stringify(favorites));
+};
+
+        controlsTopRow.append(tmdbBtn, trailerBtn, heartBtn);
+        controls.appendChild(controlsTopRow);
+
+        // MIDDLE ROW: Source dropdown (and Season/Episode for TV)
+        const controlsMiddleRow = document.createElement('div');
+        controlsMiddleRow.className = 'controls-middle-row';
 
         const srcSelect = document.createElement('select');
 
@@ -1164,24 +1370,26 @@
           srcSelect.selectedIndex = 1;
         }
 
-        controls.append(tmdbBtn, trailerBtn, srcSelect);
+        controlsMiddleRow.appendChild(srcSelect);
 
         const seasonSelect = document.createElement('select');
         const episodeSelect = document.createElement('select');
         if (isTV) {
-          controls.append(seasonSelect, episodeSelect);
+          controlsMiddleRow.append(seasonSelect, episodeSelect);
           loadSeasons(item.id, seasonSelect, episodeSelect);
           seasonSelect.addEventListener('change', () => loadEpisodes(item.id, seasonSelect.value, episodeSelect));
         }
 
+        controls.appendChild(controlsMiddleRow);
         content.appendChild(controls);
 
+        // BOTTOM ROW: Download, New Tab, Play
         const actions = document.createElement('div');
         actions.className = 'actions-row';
 
-        const playBtn = createBtn('Play', 'btn btn-primary');
-        const openBtn = createBtn('New Tab', 'btn btn-ghost');
         const dlBtn = createBtn('Download', 'btn btn-ghost');
+        const openBtn = createBtn('Open', 'btn btn-ghost');
+        const playBtn = createBtn('Play', 'btn btn-primary');
 
         actions.append(dlBtn, openBtn, playBtn);
         content.appendChild(actions);
@@ -1242,87 +1450,101 @@
           window.open(dlUrl, '_blank');
         };
 
-        fetchTrailer(item.id, item.media_type).then(url => {
-          if (url) {
-            trailerBtn.disabled = false;
-            trailerBtn.onclick = () => window.open(url, '_blank');
-          }
-        });
-
         results.appendChild(card);
       });
     }
 
-    function createBtn(text, className, onClick) {
-      const b = document.createElement('button');
-      b.textContent = text;
-      b.className = className;
-      if (onClick) b.addEventListener('click', onClick);
-      return b;
-    }
-
-    // ===== API =====
-    async function fetchTrailer(tmdbId, mediaType) {
-      try {
-        const res = await fetch(`https://api.themoviedb.org/3/${mediaType}/${tmdbId}/videos?api_key=${API_KEY}`);
-        const data = await res.json();
-        const vids = data.results || [];
-        const trailer = vids.find(v => v.type === 'Trailer' && v.site === 'YouTube');
-        return trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null;
-      } catch (e) { return null; }
-    }
-
+    // ===== SEASON/EPISODE LOADERS =====
     async function loadSeasons(tvId, seasonSelect, episodeSelect) {
-      seasonSelect.innerHTML = '';
-      episodeSelect.innerHTML = '';
       try {
         const res = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}`);
         const data = await res.json();
-        const seasons = (data.seasons || []).filter(s => s.season_number !== 0);
-
-        if (seasons.length === 0) {
-          const opt = document.createElement('option');
-          opt.value = 1; opt.textContent = 'S1';
-          seasonSelect.appendChild(opt);
-        }
-
+        const seasons = data.seasons || [];
+        
+        seasonSelect.innerHTML = '';
         seasons.forEach(s => {
-          const opt = document.createElement('option');
-          opt.value = s.season_number;
-          opt.textContent = `S${s.season_number}`;
-          seasonSelect.appendChild(opt);
+          if (s.season_number > 0) {
+            const opt = document.createElement('option');
+            opt.value = s.season_number;
+            opt.textContent = `S${s.season_number}`;
+            seasonSelect.appendChild(opt);
+          }
         });
-
-        const firstSeason = seasons.length ? seasons[0].season_number : 1;
-        await loadEpisodes(tvId, firstSeason, episodeSelect);
-      } catch (e) {}
+        
+        if (seasons.length > 0) {
+          loadEpisodes(tvId, seasonSelect.value || 1, episodeSelect);
+        }
+      } catch (e) {
+        console.error(e);
+      }
     }
 
-    async function loadEpisodes(tvId, seasonNumber, episodeSelect) {
-      episodeSelect.innerHTML = '';
+    async function loadEpisodes(tvId, season, episodeSelect) {
       try {
-        const res = await fetch(`https://api.themoviedb.org/3/tv/${tvId}/season/${seasonNumber}?api_key=${API_KEY}`);
+        const res = await fetch(`https://api.themoviedb.org/3/tv/${tvId}/season/${season}?api_key=${API_KEY}`);
         const data = await res.json();
         const episodes = data.episodes || [];
-
-        if(episodes.length === 0) {
-           const opt = document.createElement('option');
-           opt.value = 1; opt.textContent = 'E1';
-           episodeSelect.appendChild(opt);
-        }
-
+        
+        episodeSelect.innerHTML = '';
         episodes.forEach(ep => {
           const opt = document.createElement('option');
           opt.value = ep.episode_number;
           opt.textContent = `E${ep.episode_number}`;
           episodeSelect.appendChild(opt);
         });
-      } catch (e) {}
+      } catch (e) {
+        console.error(e);
+      }
     }
 
-    // ===== INIT =====
+    // ===== BUTTON CREATOR =====
+    function createBtn(text, className = 'btn', onClick = null) {
+      const btn = document.createElement('button');
+      btn.className = className;
+      btn.textContent = text;
+      if (onClick) btn.onclick = onClick;
+      return btn;
+    }
+
+function showFavorites() {
+  const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+  
+  if (favorites.length === 0) {
+    setMsg('No favorites yet. Tap the heart icon on any movie or show to add it!');
+    results.innerHTML = '';
+    loadMoreBtn.style.display = 'none';
+    return;
+  }
+  
+  mode = 'favorites';
+  page = 1;
+  totalPages = 1;
+  results.innerHTML = '';
+  closeCurrentPlayer();
+  
+  setMsg(`Showing ${favorites.length} favorite${favorites.length === 1 ? '' : 's'}`);
+  renderResults(favorites, false);
+  loadMoreBtn.style.display = 'none';
+}
+
+    // ===== INITIALIZATION =====
     loadAllSettings();
-    startCategory('movie', 'popular');
+
+    // Restore last selected browse category
+    const savedType = localStorage.getItem('selectedBrowseType');
+    const savedCategory = localStorage.getItem('selectedBrowseCategory');
+    if (savedType && savedCategory) {
+      document.querySelectorAll('.browse').forEach(btn => {
+        if (btn.dataset.type === savedType && btn.dataset.category === savedCategory) {
+          btn.classList.add('active');
+        }
+      });
+      startCategory(savedType, savedCategory);
+    } else {
+      // Default to Popular Movies
+      document.querySelector('[data-type="movie"][data-category="popular"]').classList.add('active');
+      startCategory('movie', 'popular');
+    }
   </script>
 </body>
 </html>
