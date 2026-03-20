@@ -7,7 +7,6 @@
     <link rel="icon" type="image/x-icon" href="/tyler.png">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500&display=swap');
-
         body {
             margin: 0;
             height: 100vh;
@@ -22,6 +21,25 @@
         }
         .container {
             text-align: left;
+        }
+        .name-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 60px;
+            margin-left: calc(-2.9rem - 8px);
+        }
+        .name-row img {
+            width: 2rem;
+            height: 2rem;
+            object-fit: contain;
+        }
+        .name {
+            font-size: 1.45rem;
+        }
+        .asterisk {
+            color: #aaaaaa;
+            font-weight: 600;
         }
         a {
             color: #333333;
@@ -38,6 +56,10 @@
 </head>
 <body>
     <div class="container">
+        <div class="name-row">
+            <img src="https://wills.im/pson/msn.webp" alt="MSN icon">
+            <span class="name"><span class="asterisk">*</span>Will Simpson</span>
+        </div>
         <div>my <a href="https://www.instagram.com/willsimpson.0" target="_blank" class="underline">Instagram</a></div>
         <div>my <a href="mailto:2006.willsimpson@gmail.com" class="underline">Email</a></div>
     </div>
