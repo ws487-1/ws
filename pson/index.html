@@ -5,18 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Will Simpson</title>
 <link rel="icon" type="image/x-icon" href="tyler.png">
-
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500&display=swap');
-
-* { box-sizing: border-box; }
 
 body {
     margin: 0;
     height: 100vh;
     background-color: white;
     font-family: 'Inter', sans-serif;
-    color: #333;
+    color: #333333;
     font-size: 1.2rem;
     display: flex;
     justify-content: center;
@@ -24,7 +21,6 @@ body {
     flex-direction: column;
     overflow: hidden;
 }
-
 .container { text-align: left; }
 
 /* Name row */
@@ -35,94 +31,82 @@ body {
     margin-bottom: 60px;
     margin-left: calc(-2.9rem - 8px);
 }
-
 .name-row img {
     width: 2rem;
     height: 2rem;
+    object-fit: contain;
     cursor: pointer;
     transition: transform 0.45s cubic-bezier(0.34, 1.6, 0.64, 1);
 }
-
 .name-row img.returning {
     transition: transform 0.55s cubic-bezier(0.34, 1.7, 0.64, 1);
 }
-
 .name-row img.jogging {
     transition: none;
-    animation: jog 1.8s forwards;
+    animation: jog 1.8s cubic-bezier(0.4, 0, 0.6, 1) forwards;
 }
-
 @keyframes jog {
-    0% { transform: translate(0,0); }
-    100% { transform: translate(-900px,0) scaleX(-1); }
+    0%   { transform: translate(0px, 0px)     rotate(0deg)  scaleX(1); }
+    3%   { transform: translate(-10px, 0px)   rotate(-8deg) scaleX(-1); }
+    6%   { transform: translate(-30px, -8px)  rotate(5deg)  scaleX(-1); }
+    12%  { transform: translate(-60px, 0px)   rotate(-8deg) scaleX(-1); }
+    18%  { transform: translate(-95px, -9px)  rotate(5deg)  scaleX(-1); }
+    24%  { transform: translate(-130px, 0px)  rotate(-8deg) scaleX(-1); }
+    30%  { transform: translate(-165px, -9px) rotate(5deg)  scaleX(-1); }
+    36%  { transform: translate(-205px, 0px)  rotate(-8deg) scaleX(-1); }
+    42%  { transform: translate(-245px, -9px) rotate(5deg)  scaleX(-1); }
+    48%  { transform: translate(-285px, 0px)  rotate(-8deg) scaleX(-1); }
+    54%  { transform: translate(-325px, -9px) rotate(5deg)  scaleX(-1); }
+    60%  { transform: translate(-375px, 0px)  rotate(-8deg) scaleX(-1); }
+    66%  { transform: translate(-430px, -9px) rotate(5deg)  scaleX(-1); }
+    72%  { transform: translate(-490px, 0px)  rotate(-8deg) scaleX(-1); }
+    78%  { transform: translate(-560px, -9px) rotate(5deg)  scaleX(-1); }
+    84%  { transform: translate(-640px, 0px)  rotate(-8deg) scaleX(-1); }
+    90%  { transform: translate(-730px, -9px) rotate(5deg)  scaleX(-1); }
+    100% { transform: translate(-900px, 0px)  rotate(-8deg) scaleX(-1); }
 }
 
 .name { font-size: 1.45rem; }
-.asterisk { color: #aaa; font-weight: 600; }
-
-a { color: #333; text-decoration: none; }
+.asterisk { color: #aaaaaa; font-weight: 600; }
+a { color: #333333; text-decoration: none; }
 .underline { text-decoration: underline; }
 
-/* Links */
+/* Link rows */
 .link-row {
     display: flex;
     align-items: center;
     gap: 6px;
     margin-bottom: 4px;
+    white-space: nowrap;
 }
-
 .link-icon {
     width: 1.05rem;
     height: 1.05rem;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    transition: transform 0.3s cubic-bezier(0.34, 1.7, 0.64, 1);
 }
+.link-icon:hover { transform: scale(1.25) rotate(-8deg); }
+.link-icon img { width: 100%; height: 100%; object-fit: contain; }
 
-.link-icon img {
-    width: 100%;
-    height: 100%;
-}
-
-/* EMAIL SYSTEM */
-.email-link-wrap {
-    position: relative;
-    display: inline-block;
-}
-
-/* Crossfade stack */
+/* Email row extras */
+.email-link-wrap { position: relative; display: inline-block; }
 .email-link {
     display: inline-grid;
     grid-template-areas: "stack";
     text-decoration: underline;
 }
-
 .email-label {
     grid-area: stack;
     transition: opacity 0.2s ease, transform 0.2s ease;
 }
+.label-default { opacity: 1; transform: translateY(0); }
+.label-copied  { opacity: 0; transform: translateY(2px); }
+.email-link.active .label-default { opacity: 0; transform: translateY(-2px); }
+.email-link.active .label-copied  { opacity: 1; transform: translateY(0); }
 
-/* default state */
-.label-default {
-    opacity: 1;
-    transform: translateY(0);
-}
-
-/* copied state */
-.label-copied {
-    opacity: 0;
-    transform: translateY(2px);
-}
-
-/* active */
-.email-link.active .label-default {
-    opacity: 0;
-    transform: translateY(-2px);
-}
-
-.email-link.active .label-copied {
-    opacity: 1;
-    transform: translateY(0);
-}
-
-/* floating email */
+/* Floating email address */
 .email-address {
     position: absolute;
     left: calc(100% + 10px);
@@ -134,90 +118,120 @@ a { color: #333; text-decoration: none; }
     pointer-events: none;
     clip-path: inset(0 100% 0 0);
 }
-
-.email-address.reveal {
-    animation: reveal 0.6s forwards;
-}
-
-.email-address.conceal {
-    animation: conceal 0.4s forwards;
-}
-
-@keyframes reveal {
-    to { clip-path: inset(0 0 0 0); }
-}
-
-@keyframes conceal {
-    to { clip-path: inset(0 100% 0 0); }
-}
+.email-address.reveal { animation: clipReveal 0.6s cubic-bezier(0.4,0,0.2,1) forwards; }
+.email-address.conceal { animation: clipConceal 0.4s cubic-bezier(0.4,0,0.2,1) forwards; }
+@keyframes clipReveal { 0% { clip-path: inset(0 100% 0 0); } 100% { clip-path: inset(0 0 0 0); } }
+@keyframes clipConceal { 0% { clip-path: inset(0 0 0 0); } 100% { clip-path: inset(0 100% 0 0); } }
 </style>
 </head>
-
 <body>
-
 <div class="container">
     <div class="name-row">
-        <img src="https://wills.im/pson/msn.webp" id="msn-icon">
+        <img src="https://wills.im/pson/msn.webp" alt="MSN icon" id="msn-icon">
         <span class="name"><span class="asterisk">*</span>Will Simpson</span>
     </div>
 
     <div class="link-row">
         my
-        <span class="link-icon"><img src="linkedin.svg"></span>
+        <span class="link-icon"><img src="linkedin.svg" alt="LinkedIn"></span>
         <a href="https://www.linkedin.com/in/will-0046a33bb" target="_blank" class="underline">LinkedIn</a>
     </div>
 
     <div class="link-row">
         my
-        <span class="link-icon"><img src="gmail.svg"></span>
+        <span class="link-icon"><img src="gmail.svg" alt="Gmail"></span>
         <span class="email-link-wrap">
             <a href="#" class="email-link" id="email-link">
                 <span class="email-label label-default">Email</span>
                 <span class="email-label label-copied">copied 👍</span>
             </a>
-            <span class="email-address" id="email-address">
-                2006.willsimpson@gmail.com
-            </span>
+            <span class="email-address" id="email-address">2006.willsimpson@gmail.com</span>
         </span>
     </div>
 </div>
 
 <script>
-/* EMAIL */
-const link = document.getElementById('email-link');
-const address = document.getElementById('email-address');
+/* ── MSN icon ── */
+const icon = document.getElementById('msn-icon');
+let isAvoiding = false;
+let returnTimeout;
+let triggerCount = 0;
+let hasLegged = false;
 
-let busy = false;
+const dodgeOptions = [
+    { x:80,y:0,r:10},{ x:-80,y:0,r:-10},{ x:0,y:-80,r:5},{ x:0,y:80,r:-5},
+    { x:90,y:-70,r:25},{ x:-90,y:-70,r:-25},{ x:80,y:80,r:-20},{ x:-80,y:80,r:20},
+    { x:130,y:-40,r:35},{ x:-130,y:-40,r:-35},{ x:110,y:90,r:-30},{ x:-110,y:90,r:30},
+    { x:50,y:-120,r:15},{ x:-50,y:-120,r:-15},{ x:70,y:110,r:-18},{ x:-70,y:110,r:18},
+    { x:100,y:-30,r:45},{ x:-100,y:-30,r:-45},{ x:30,y:-90,r:-40},{ x:-30,y:-90,r:40},
+    { x:35,y:-35,r:12},{ x:-35,y:-35,r:-12},{ x:40,y:40,r:-8},{ x:-40,y:40,r:8},
+    { x:150,y:-80,r:50},{ x:-150,y:-80,r:-50},{ x:120,y:100,r:-42},{ x:-120,y:100,r:42},
+];
 
-link.addEventListener('click', (e) => {
+function triggerDodge(){
+    if(isAvoiding||hasLegged) return;
+    triggerCount++;
+    if(triggerCount===5){
+        hasLegged=true;
+        clearTimeout(returnTimeout);
+        icon.classList.remove('returning');
+        icon.style.transform='';
+        void icon.offsetWidth;
+        icon.classList.add('jogging');
+        icon.addEventListener('animationend',()=>{icon.style.visibility='hidden'}, {once:true});
+        return;
+    }
+    isAvoiding=true;
+    const dodge=dodgeOptions[Math.floor(Math.random()*dodgeOptions.length)];
+    icon.classList.remove('returning');
+    icon.style.transform=`translate(${dodge.x}px, ${dodge.y}px) rotate(${dodge.r}deg)`;
+    clearTimeout(returnTimeout);
+    returnTimeout=setTimeout(()=>{
+        icon.classList.add('returning');
+        icon.style.transform='translate(0px, 0px) rotate(0deg)';
+        setTimeout(()=>{
+            isAvoiding=false;
+            icon.classList.remove('returning');
+            if(icon.matches(':hover')) triggerDodge();
+        },600);
+    },750);
+}
+icon.addEventListener('mouseenter', triggerDodge);
+
+/* ── EMAIL click ── */
+const emailLink = document.getElementById('email-link');
+const emailAddress = document.getElementById('email-address');
+
+let emailBusy=false;
+
+emailLink.addEventListener('click',(e)=>{
     e.preventDefault();
-    if (busy) return;
-    busy = true;
+    if(emailBusy) return;
+    emailBusy=true;
 
-    navigator.clipboard.writeText('2006.willsimpson@gmail.com');
+    navigator.clipboard.writeText('2006.willsimpson@gmail.com').catch(()=>{});
 
-    // fade to copied
-    link.classList.add('active');
+    // activate copied fade
+    emailLink.classList.add('active');
 
-    // show email
-    address.classList.remove('conceal');
-    address.classList.add('reveal');
+    // reveal email
+    emailAddress.classList.remove('conceal');
+    emailAddress.classList.add('reveal');
 
-    // hide email
-    setTimeout(() => {
-        address.classList.remove('reveal');
-        address.classList.add('conceal');
-    }, 2800);
+    // hide email after 2.8s
+    setTimeout(()=>{
+        emailAddress.classList.remove('reveal');
+        emailAddress.classList.add('conceal');
+    },2800);
 
-    // fade back AFTER delay
-    setTimeout(() => {
-        setTimeout(() => {
-            link.classList.remove('active');
-            busy = false;
-        }, 1000); // clean pause before fading back
-    }, 3200);
+    // fade back to Email after 3.2s + 1s pause
+    setTimeout(()=>{
+        setTimeout(()=>{
+            emailLink.classList.remove('active');
+            emailBusy=false;
+        },1000);
+    },3200);
 });
 </script>
-
 </body>
 </html>
