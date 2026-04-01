@@ -198,39 +198,39 @@ function triggerDodge(){
 }
 icon.addEventListener('mouseenter', triggerDodge);
 
-/* ── EMAIL click ── */
-const emailLink = document.getElementById('email-link');
-const emailAddress = document.getElementById('email-address');
+/* EMAIL */
+const link = document.getElementById('email-link');
+const address = document.getElementById('email-address');
 
-let emailBusy=false;
+let busy = false;
 
-emailLink.addEventListener('click',(e)=>{
+link.addEventListener('click', (e) => {
     e.preventDefault();
-    if(emailBusy) return;
-    emailBusy=true;
+    if (busy) return;
+    busy = true;
 
-    navigator.clipboard.writeText('2006.willsimpson@gmail.com').catch(()=>{});
+    navigator.clipboard.writeText('2006.willsimpson@gmail.com');
 
-    // activate copied fade
-    emailLink.classList.add('active');
+    // fade to copied
+    link.classList.add('active');
 
-    // reveal email
-    emailAddress.classList.remove('conceal');
-    emailAddress.classList.add('reveal');
+    // show email
+    address.classList.remove('conceal');
+    address.classList.add('reveal');
 
-    // hide email after 2.8s
-    setTimeout(()=>{
-        emailAddress.classList.remove('reveal');
-        emailAddress.classList.add('conceal');
-    },2800);
+    // hide email
+    setTimeout(() => {
+        address.classList.remove('reveal');
+        address.classList.add('conceal');
+    }, 2800);
 
-    // fade back to Email after 3.2s + 1s pause
-    setTimeout(()=>{
-        setTimeout(()=>{
-            emailLink.classList.remove('active');
-            emailBusy=false;
-        },1000);
-    },3200);
+    // fade back AFTER delay
+    setTimeout(() => {
+        setTimeout(() => {
+            link.classList.remove('active');
+            busy = false;
+        }, 1000); // clean pause before fading back
+    }, 3200);
 });
 </script>
 </body>
