@@ -20,9 +20,9 @@
             flex-direction: column;
             overflow: hidden;
         }
-        .container {
-            text-align: left;
-        }
+        .container { text-align: left; }
+
+        /* Name row */
         .name-row {
             display: flex;
             align-items: center;
@@ -64,20 +64,11 @@
             90%  { transform: translate(-730px, -9px) rotate(5deg)  scaleX(-1); }
             100% { transform: translate(-900px, 0px)  rotate(-8deg) scaleX(-1); }
         }
-        .name {
-            font-size: 1.45rem;
-        }
-        .asterisk {
-            color: #aaaaaa;
-            font-weight: 600;
-        }
-        a {
-            color: #333333;
-            text-decoration: none;
-        }
-        .underline {
-            text-decoration: underline;
-        }
+
+        .name { font-size: 1.45rem; }
+        .asterisk { color: #aaaaaa; font-weight: 600; }
+        a { color: #333333; text-decoration: none; }
+        .underline { text-decoration: underline; }
 
         /* Link rows */
         .link-row {
@@ -95,68 +86,56 @@
             flex-shrink: 0;
             transition: transform 0.3s cubic-bezier(0.34, 1.7, 0.64, 1);
         }
-        .link-icon:hover {
-            transform: scale(1.25) rotate(-8deg);
+        .link-icon:hover { transform: scale(1.25) rotate(-8deg); }
+        .link-icon img { width: 100%; height: 100%; object-fit: contain; }
+
+        /* Email row extras */
+        .email-link-wrap {
+            position: relative;
+            display: inline-block;
         }
 
-        /* Email toast area */
-        .email-reveal-wrap {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            overflow: hidden;
-            max-width: 0;
-            opacity: 0;
-            vertical-align: middle;
+        /* The "Email" label that flips to "copied" */
+        .email-label {
+            display: inline-block;
+            transition: opacity 0.15s ease;
         }
-        .email-reveal-wrap.show {
-            animation: revealEmail 0.5s cubic-bezier(0.34, 1.5, 0.64, 1) 0.1s forwards;
+        .email-label.copied-state {
+            animation: labelFlip 0.3s cubic-bezier(0.34, 1.6, 0.64, 1);
         }
-        .email-reveal-wrap.hide {
-            animation: hideEmail 0.35s ease-in forwards;
+        @keyframes labelFlip {
+            0%   { transform: scale(1)    rotateX(0deg); }
+            40%  { transform: scale(0.85) rotateX(90deg); opacity: 0; }
+            60%  { transform: scale(0.85) rotateX(90deg); opacity: 0; }
+            100% { transform: scale(1)    rotateX(0deg); opacity: 1; }
         }
-        @keyframes revealEmail {
-            0%   { max-width: 0;     opacity: 0; transform: translateX(-8px); }
-            100% { max-width: 260px; opacity: 1; transform: translateX(0); }
-        }
-        @keyframes hideEmail {
-            0%   { max-width: 260px; opacity: 1; transform: translateX(0); }
-            100% { max-width: 0;     opacity: 0; transform: translateX(-8px); }
-        }
-        .email-text {
+
+        /* Floating email address — absolutely positioned, won't shift layout */
+        .email-address {
+            position: absolute;
+            left: calc(100% + 10px);
+            top: 50%;
+            transform: translateY(-50%);
             font-size: 1rem;
             color: #888;
-            letter-spacing: 0.01em;
-            white-space: nowrap;
-        }
-
-        /* Copied toast */
-        .copied-toast {
-            position: fixed;
-            bottom: -60px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #333;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 999px;
-            font-size: 0.95rem;
             white-space: nowrap;
             pointer-events: none;
-            z-index: 99;
+            /* clip from right to reveal left-to-right */
+            clip-path: inset(0 100% 0 0);
         }
-        .copied-toast.pop-in {
-            animation: toastIn 0.45s cubic-bezier(0.34, 1.7, 0.64, 1) forwards,
-                       toastOut 0.35s ease-in 2.2s forwards;
+        .email-address.reveal {
+            animation: clipReveal 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.1s forwards;
         }
-        @keyframes toastIn {
-            0%   { bottom: -60px; opacity: 0; transform: translateX(-50%) scale(0.8) rotate(-3deg); }
-            60%  { bottom: 32px;  opacity: 1; transform: translateX(-50%) scale(1.06) rotate(1deg); }
-            100% { bottom: 28px;  opacity: 1; transform: translateX(-50%) scale(1) rotate(0deg); }
+        .email-address.conceal {
+            animation: clipConceal 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
         }
-        @keyframes toastOut {
-            0%   { bottom: 28px; opacity: 1; transform: translateX(-50%) scale(1); }
-            100% { bottom: -60px; opacity: 0; transform: translateX(-50%) scale(0.85); }
+        @keyframes clipReveal {
+            0%   { clip-path: inset(0 100% 0 0); }
+            100% { clip-path: inset(0 0%   0 0); }
+        }
+        @keyframes clipConceal {
+            0%   { clip-path: inset(0 0%   0 0); }
+            100% { clip-path: inset(0 100% 0 0); }
         }
 
         /* Email link wiggle on click */
@@ -183,46 +162,24 @@
 
         <div class="link-row">
             my
-            <span class="link-icon">
-                <!-- LinkedIn icon -->
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
-                    <rect width="24" height="24" rx="4" fill="#0A66C2"/>
-                    <path d="M7.5 9.5H5V19H7.5V9.5Z" fill="white"/>
-                    <circle cx="6.25" cy="6.75" r="1.5" fill="white"/>
-                    <path d="M19 13.5C19 11.567 17.433 10 15.5 10C14.296 10 13.235 10.61 12.6 11.539V9.5H10.1V19H12.6V13.75C12.6 12.784 13.384 12 14.35 12C15.316 12 16.1 12.784 16.1 13.75V19H19V13.5Z" fill="white"/>
-                </svg>
-            </span>
+            <span class="link-icon"><img src="linkedin.svg" alt="LinkedIn"></span>
             <a href="https://www.linkedin.com/in/will-0046a33bb" target="_blank" class="underline">LinkedIn</a>
         </div>
 
         <div class="link-row">
             my
-            <span class="link-icon">
-                <!-- Gmail icon -->
-                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
-                    <path d="M2 6.5C2 5.672 2.672 5 3.5 5H20.5C21.328 5 22 5.672 22 6.5V17.5C22 18.328 21.328 19 20.5 19H3.5C2.672 19 2 18.328 2 17.5V6.5Z" fill="white" stroke="#ddd" stroke-width="0.5"/>
-                    <path d="M2 6.5L12 13.5L22 6.5" stroke="none" fill="none"/>
-                    <path d="M2 5.5L12 12.5L22 5.5V6.5L12 13.5L2 6.5V5.5Z" fill="#EA4335"/>
-                    <path d="M2 5.5H3.5L12 11L20.5 5.5H22L12 12.5L2 5.5Z" fill="#EA4335"/>
-                    <rect x="2" y="5" width="20" height="14" rx="1.5" fill="none" stroke="#ddd" stroke-width="0.5"/>
-                    <path d="M2 6L12 12.5L22 6V7L12 13.5L2 7V6Z" fill="#EA4335"/>
-                    <path d="M3.5 5H20.5C21.328 5 22 5.672 22 6.5L12 13L2 6.5C2 5.672 2.672 5 3.5 5Z" fill="#EA4335"/>
-                    <path d="M2 6.5V17.5C2 18.328 2.672 19 3.5 19H20.5C21.328 19 22 18.328 22 17.5V6.5L12 13.5L2 6.5Z" fill="#fff"/>
-                    <path d="M3.5 5H20.5C21.328 5 22 5.672 22 6.5L12 13.5L2 6.5C2 5.672 2.672 5 3.5 5Z" fill="#EA4335"/>
-                    <path d="M2 6.5L12 13.5L22 6.5" stroke="#C5221F" stroke-width="0.3" fill="none"/>
-                </svg>
-            </span>
-            <a href="#" class="underline" id="email-link">Email</a>
-            <span class="email-reveal-wrap" id="email-reveal">
-                <span class="email-text">2006.willsimpson@gmail.com</span>
+            <span class="link-icon"><img src="gmail.svg" alt="Gmail"></span>
+            <span class="email-link-wrap">
+                <a href="#" class="underline" id="email-link">
+                    <span class="email-label" id="email-label">Email</span>
+                </a>
+                <span class="email-address" id="email-address">2006.willsimpson@gmail.com</span>
             </span>
         </div>
     </div>
 
-    <div class="copied-toast" id="copied-toast">it's in your clipboard 👍</div>
-
     <script>
-        // MSN icon dodge logic
+        /* ── MSN icon ── */
         const icon = document.getElementById('msn-icon');
         let isAvoiding = false;
         let returnTimeout;
@@ -230,17 +187,44 @@
         let hasLegged = false;
 
         const dodgeOptions = [
+            // cardinals & diagonals, near
+            { x:  80, y:   0, r:  10 },
+            { x: -80, y:   0, r: -10 },
+            { x:   0, y: -80, r:   5 },
+            { x:   0, y:  80, r:  -5 },
+            // diagonals, medium
             { x:  90, y: -70, r:  25 },
             { x: -90, y: -70, r: -25 },
             { x:  80, y:  80, r: -20 },
             { x: -80, y:  80, r:  20 },
-            { x: 110, y: -20, r:  30 },
-            { x:-110, y: -20, r: -30 },
-            { x:  60, y:-100, r:  15 },
-            { x: -60, y:-100, r: -15 },
+            // far flings
+            { x: 130, y: -40, r:  35 },
+            { x:-130, y: -40, r: -35 },
+            { x: 110, y:  90, r: -30 },
+            { x:-110, y:  90, r:  30 },
+            // dramatic leaps
+            { x:  50, y:-120, r:  15 },
+            { x: -50, y:-120, r: -15 },
+            { x:  70, y: 110, r: -18 },
+            { x: -70, y: 110, r:  18 },
+            // wild spins
+            { x: 100, y: -30, r:  45 },
+            { x:-100, y: -30, r: -45 },
+            { x:  30, y: -90, r: -40 },
+            { x: -30, y: -90, r:  40 },
+            // tiny nervous hops
+            { x:  35, y: -35, r:  12 },
+            { x: -35, y: -35, r: -12 },
+            { x:  40, y:  40, r:  -8 },
+            { x: -40, y:  40, r:   8 },
+            // big sweeping exits
+            { x: 150, y: -80, r:  50 },
+            { x:-150, y: -80, r: -50 },
+            { x: 120, y: 100, r: -42 },
+            { x:-120, y: 100, r:  42 },
         ];
 
-        icon.addEventListener('mouseenter', () => {
+        function triggerDodge() {
             if (isAvoiding || hasLegged) return;
             triggerCount++;
 
@@ -269,47 +253,59 @@
                 setTimeout(() => {
                     isAvoiding = false;
                     icon.classList.remove('returning');
+                    // If mouse is still hovering, dodge again
+                    if (icon.matches(':hover')) triggerDodge();
                 }, 600);
             }, 750);
-        });
+        }
 
-        // Email click logic
-        const emailLink   = document.getElementById('email-link');
-        const emailReveal = document.getElementById('email-reveal');
-        const toast       = document.getElementById('copied-toast');
-        let emailToastTimeout;
+        icon.addEventListener('mouseenter', triggerDodge);
+
+        /* ── Email click ── */
+        const emailLink    = document.getElementById('email-link');
+        const emailLabel   = document.getElementById('email-label');
+        const emailAddress = document.getElementById('email-address');
         let emailHideTimeout;
-        let toastBusy = false;
+        let emailRevertTimeout;
+        let emailBusy = false;
 
         emailLink.addEventListener('click', (e) => {
             e.preventDefault();
+            if (emailBusy) return;
+            emailBusy = true;
 
-            // Wiggle the link
-            emailLink.classList.remove('wiggle');
-            void emailLink.offsetWidth;
-            emailLink.classList.add('wiggle');
-
-            // Copy to clipboard
             navigator.clipboard.writeText('2006.willsimpson@gmail.com').catch(() => {});
 
-            // Show email address
-            emailReveal.classList.remove('hide');
-            emailReveal.classList.add('show');
+            // Flip label to "copied 👍"
+            emailLabel.classList.remove('copied-state');
+            void emailLabel.offsetWidth;
+            emailLabel.textContent = 'copied 👍';
+            emailLabel.classList.add('copied-state');
 
-            // Hide after a moment
+            // Reveal email address left-to-right
+            emailAddress.classList.remove('conceal', 'reveal');
+            void emailAddress.offsetWidth;
+            emailAddress.classList.add('reveal');
+
+            // After 2.8s, conceal address and revert label
             clearTimeout(emailHideTimeout);
-            emailHideTimeout = setTimeout(() => {
-                emailReveal.classList.remove('show');
-                emailReveal.classList.add('hide');
-                emailReveal.addEventListener('animationend', () => {
-                    emailReveal.classList.remove('hide');
-                }, { once: true });
-            }, 3000);
+            clearTimeout(emailRevertTimeout);
 
-            // Toast
-            toast.classList.remove('pop-in');
-            void toast.offsetWidth;
-            toast.classList.add('pop-in');
+            emailHideTimeout = setTimeout(() => {
+                emailAddress.classList.remove('reveal');
+                emailAddress.classList.add('conceal');
+            }, 2800);
+
+            emailRevertTimeout = setTimeout(() => {
+                emailLabel.classList.remove('copied-state');
+                void emailLabel.offsetWidth;
+                emailLabel.textContent = 'Email';
+                emailLabel.classList.add('copied-state');
+                setTimeout(() => {
+                    emailLabel.classList.remove('copied-state');
+                    emailBusy = false;
+                }, 350);
+            }, 3000);
         });
     </script>
 </body>
