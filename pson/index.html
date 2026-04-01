@@ -33,14 +33,11 @@
             width: 2rem;
             height: 2rem;
             object-fit: contain;
-            transition: transform 0.1s linear;
+            cursor: pointer;
+            transition: transform 0.45s cubic-bezier(0.34, 1.6, 0.64, 1);
         }
-        .name-row img.spinning {
-            animation: spin 2s linear infinite;
-        }
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+        .name-row img.returning {
+            transition: transform 0.55s cubic-bezier(0.34, 1.7, 0.64, 1);
         }
         .name {
             font-size: 1.45rem;
@@ -67,10 +64,42 @@
         <div>my <a href="https://www.linkedin.com/in/will-0046a33bb" target="_blank" class="underline">LinkedIn</a></div>
         <div>my <a href="mailto:2006.willsimpson@gmail.com" class="underline">Email</a></div>
     </div>
+
     <script>
         const icon = document.getElementById('msn-icon');
-        icon.addEventListener('mouseenter', () => icon.classList.add('spinning'));
-        icon.addEventListener('mouseleave', () => icon.classList.remove('spinning'));
+        let isAvoiding = false;
+        let returnTimeout;
+
+        const dodgeOptions = [
+            { x:  90, y: -70, r:  25 },
+            { x: -90, y: -70, r: -25 },
+            { x:  80, y:  80, r: -20 },
+            { x: -80, y:  80, r:  20 },
+            { x: 110, y: -20, r:  30 },
+            { x:-110, y: -20, r: -30 },
+            { x:  60, y:-100, r:  15 },
+            { x: -60, y:-100, r: -15 },
+        ];
+
+        icon.addEventListener('mouseenter', () => {
+            if (isAvoiding) return;
+            isAvoiding = true;
+
+            const dodge = dodgeOptions[Math.floor(Math.random() * dodgeOptions.length)];
+
+            icon.classList.remove('returning');
+            icon.style.transform = `translate(${dodge.x}px, ${dodge.y}px) rotate(${dodge.r}deg)`;
+
+            clearTimeout(returnTimeout);
+            returnTimeout = setTimeout(() => {
+                icon.classList.add('returning');
+                icon.style.transform = 'translate(0px, 0px) rotate(0deg)';
+                setTimeout(() => {
+                    isAvoiding = false;
+                    icon.classList.remove('returning');
+                }, 600);
+            }, 750);
+        });
     </script>
 </body>
 </html>
