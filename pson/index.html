@@ -171,7 +171,7 @@ const dodgeOptions = [
 function triggerDodge(){
     if(isAvoiding||hasLegged) return;
     triggerCount++;
-    if(triggerCount===5){
+    if(triggerCount===10){
         hasLegged=true;
         clearTimeout(returnTimeout);
         icon.classList.remove('returning');
