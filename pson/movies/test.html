@@ -1,1 +1,1374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>movies/series</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..800&display=swap" rel="stylesheet" />
 
+  <style>
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #212529;
+      --border-color: #e9ecef;
+      --input-bg: #fff;
+      --muted-text: #6c757d;
+      --primary-color: #0d6efd;
+      --primary-hover: #0b5ed7;
+      --secondary-bg: #f8f9fa;
+      --secondary-hover: #e9ecef;
+      --pill-bg: #f0f2f5;
+      --pill-hover: #e4e7ec;
+    }
+
+    body.dark-mode {
+      --bg-color: #000000;
+      --text-color: #e0e0e0;
+      --border-color: #2d2d2d;
+      --input-bg: #1e1e1e;
+      --muted-text: #a0a0a0;
+      --secondary-bg: #2a2a2a;
+      --secondary-hover: #3a3a3a;
+      --pill-bg: #1a1a1a;
+      --pill-hover: #252525;
+    }
+
+    * { -webkit-tap-highlight-color: transparent; }
+
+    body {
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    .page {
+      max-width: 90%;
+      margin: 0 auto;
+      padding: 20px;
+      transition: opacity 0.4s ease;
+    }
+
+    .page.fade-out { opacity: 0; pointer-events: none; }
+
+    h1 {
+      font-weight: 800;
+      margin-bottom: 20px;
+      letter-spacing: -1px;
+    }
+
+    h2 {
+      font-weight: 700;
+      font-size: 1.3rem;
+      margin-top: 30px;
+      margin-bottom: 15px;
+      letter-spacing: -0.5px;
+    }
+
+    /* --- Button Pulse --- */
+    @keyframes btnPulse {
+      0%   { transform: scale(1);    opacity: 1; }
+      35%  { transform: scale(0.93); opacity: 0.75; }
+      100% { transform: scale(1);    opacity: 1; }
+    }
+
+    .btn {
+      cursor: pointer;
+      outline: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-weight: 500;
+      line-height: 1.5;
+      text-align: center;
+      border: 1px solid transparent;
+      padding: 6px 16px;
+      font-size: 15px;
+      border-radius: 6px;
+      transition: none;
+      text-decoration: none;
+      background: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .btn:hover, .btn:focus, .btn:focus-visible, .btn:focus-within {
+      outline: none; box-shadow: none;
+      background-color: inherit; border-color: inherit; color: inherit;
+    }
+
+    .btn:active {
+      animation: btnPulse 0.32s ease forwards;
+      background-color: inherit; border-color: inherit; color: inherit;
+    }
+
+    .btn img { width: 18px; height: 18px; display: block; }
+
+    body.dark-mode .settings-icon { filter: invert(1); }
+
+    .btn-primary { color: #fff; background-color: var(--primary-color); border-color: var(--primary-color); }
+    .btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+      color: #fff; background-color: var(--primary-color); border-color: var(--primary-color);
+    }
+
+    .btn-ghost {
+      background-color: transparent; color: var(--text-color); border: 1px solid var(--border-color);
+    }
+    .btn-ghost:hover, .btn-ghost:focus, .btn-ghost:active {
+      background-color: transparent; border-color: var(--border-color); color: var(--text-color);
+    }
+
+    .btn-sm { padding: 3px 10px; font-size: 13px; border-radius: 4px; }
+
+    .btn-icon {
+      padding: 0; width: 30px; height: 30px;
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .btn-icon img { width: 20px; height: 20px; display: block; pointer-events: none; }
+
+    /* --- Inputs --- */
+    input[type="text"], select {
+      display: inline-block;
+      padding: 6px 12px;
+      font-size: 15px;
+      color: var(--text-color);
+      background-color: var(--input-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      outline: 0;
+      font-family: inherit;
+      height: 38px;
+      box-sizing: border-box;
+    }
+    input[type="text"]:focus, select:focus { border-color: var(--primary-color); }
+
+    /* --- Layout --- */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .top-bar-buttons { display: flex; gap: 8px; align-items: center; }
+
+    .search-area { display: flex; gap: 8px; margin-bottom: 14px; }
+    .search-area input { flex: 1; }
+
+    /* ===== PILL NAVIGATION ===== */
+    .category-scroll-wrapper {
+      position: relative;
+      margin-bottom: 22px;
+    }
+
+    /* Right fade to signal scrollability */
+    .category-scroll-wrapper::after {
+      content: '';
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 8px;
+      width: 48px;
+      background: linear-gradient(to right, transparent, var(--bg-color));
+      pointer-events: none;
+      z-index: 1;
+      transition: background 0.3s;
+    }
+
+    .category-scroll {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      padding-bottom: 8px;
+      -webkit-overflow-scrolling: touch;
+      align-items: center;
+    }
+    .category-scroll::-webkit-scrollbar { display: none; }
+
+    .pill {
+      flex-shrink: 0;
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      background: var(--pill-bg);
+      color: var(--muted-text);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      font-family: inherit;
+      line-height: 1.5;
+      transition: background-color 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+      user-select: none;
+      -webkit-user-select: none;
+      outline: none;
+    }
+
+    .pill:active { transform: scale(0.95); }
+
+    .pill.active {
+      background-color: var(--primary-color);
+      color: #fff;
+      border-color: var(--primary-color);
+    }
+
+    /* Utility/action pills (History, Favorites) */
+    .pill.pill-action {
+      color: var(--text-color);
+      font-weight: 600;
+    }
+    .pill.pill-action.active {
+      color: #fff;
+    }
+
+    .pill-sep {
+      width: 1px;
+      height: 20px;
+      background: var(--border-color);
+      flex-shrink: 0;
+      margin: 0 2px;
+    }
+
+    /* --- Settings Overlay --- */
+    .settings-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background-color: var(--bg-color);
+      z-index: 1000;
+      display: none;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .settings-overlay.show { display: block; opacity: 1; }
+
+    .settings-content { max-width: 90%; margin: 0 auto; padding: 20px; }
+
+    .settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+
+    .setting-row {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .setting-row > div { width: 100%; position: relative; }
+    .setting-row select { width: 100%; }
+    .setting-label { font-weight: 500; font-size: 1rem; }
+
+    .save-indicator {
+      color: var(--primary-color);
+      font-size: 0.85rem;
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .save-indicator.show { opacity: 1; }
+
+    /* Color Picker */
+    .color-picker-section {
+      padding: 15px 0;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .color-picker-container { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
+    input[type="color"] {
+      width: 60px; height: 40px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px; cursor: pointer;
+      background-color: var(--input-bg);
+    }
+    .color-preview {
+      flex: 1; padding: 10px 12px;
+      background-color: var(--input-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      color: var(--text-color);
+      outline: 0;
+    }
+    .color-preview:focus { border-color: var(--primary-color); }
+    .color-presets {
+      display: flex; gap: 10px;
+      justify-content: space-between; max-width: 100%;
+    }
+    .color-preset {
+      width: 40px; height: 40px;
+      border: 2px solid var(--border-color);
+      border-radius: 6px; cursor: pointer;
+      transition: transform 0.2s, border-color 0.2s;
+      flex-shrink: 0;
+    }
+    .color-preset:hover { transform: scale(1.1); border-color: var(--text-color); }
+    .color-preset.active { border-color: var(--text-color); border-width: 3px; }
+
+    /* Download Section */
+    .download-section { padding: 15px 0; }
+    .download-btn {
+      display: inline-block;
+      background-color: var(--primary-color);
+      color: white; padding: 10px 32px;
+      border-radius: 6px; text-decoration: none;
+      font-weight: 600; transition: background-color 0.2s;
+      margin-bottom: 16px;
+    }
+    .download-btn:hover { background-color: var(--primary-hover); }
+    .install-steps { color: var(--muted-text); font-size: 0.9rem; line-height: 1.8; }
+    .install-steps ol { margin: 12px 0; padding-left: 20px; }
+    .install-steps li { margin-bottom: 8px; }
+
+    /* --- Movie Card --- */
+    .movie-card {
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border-color);
+      animation: fadeIn 0.3s ease;
+      position: relative;
+    }
+
+    .card-top { display: flex; gap: 14px; }
+
+    .poster {
+      width: 101px; height: 151px;
+      object-fit: cover; border-radius: 8px;
+      background: var(--secondary-bg);
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+
+    .content {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; justify-content: center;
+    }
+
+    /* Scrolling Title */
+    .meta-title { margin: 0 0 2px 0; }
+    .title-scroll-wrapper {
+      overflow: hidden; white-space: nowrap;
+      -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 90%, transparent 100%);
+      mask-image: linear-gradient(to right, transparent 0%, black 5%, black 90%, transparent 100%);
+    }
+    .title-scroll-wrapper.no-scroll {
+      -webkit-mask-image: none; mask-image: none;
+    }
+    .title-scroll-text {
+      display: inline-block; font-weight: 700; font-size: 1rem;
+    }
+    .title-scroll-text.scrolling {
+      animation: titleMarquee 12s ease-in-out infinite;
+      padding-left: 8%; padding-right: 15%;
+    }
+    @keyframes titleMarquee {
+      0%   { transform: translateX(0%); }
+      10%  { transform: translateX(0%); }
+      80%  { transform: translateX(-80%); }
+      90%  { transform: translateX(-80%); }
+      100% { transform: translateX(0%); }
+    }
+
+    .meta-subtitle {
+      font-size: 0.82rem;
+      color: var(--muted-text);
+      margin: 0 0 6px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .meta-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted-text);
+    }
+
+    .meta-badge .star { color: #f4b942; }
+
+    .meta-dot { color: var(--border-color); }
+
+    .meta-overview {
+      font-size: 0.8rem;
+      color: var(--muted-text);
+      margin: 0 0 10px 0;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      line-height: 1.45;
+    }
+
+    .controls { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+
+    .controls-top-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 6px; width: 100%;
+    }
+    .controls-top-row .btn { width: 100%; }
+
+    .controls-middle-row { display: flex; gap: 6px; align-items: center; }
+
+    .controls select {
+      height: 28px; padding: 0 24px 0 8px;
+      font-size: 13px; border-radius: 4px; flex: 1;
+    }
+
+    .actions-row { display: flex; gap: 8px; }
+    .actions-row .btn { flex: 1; }
+
+    /* History Remove */
+    .history-remove-btn {
+      position: absolute; top: 12px; right: 4px;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      background-color: var(--secondary-bg);
+      border: 1px solid var(--border-color);
+      color: var(--muted-text);
+      font-size: 14px; line-height: 1;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: background-color 0.2s, color 0.2s, transform 0.15s;
+      z-index: 10; padding: 0; font-family: inherit;
+    }
+    .history-remove-btn:hover {
+      background-color: #e74c3c; border-color: #e74c3c;
+      color: white; transform: scale(1.1);
+    }
+    .history-remove-btn:active { transform: scale(0.95); }
+
+    /* Player */
+    .player-top-controls {
+      display: none;
+      justify-content: flex-end;
+      margin-top: 12px; gap: 8px;
+      opacity: 0; transition: opacity 0.3s ease;
+    }
+    .player-top-controls.show { display: flex; opacity: 1; }
+
+    .player-container {
+      width: 100%; display: none; margin-top: 6px;
+      background: #000; border-radius: 8px; overflow: hidden;
+      opacity: 0; max-height: 0;
+      transition: opacity 0.4s ease, max-height 0.4s ease;
+    }
+    .player-container.opening { display: block; max-height: 0; opacity: 0; }
+    .player-container.show { display: block; max-height: 2000px; opacity: 1; }
+    .player-container.closing { max-height: 0; opacity: 0; }
+
+    iframe.mini-player {
+      width: 100%; aspect-ratio: 16/9;
+      height: auto; border: none; display: block;
+    }
+
+    /* Heart */
+    .btn-heart img.heart-empty { filter: invert(1); }
+    body:not(.dark-mode) .btn-heart img.heart-empty { filter: invert(0); }
+    .btn-heart img.heart-filled { filter: none; }
+
+    #loadMore { display: none; width: 100%; margin-top: 20px; }
+    #msg { color: var(--muted-text); font-style: italic; margin-bottom: 10px; font-size: 0.9rem; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Lightbox */
+    .lightbox-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 2000;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.3s ease;
+      cursor: zoom-out;
+    }
+    .lightbox-overlay.show { opacity: 1; }
+    .lightbox-overlay img {
+      max-width: 90vw; max-height: 90vh;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      transform: scale(0.7);
+      transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .lightbox-overlay.show img { transform: scale(1); }
+
+    @media (max-width: 600px) {
+      .poster { width: 90px; height: 135px; }
+      .setting-row { flex-direction: column; align-items: flex-start; gap: 12px; }
+      select { width: 100%; }
+      .color-presets { gap: 8px; }
+      .color-preset { width: 36px; height: 36px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="top-bar">
+      <h1>movies/series</h1>
+      <div class="top-bar-buttons">
+        <button id="themeToggle" class="btn btn-ghost btn-sm">Dark Mode</button>
+        <button id="settingsToggle" class="btn btn-ghost btn-icon">
+          <img class="settings-icon" src="https://wills.im/pson/movies/settings.svg" alt="Settings">
+        </button>
+      </div>
+    </div>
+
+    <div class="search-area">
+      <input id="q" type="text" placeholder="Search movies or TV shows…" />
+      <button id="go" class="btn btn-primary">Search</button>
+    </div>
+
+    <!-- ===== PILL NAVIGATION (replaces old Browse toggle + collapsible section) ===== -->
+    <div class="category-scroll-wrapper">
+      <div class="category-scroll" id="categoryScroll">
+        <button class="pill pill-action" data-action="history">History</button>
+        <button class="pill pill-action" data-action="favorites">Favourites</button>
+        <div class="pill-sep"></div>
+        <button class="pill" data-action="browse" data-type="movie" data-category="popular">Popular Movies</button>
+        <button class="pill" data-action="browse" data-type="tv"    data-category="popular">Popular TV</button>
+        <button class="pill" data-action="browse" data-type="movie" data-category="trending">Trending Movies</button>
+        <button class="pill" data-action="browse" data-type="tv"    data-category="trending">Trending TV</button>
+        <button class="pill" data-action="browse" data-type="movie" data-category="top_rated">Top Rated Movies</button>
+        <button class="pill" data-action="browse" data-type="tv"    data-category="top_rated">Top Rated TV</button>
+        <button class="pill" data-action="browse" data-type="movie" data-category="now_playing">Now Playing</button>
+        <button class="pill" data-action="browse" data-type="tv"    data-category="on_the_air">On Air</button>
+      </div>
+    </div>
+
+    <p id="msg"></p>
+    <div id="results"></div>
+    <button id="loadMore" class="btn btn-ghost">Load more results</button>
+  </div>
+
+  <!-- Settings Overlay -->
+  <div id="settingsOverlay" class="settings-overlay">
+    <div class="settings-content">
+      <div class="settings-header">
+        <h1>Settings</h1>
+        <button id="settingsClose" class="btn btn-ghost btn-sm">Back</button>
+      </div>
+
+      <div class="setting-row">
+        <label class="setting-label" for="defaultMovieSource">Default Movie Source</label>
+        <div style="display:flex;align-items:center;flex:1;">
+          <select id="defaultMovieSource">
+            <option value="">Automatic</option>
+            <option value="VIDEASY">VIDEASY</option><option value="VIDLINK">VIDLINK</option>
+            <option value="VIDSRC 1">VIDSRC 1</option><option value="VIDSRC 2">VIDSRC 2</option>
+            <option value="VIDSRC 3">VIDSRC 3</option><option value="VIDSRC 4">VIDSRC 4</option>
+            <option value="VIDSRC 5">VIDSRC 5</option><option value="VIDSRC 6">VIDSRC 6</option>
+            <option value="VIDSRC 7">VIDSRC 7</option><option value="AUTOEMBED">AUTOEMBED</option>
+            <option value="SUPEREMBED">SUPEREMBED</option><option value="NONTONGO">NONTONGO</option>
+            <option value="MOVIESAPICLUB">MOVIESAPICLUB</option><option value="CINEZO">CINEZO</option>
+            <option value="CINEMAOS">CINEMAOS</option><option value="VIDKING">VIDKING</option>
+            <option value="VIDUP">VIDUP</option><option value="BIDSRC">BIDSRC</option>
+            <option value="FILMEX">FILMEX</option><option value="VIDIFY">VIDIFY</option>
+            <option value="VIDPLUS">VIDPLUS</option><option value="VIDFAST">VIDFAST</option>
+            <option value="VIDNEST">VIDNEST</option><option value="VIDORA">VIDORA</option>
+            <option value="SPENCERDEVS">SPENCERDEVS</option><option value="VIDROCK">VIDROCK</option>
+            <option value="111MOVIES">111MOVIES</option><option value="SUPERFLIXAPI">SUPERFLIXAPI</option>
+            <option value="PSTREAM">PSTREAM</option>
+          </select>
+          <span class="save-indicator" id="movieSourceSaved">✓</span>
+        </div>
+      </div>
+
+      <div class="setting-row">
+        <label class="setting-label" for="defaultTVSource">Default TV Source</label>
+        <div style="display:flex;align-items:center;flex:1;">
+          <select id="defaultTVSource">
+            <option value="">Automatic</option>
+            <option value="VIDEASY">VIDEASY</option><option value="VIDLINK">VIDLINK</option>
+            <option value="VIDSRC 1">VIDSRC 1</option><option value="VIDSRC 2">VIDSRC 2</option>
+            <option value="VIDSRC 3">VIDSRC 3</option><option value="VIDSRC 4">VIDSRC 4</option>
+            <option value="VIDSRC 5">VIDSRC 5</option><option value="VIDSRC 6">VIDSRC 6</option>
+            <option value="VIDSRC 7">VIDSRC 7</option><option value="AUTOEMBED">AUTOEMBED</option>
+            <option value="SUPEREMBED">SUPEREMBED</option><option value="NONTONGO">NONTONGO</option>
+            <option value="MOVIESAPICLUB">MOVIESAPICLUB</option><option value="CINEZO">CINEZO</option>
+            <option value="CINEMAOS">CINEMAOS</option><option value="VIDKING">VIDKING</option>
+            <option value="VIDUP">VIDUP</option><option value="BIDSRC">BIDSRC</option>
+            <option value="FILMEX">FILMEX</option><option value="VIDIFY">VIDIFY</option>
+            <option value="VIDPLUS">VIDPLUS</option><option value="VIDFAST">VIDFAST</option>
+            <option value="VIDNEST">VIDNEST</option><option value="VIDORA">VIDORA</option>
+            <option value="SPENCERDEVS">SPENCERDEVS</option><option value="VIDROCK">VIDROCK</option>
+            <option value="111MOVIES">111MOVIES</option><option value="SUPERFLIXAPI">SUPERFLIXAPI</option>
+            <option value="PSTREAM">PSTREAM</option>
+          </select>
+          <span class="save-indicator" id="tvSourceSaved">✓</span>
+        </div>
+      </div>
+
+      <h2>Appearance</h2>
+
+      <div class="color-picker-section">
+        <div class="color-picker-container">
+          <input type="color" id="accentColor" value="#577590">
+          <input type="text" class="color-preview" id="colorHex" value="#577590" maxlength="7" placeholder="#577590">
+        </div>
+        <div class="color-presets">
+          <div class="color-preset" data-color="#f94144" style="background-color:#f94144;" title="Red"></div>
+          <div class="color-preset" data-color="#f3722c" style="background-color:#f3722c;" title="Orange"></div>
+          <div class="color-preset" data-color="#f8961e" style="background-color:#f8961e;" title="Amber"></div>
+          <div class="color-preset" data-color="#f9c74f" style="background-color:#f9c74f;" title="Yellow"></div>
+          <div class="color-preset" data-color="#90be6d" style="background-color:#90be6d;" title="Green"></div>
+          <div class="color-preset" data-color="#43aa8b" style="background-color:#43aa8b;" title="Teal"></div>
+          <div class="color-preset" data-color="#4d908e" style="background-color:#4d908e;" title="Dark Teal"></div>
+          <div class="color-preset" data-color="#577590" style="background-color:#577590;" title="Blue Slate"></div>
+        </div>
+      </div>
+
+      <h2>Download iOS App</h2>
+      <div class="download-section">
+        <div style="text-align:center;">
+          <a href="https://github.com/ws487-1/ws/raw/refs/heads/main/pson/movies/wills.im.mobileconfig" class="download-btn">Download App</a>
+        </div>
+        <div class="install-steps">
+          <strong>Installation Instructions:</strong>
+          <ol>
+            <li>Tap "Download App" above</li>
+            <li>Your browser will download a .mobileconfig file</li>
+            <li>Go to Settings → General → VPN & Device Management</li>
+            <li>Under "Downloaded Profile", tap the movies/series profile</li>
+            <li>Tap "Install" in the top right</li>
+            <li>Enter your passcode if prompted</li>
+            <li>Tap "Install" again to confirm</li>
+            <li>The app icon will appear on your home screen</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== CONFIG =====
+    const API_KEY = '79d7c854f26de5ac978215ce03ff0c87';
+
+    const sources = [
+      { name: "VIDEASY",      movieUrl: id => `https://player.videasy.net/movie/${id}`,                  seriesUrl: (id,s,e) => `https://player.videasy.net/tv/${id}/${s}/${e}` },
+      { name: "VIDLINK",      movieUrl: id => `https://vidlink.pro/movie/${id}`,                          seriesUrl: (id,s,e) => `https://vidlink.pro/tv/${id}/${s}/${e}` },
+      { name: "VIDSRC 1",     movieUrl: id => `https://vidsrcme.ru/embed/movie/${id}/`,                   seriesUrl: (id,s,e) => `https://vidsrcme.ru/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRC 2",     movieUrl: id => `https://vidsrcme.su/embed/movie/${id}/`,                   seriesUrl: (id,s,e) => `https://vidsrcme.su/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRC 3",     movieUrl: id => `https://vidsrc-me.ru/embed/movie/${id}/`,                  seriesUrl: (id,s,e) => `https://vidsrc-me.ru/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRC 4",     movieUrl: id => `https://vidsrc-me.su/embed/movie/${id}/`,                  seriesUrl: (id,s,e) => `https://vidsrc-me.su/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRC 5",     movieUrl: id => `https://vidsrc-embed.ru/embed/movie/${id}/`,               seriesUrl: (id,s,e) => `https://vidsrc-embed.ru/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRC 6",     movieUrl: id => `https://vidsrc-embed.su/embed/movie/${id}/`,               seriesUrl: (id,s,e) => `https://vidsrc-embed.su/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRC 7",     movieUrl: id => `https://vsrc.su/embed/movie/${id}/`,                       seriesUrl: (id,s,e) => `https://vsrc.su/embed/tv/${id}/${s}/${e}` },
+      { name: "AUTOEMBED",    movieUrl: id => `https://player.autoembed.cc/embed/movie/${id}`,            seriesUrl: (id,s,e) => `https://player.autoembed.cc/embed/tv/${id}/${s}/${e}` },
+      { name: "SUPEREMBED",   movieUrl: id => `https://multiembed.mov/?video_id=${id}&tmdb=1`,            seriesUrl: (id,s,e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}` },
+      { name: "NONTONGO",     movieUrl: id => `https://www.NontonGo.win/embed/movie/${id}`,               seriesUrl: (id,s,e) => `https://www.NontonGo.win/embed/tv/${id}/${s}/${e}` },
+      { name: "MOVIESAPICLUB",movieUrl: id => `https://moviesapi.club/movie/${id}`,                       seriesUrl: (id,s,e) => `https://moviesapi.club/tv/${id}-${s}-${e}` },
+      { name: "CINEZO",       movieUrl: id => `https://api.cinezo.net/embed/tmdb-movie-${id}`,            seriesUrl: (id,s,e) => `https://api.cinezo.net/embed/tmdb-tv-${id}/${s}/${e}` },
+      { name: "CINEMAOS",     movieUrl: id => `https://cinemaos.tech/player/${id}`,                       seriesUrl: (id,s,e) => `https://cinemaos.tech/player/${id}/${s}/${e}` },
+      { name: "VIDKING",      movieUrl: id => `https://www.vidking.net/embed/movie/${id}`,                seriesUrl: (id,s,e) => `https://www.vidking.net/embed/tv/${id}/${s}/${e}` },
+      { name: "VIDUP",        movieUrl: id => `https://vidup.to/movie/${id}`,                             seriesUrl: (id,s,e) => `https://vidup.to/tv/${id}/${s}/${e}` },
+      { name: "BIDSRC",       movieUrl: id => `https://bidsrc.pro/movie/${id}`,                           seriesUrl: (id,s,e) => `https://bidsrc.pro/tv/${id}/${s}/${e}` },
+      { name: "FILMEX",       movieUrl: id => `https://fmovies4u.com/embed/tmdb-movie-${id}`,             seriesUrl: (id,s,e) => `https://fmovies4u.com/embed/tmdb-tv-${id}/${s}/${e}` },
+      { name: "VIDIFY",       movieUrl: id => `https://player.vidify.top/embed/movie/${id}`,              seriesUrl: (id,s,e) => `https://player.vidify.top/embed/tv/${id}/${s}/${e}` },
+      { name: "VIDPLUS",      movieUrl: id => `https://player.vidplus.to/embed/movie/${id}`,              seriesUrl: (id,s,e) => `https://player.vidplus.to/embed/tv/${id}/${s}/${e}` },
+      { name: "VIDFAST",      movieUrl: id => `https://vidfast.pro/movie/${id}`,                          seriesUrl: (id,s,e) => `https://vidfast.pro/tv/${id}/${s}/${e}` },
+      { name: "VIDNEST",      movieUrl: id => `https://vidnest.fun/movie/${id}`,                          seriesUrl: (id,s,e) => `https://vidnest.fun/tv/${id}/${s}/${e}` },
+      { name: "VIDORA",       movieUrl: id => `https://vidora.su/movie/${id}`,                            seriesUrl: (id,s,e) => `https://vidora.su/tv/${id}/${s}/${e}` },
+      { name: "SPENCERDEVS",  movieUrl: id => `https://spencerdevs.xyz/movie/${id}`,                      seriesUrl: (id,s,e) => `https://spencerdevs.xyz/tv/${id}/${s}/${e}` },
+      { name: "VIDROCK",      movieUrl: id => `https://vidrock.net/movie/${id}`,                          seriesUrl: (id,s,e) => `https://vidrock.net/tv/${id}/${s}/${e}` },
+      { name: "111MOVIES",    movieUrl: id => `https://111movies.com/movie/${id}`,                        seriesUrl: (id,s,e) => `https://111movies.com/tv/${id}/${s}/${e}` },
+      { name: "SUPERFLIXAPI", movieUrl: id => `https://superflixapi.asia/filme/${id}`,                    seriesUrl: (id,s,e) => `https://superflixapi.asia/serie/${id}/${s}/${e}` },
+      { name: "PSTREAM",      movieUrl: id => `https://pstream.mov/media/tmdb-movie-${id}`,               seriesUrl: (id,s,e) => `https://pstream.mov/media/tmdb-tv-${id}` }
+    ];
+
+    // ===== DOM =====
+    const q             = document.getElementById('q');
+    const go            = document.getElementById('go');
+    const results       = document.getElementById('results');
+    const msg           = document.getElementById('msg');
+    const loadMoreBtn   = document.getElementById('loadMore');
+    const themeToggle   = document.getElementById('themeToggle');
+    const settingsToggle= document.getElementById('settingsToggle');
+    const settingsOverlay=document.getElementById('settingsOverlay');
+    const settingsClose = document.getElementById('settingsClose');
+    const pageDiv       = document.querySelector('.page');
+
+    // ===== STATE =====
+    let mode = 'category';
+    let queryText = '';
+    let type = 'movie';
+    let category = 'popular';
+    let page = 1;
+    let totalPages = 1;
+    let currentOpenPlayer = null;
+    let isTransitioning = false;
+
+    // ===== PILL HELPERS =====
+    function setActivePill(pill) {
+      document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+      if (pill) {
+        pill.classList.add('active');
+        // Smooth scroll pill into center view
+        pill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      }
+    }
+
+    function clearActivePills() {
+      document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+    }
+
+    // ===== PILL CLICK HANDLERS =====
+    document.querySelectorAll('.pill[data-action]').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const action = pill.dataset.action;
+        if (action === 'history') {
+          setActivePill(pill);
+          showHistory();
+        } else if (action === 'favorites') {
+          setActivePill(pill);
+          showFavorites();
+        } else if (action === 'browse') {
+          setActivePill(pill);
+          const t = pill.dataset.type;
+          const c = pill.dataset.category;
+          localStorage.setItem('selectedBrowseType', t);
+          localStorage.setItem('selectedBrowseCategory', c);
+          startCategory(t, c);
+        }
+      });
+    });
+
+    // ===== HISTORY =====
+    function saveToHistory(item) {
+      const history = JSON.parse(localStorage.getItem('history') || '[]');
+      const existingIndex = history.findIndex(h => h.id === item.id && h.media_type === item.media_type);
+      if (existingIndex > -1) history.splice(existingIndex, 1);
+      history.unshift({
+        id: item.id,
+        media_type: item.media_type,
+        title: item.title || item.name || '(untitled)',
+        year: (item.release_date || item.first_air_date || '').split('-')[0] || 'N/A',
+        poster_path: item.poster_path,
+        overview: item.overview,
+        vote_average: item.vote_average,
+        timestamp: Date.now()
+      });
+      if (history.length > 100) history.splice(100);
+      localStorage.setItem('history', JSON.stringify(history));
+    }
+
+    function removeFromHistory(id, mediaType) {
+      const history = JSON.parse(localStorage.getItem('history') || '[]');
+      const updated = history.filter(h => !(h.id === id && h.media_type === mediaType));
+      localStorage.setItem('history', JSON.stringify(updated));
+    }
+
+    function showHistory() {
+      const history = JSON.parse(localStorage.getItem('history') || '[]');
+      if (history.length === 0) {
+        setMsg('No history yet — press Play on any title to add it.');
+        results.innerHTML = '';
+        loadMoreBtn.style.display = 'none';
+        return;
+      }
+      mode = 'history';
+      page = 1; totalPages = 1;
+      results.innerHTML = '';
+      closeCurrentPlayer();
+      setMsg(`${history.length} item${history.length === 1 ? '' : 's'} in history`);
+      renderResults(history, false);
+      loadMoreBtn.style.display = 'none';
+    }
+
+    function showFavorites() {
+      const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+      if (favorites.length === 0) {
+        setMsg('No favourites yet — tap the heart on any title to save it.');
+        results.innerHTML = '';
+        loadMoreBtn.style.display = 'none';
+        return;
+      }
+      mode = 'favorites';
+      page = 1; totalPages = 1;
+      results.innerHTML = '';
+      closeCurrentPlayer();
+      setMsg(`${favorites.length} favourite${favorites.length === 1 ? '' : 's'}`);
+      renderResults(favorites, false);
+      loadMoreBtn.style.display = 'none';
+    }
+
+    // ===== SETTINGS =====
+    function loadAllSettings() {
+      const stored = localStorage.getItem('theme');
+      if (stored === 'light') {
+        themeToggle.textContent = 'Dark Mode';
+      } else {
+        document.body.classList.add('dark-mode');
+        themeToggle.textContent = 'Light Mode';
+      }
+      const accentColor = localStorage.getItem('accentColor') || '#577590';
+      applyAccentColor(accentColor);
+      if (document.getElementById('accentColor')) {
+        document.getElementById('accentColor').value = accentColor;
+        document.getElementById('colorHex').value = accentColor;
+        updateActivePreset(accentColor);
+      }
+      const defaultMovieSource = localStorage.getItem('defaultMovieSource') || '';
+      const defaultTVSource    = localStorage.getItem('defaultTVSource')    || '';
+      if (document.getElementById('defaultMovieSource'))
+        document.getElementById('defaultMovieSource').value = defaultMovieSource;
+      if (document.getElementById('defaultTVSource'))
+        document.getElementById('defaultTVSource').value = defaultTVSource;
+    }
+
+    function applyAccentColor(color) {
+      document.documentElement.style.setProperty('--primary-color', color);
+      document.documentElement.style.setProperty('--primary-hover', adjustBrightness(color, -10));
+    }
+
+    function adjustBrightness(color, percent) {
+      const num = parseInt(color.replace('#', ''), 16);
+      const amt = Math.round(2.55 * percent);
+      const R = Math.max(0, Math.min(255, (num >> 16) + amt));
+      const G = Math.max(0, Math.min(255, (num >> 8 & 0x00FF) + amt));
+      const B = Math.max(0, Math.min(255, (num & 0x0000FF) + amt));
+      return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
+    }
+
+    function updateActivePreset(color) {
+      document.querySelectorAll('.color-preset').forEach(p => {
+        p.classList.remove('active');
+        if (p.dataset.color.toLowerCase() === color.toLowerCase()) p.classList.add('active');
+      });
+    }
+
+    function showSaveIndicator(id) {
+      const el = document.getElementById(id);
+      if (el) { el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2000); }
+    }
+
+    function initSettingsListeners() {
+      document.getElementById('defaultMovieSource').addEventListener('change', e => {
+        localStorage.setItem('defaultMovieSource', e.target.value);
+        showSaveIndicator('movieSourceSaved');
+      });
+      document.getElementById('defaultTVSource').addEventListener('change', e => {
+        localStorage.setItem('defaultTVSource', e.target.value);
+        showSaveIndicator('tvSourceSaved');
+      });
+      document.getElementById('accentColor').addEventListener('input', e => {
+        const c = e.target.value;
+        document.getElementById('colorHex').value = c;
+        applyAccentColor(c); updateActivePreset(c);
+        localStorage.setItem('accentColor', c);
+      });
+      document.getElementById('colorHex').addEventListener('input', e => {
+        let c = e.target.value;
+        if (!c.startsWith('#')) c = '#' + c;
+        if (/^#[0-9A-F]{6}$/i.test(c)) {
+          document.getElementById('accentColor').value = c;
+          applyAccentColor(c); updateActivePreset(c);
+          localStorage.setItem('accentColor', c);
+        }
+      });
+      document.querySelectorAll('.color-preset').forEach(p => {
+        p.addEventListener('click', () => {
+          const c = p.dataset.color;
+          document.getElementById('accentColor').value = c;
+          document.getElementById('colorHex').value = c;
+          applyAccentColor(c); updateActivePreset(c);
+          localStorage.setItem('accentColor', c);
+        });
+      });
+    }
+
+    // ===== DARK MODE =====
+    themeToggle.addEventListener('click', e => {
+      e.preventDefault(); e.target.blur();
+      document.body.classList.toggle('dark-mode');
+      const isDark = document.body.classList.contains('dark-mode');
+      themeToggle.textContent = isDark ? 'Light Mode' : 'Dark Mode';
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    });
+
+    // ===== SETTINGS OPEN/CLOSE =====
+    function openSettings() {
+      if (isTransitioning) return;
+      isTransitioning = true;
+      settingsToggle.blur();
+      pageDiv.classList.add('fade-out');
+      setTimeout(() => {
+        pageDiv.style.display = 'none';
+        settingsOverlay.style.display = 'block';
+        settingsOverlay.offsetHeight;
+        requestAnimationFrame(() => {
+          settingsOverlay.classList.add('show');
+          loadAllSettings(); initSettingsListeners();
+          setTimeout(() => { isTransitioning = false; }, 400);
+        });
+      }, 400);
+    }
+
+    function closeSettings() {
+      if (isTransitioning) return;
+      isTransitioning = true;
+      settingsClose.blur();
+      settingsOverlay.classList.remove('show');
+      setTimeout(() => {
+        settingsOverlay.style.display = 'none';
+        pageDiv.style.display = 'block';
+        pageDiv.offsetHeight;
+        requestAnimationFrame(() => {
+          pageDiv.classList.remove('fade-out');
+          setTimeout(() => { isTransitioning = false; }, 400);
+        });
+      }, 400);
+    }
+
+    settingsToggle.addEventListener('click', e => { e.preventDefault(); openSettings(); });
+    settingsClose.addEventListener('click',  e => { e.preventDefault(); closeSettings(); });
+
+    // ===== SEARCH =====
+    go.addEventListener('click', () => startSearch(q.value.trim()));
+    q.addEventListener('keydown', e => { if (e.key === 'Enter') startSearch(q.value.trim()); });
+    loadMoreBtn.addEventListener('click', () => loadMore());
+
+    // ===== HELPERS =====
+    function setMsg(text) { msg.textContent = text || ''; }
+    function posterUrl(path) { return path ? `https://image.tmdb.org/t/p/w500${path}` : ''; }
+    function toggleLoadMore() { loadMoreBtn.style.display = (page < totalPages) ? 'block' : 'none'; }
+
+    function applyScrollingTitle(card) {
+      const wrapper = card.querySelector('.title-scroll-wrapper');
+      const text    = card.querySelector('.title-scroll-text');
+      if (!wrapper || !text) return;
+      if (text.scrollWidth > wrapper.clientWidth) {
+        text.classList.add('scrolling');
+      } else {
+        wrapper.classList.add('no-scroll');
+      }
+    }
+
+    // ===== LIGHTBOX =====
+    const lightbox = document.createElement('div');
+    lightbox.className = 'lightbox-overlay';
+    const lightboxImg = document.createElement('img');
+    lightbox.appendChild(lightboxImg);
+    document.body.appendChild(lightbox);
+    lightbox.addEventListener('click', () => {
+      lightbox.classList.remove('show');
+      setTimeout(() => { lightbox.style.display = 'none'; }, 300);
+    });
+    function openLightbox(posterPath) {
+      if (!posterPath) return;
+      lightboxImg.src = `https://image.tmdb.org/t/p/original${posterPath}`;
+      lightbox.style.display = 'flex';
+      lightbox.offsetHeight;
+      requestAnimationFrame(() => lightbox.classList.add('show'));
+    }
+
+    // ===== PLAYER =====
+    function closeCurrentPlayer() {
+      if (!currentOpenPlayer) return;
+      const { playerContainer, playerTopControls, iframe } = currentOpenPlayer;
+      playerContainer.classList.add('closing');
+      playerTopControls.classList.remove('show');
+      setTimeout(() => {
+        iframe.src = '';
+        playerContainer.classList.remove('show', 'closing');
+        playerContainer.style.display = 'none';
+        playerTopControls.style.display = 'none';
+        currentOpenPlayer = null;
+      }, 400);
+    }
+
+    function openPlayer(playerContainer, playerTopControls, iframe, url, card) {
+      if (currentOpenPlayer) closeCurrentPlayer();
+      setTimeout(() => {
+        iframe.src = url;
+        playerContainer.classList.add('opening');
+        playerContainer.style.display = 'block';
+        playerTopControls.style.display = 'flex';
+        playerContainer.offsetHeight;
+        setTimeout(() => {
+          playerContainer.classList.remove('opening');
+          playerContainer.classList.add('show');
+          playerTopControls.classList.add('show');
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 10);
+        currentOpenPlayer = { playerContainer, playerTopControls, iframe };
+      }, currentOpenPlayer ? 420 : 0);
+    }
+
+    // ===== CORE LOGIC =====
+    function startSearch(term) {
+      if (!term) { setMsg('Enter a search term.'); return; }
+      mode = 'search'; queryText = term; page = 1;
+      results.innerHTML = '';
+      closeCurrentPlayer();
+      clearActivePills();
+      setMsg('Searching…');
+      fetchAndRender(false);
+    }
+
+    function startCategory(t, c) {
+      mode = 'category'; type = t; category = c; page = 1;
+      results.innerHTML = '';
+      closeCurrentPlayer();
+      setMsg('Loading…');
+      fetchAndRender(false);
+    }
+
+    async function loadMore() {
+      if (page >= totalPages) return;
+      page += 1;
+      loadMoreBtn.textContent = 'Loading…';
+      await fetchAndRender(true);
+      loadMoreBtn.textContent = 'Load more results';
+    }
+
+    async function fetchAndRender(append) {
+      try {
+        let endpoint = '';
+        if (mode === 'search') {
+          endpoint = `https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${encodeURIComponent(queryText)}&page=${page}`;
+        } else {
+          if (category === 'trending') {
+            endpoint = `https://api.themoviedb.org/3/trending/${type}/day?api_key=${API_KEY}&page=${page}`;
+          } else {
+            endpoint = `https://api.themoviedb.org/3/${type}/${category}?api_key=${API_KEY}&page=${page}`;
+          }
+        }
+        const res  = await fetch(endpoint);
+        const data = await res.json();
+        const list  = Array.isArray(data.results) ? data.results : [];
+        const items = (mode === 'category') ? list.map(r => ({ ...r, media_type: type })) : list;
+        totalPages  = Number(data.total_pages || 1);
+        renderResults(items, append);
+        setMsg('');
+        toggleLoadMore();
+      } catch (e) {
+        console.error(e);
+        setMsg('Error fetching data.');
+        loadMoreBtn.style.display = 'none';
+      }
+    }
+
+    // ===== RENDER =====
+    function renderResults(items, append = false) {
+      if (!append) {
+        results.innerHTML = '';
+        if (!items.length) setMsg('No results found.');
+      }
+
+      items.forEach(item => {
+        if (item.media_type === 'person') return;
+
+        const title   = item.title || item.name || '(untitled)';
+        const year    = (item.release_date || item.first_air_date || '').split('-')[0] || 'N/A';
+        const isTV    = item.media_type === 'tv';
+        const img     = posterUrl(item.poster_path);
+        const rating  = item.vote_average ? Math.round(item.vote_average * 10) / 10 : null;
+        const isHistoryMode = mode === 'history';
+
+        const card = document.createElement('div');
+        card.className = 'movie-card';
+
+        // History remove button
+        if (isHistoryMode) {
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'history-remove-btn';
+          removeBtn.title = 'Remove from history';
+          removeBtn.textContent = '✕';
+          removeBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            removeFromHistory(item.id, item.media_type);
+            card.style.transition = 'opacity 0.25s ease, transform 0.25s ease, max-height 0.3s ease 0.2s, padding 0.3s ease 0.2s';
+            card.style.opacity = '0';
+            card.style.transform = 'translateX(20px)';
+            card.style.overflow = 'hidden';
+            setTimeout(() => {
+              card.style.maxHeight = card.offsetHeight + 'px';
+              setTimeout(() => { card.style.maxHeight = '0'; card.style.paddingTop = '0'; card.style.paddingBottom = '0'; }, 10);
+            }, 200);
+            setTimeout(() => {
+              card.remove();
+              const remaining = JSON.parse(localStorage.getItem('history') || '[]');
+              setMsg(remaining.length === 0 ? 'No history yet.' : `${remaining.length} item${remaining.length === 1 ? '' : 's'} in history`);
+            }, 520);
+          });
+          card.appendChild(removeBtn);
+        }
+
+        const topRow = document.createElement('div');
+        topRow.className = 'card-top';
+
+        const poster = document.createElement('img');
+        poster.className = 'poster';
+        poster.src = img || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTYiIGhlaWdodD0iODQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2VlZWVlZSIvPjwvc3ZnPg==';
+        poster.alt = title;
+        if (item.poster_path) {
+          poster.style.cursor = 'zoom-in';
+          poster.addEventListener('click', e => { e.stopPropagation(); openLightbox(item.poster_path); });
+        }
+
+        const content = document.createElement('div');
+        content.className = 'content';
+
+        // Title
+        const metaTitleWrapper = document.createElement('div');
+        metaTitleWrapper.className = 'meta-title';
+        const scrollWrapper = document.createElement('div');
+        scrollWrapper.className = 'title-scroll-wrapper';
+        const scrollText = document.createElement('span');
+        scrollText.className = 'title-scroll-text';
+        scrollText.textContent = title;
+        scrollWrapper.appendChild(scrollText);
+        metaTitleWrapper.appendChild(scrollWrapper);
+        content.appendChild(metaTitleWrapper);
+
+        // Subtitle: year · type · rating
+        const metaSubtitle = document.createElement('p');
+        metaSubtitle.className = 'meta-subtitle';
+        metaSubtitle.innerHTML = `
+          <span>${year}</span>
+          <span class="meta-dot">·</span>
+          <span>${isTV ? 'TV' : 'Movie'}</span>
+          ${rating ? `<span class="meta-dot">·</span><span class="meta-badge"><span class="star">★</span>${rating}</span>` : ''}
+        `;
+        content.appendChild(metaSubtitle);
+
+        // Overview (2-line preview)
+        if (item.overview) {
+          const overview = document.createElement('p');
+          overview.className = 'meta-overview';
+          overview.textContent = item.overview;
+          content.appendChild(overview);
+        }
+
+        const controls = document.createElement('div');
+        controls.className = 'controls';
+
+        // Top row: TMDB, Trailer, Heart
+        const controlsTopRow = document.createElement('div');
+        controlsTopRow.className = 'controls-top-row';
+
+        const tmdbBtn    = createBtn('TMDB',   'btn btn-ghost btn-sm', () => window.open(`https://www.themoviedb.org/${item.media_type}/${item.id}`, '_blank'));
+        const trailerBtn = createBtn('Trailer','btn btn-ghost btn-sm', async () => {
+          try {
+            const res  = await fetch(`https://api.themoviedb.org/3/${item.media_type}/${item.id}/videos?api_key=${API_KEY}`);
+            const data = await res.json();
+            const trailers = data.results.filter(v => v.type === 'Trailer' && v.site === 'YouTube');
+            if (trailers.length) window.open(`https://www.youtube.com/watch?v=${trailers[0].key}`, '_blank');
+            else alert('No trailer available.');
+          } catch { alert('Failed to load trailer.'); }
+        });
+
+        const heartBtnCard = document.createElement('button');
+        heartBtnCard.className = 'btn btn-ghost btn-sm btn-heart';
+        const heartImg = document.createElement('img');
+        heartImg.alt = 'Favourite';
+        heartImg.style.cssText = 'width:18px;height:18px;';
+        heartBtnCard.appendChild(heartImg);
+
+        const favorites   = JSON.parse(localStorage.getItem('favorites') || '[]');
+        const isFavorited = favorites.some(f => f.id === item.id && f.media_type === item.media_type);
+        if (isFavorited) {
+          heartImg.src = 'https://areyouabot.neocities.org/heart.png';
+          heartImg.className = 'heart-filled';
+        } else {
+          heartImg.src = 'https://areyouabot.neocities.org/heartempty.png';
+          heartImg.className = 'heart-empty';
+        }
+
+        heartBtnCard.onclick = () => {
+          const favs  = JSON.parse(localStorage.getItem('favorites') || '[]');
+          const index = favs.findIndex(f => f.id === item.id && f.media_type === item.media_type);
+          if (index > -1) {
+            favs.splice(index, 1);
+            heartImg.src = 'https://areyouabot.neocities.org/heartempty.png';
+            heartImg.className = 'heart-empty';
+          } else {
+            favs.push({ id: item.id, media_type: item.media_type, title, year, poster_path: item.poster_path, overview: item.overview, vote_average: item.vote_average });
+            heartImg.src = 'https://areyouabot.neocities.org/heart.png';
+            heartImg.className = 'heart-filled';
+          }
+          localStorage.setItem('favorites', JSON.stringify(favs));
+        };
+
+        controlsTopRow.append(tmdbBtn, trailerBtn, heartBtnCard);
+        controls.appendChild(controlsTopRow);
+
+        // Middle row: source + season/episode
+        const controlsMiddleRow = document.createElement('div');
+        controlsMiddleRow.className = 'controls-middle-row';
+
+        const srcSelect = document.createElement('select');
+        const placeholder = document.createElement('option');
+        placeholder.textContent = 'Source';
+        placeholder.disabled = true;
+        placeholder.selected = true;
+        srcSelect.appendChild(placeholder);
+        sources.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.name; opt.textContent = s.name;
+          srcSelect.appendChild(opt);
+        });
+
+        const defaultSource = isTV
+          ? localStorage.getItem('defaultTVSource')
+          : localStorage.getItem('defaultMovieSource');
+        if (defaultSource) {
+          const si = sources.findIndex(s => s.name === defaultSource);
+          srcSelect.selectedIndex = si !== -1 ? si + 1 : 1;
+        } else {
+          srcSelect.selectedIndex = 1;
+        }
+
+        controlsMiddleRow.appendChild(srcSelect);
+
+        const seasonSelect  = document.createElement('select');
+        const episodeSelect = document.createElement('select');
+        if (isTV) {
+          controlsMiddleRow.append(seasonSelect, episodeSelect);
+          loadSeasons(item.id, seasonSelect, episodeSelect);
+          seasonSelect.addEventListener('change', () => loadEpisodes(item.id, seasonSelect.value, episodeSelect));
+        }
+
+        controls.appendChild(controlsMiddleRow);
+        content.appendChild(controls);
+
+        // Actions row
+        const actions = document.createElement('div');
+        actions.className = 'actions-row';
+
+        const dlBtn   = createBtn('Download','btn btn-ghost');
+        const openBtn = createBtn('Open',    'btn btn-ghost');
+        const playBtn = createBtn('Play',    'btn btn-primary');
+
+        actions.append(dlBtn, openBtn, playBtn);
+        content.appendChild(actions);
+
+        topRow.appendChild(poster);
+        topRow.appendChild(content);
+        card.appendChild(topRow);
+
+        // Player
+        const playerTopControls = document.createElement('div');
+        playerTopControls.className = 'player-top-controls';
+        playerTopControls.appendChild(createBtn('Close Player', 'btn btn-ghost btn-sm', () => closeCurrentPlayer()));
+
+        const playerContainer = document.createElement('div');
+        playerContainer.className = 'player-container';
+        const iframe = document.createElement('iframe');
+        iframe.className = 'mini-player';
+        iframe.setAttribute('allowfullscreen', '');
+        iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
+        playerContainer.appendChild(iframe);
+
+        card.appendChild(playerTopControls);
+        card.appendChild(playerContainer);
+
+        const getUrl = () => {
+          const src = sources.find(s => s.name === srcSelect.value);
+          if (!src) return null;
+          return isTV ? src.seriesUrl(item.id, seasonSelect.value || 1, episodeSelect.value || 1) : src.movieUrl(item.id);
+        };
+
+        playBtn.onclick = () => {
+          const url = getUrl();
+          if (url) { saveToHistory(item); openPlayer(playerContainer, playerTopControls, iframe, url, card); }
+          else alert('Please select a source.');
+        };
+        openBtn.onclick = () => { const url = getUrl(); if (url) window.open(url, '_blank'); };
+        dlBtn.onclick   = () => {
+          const s = seasonSelect.value || 1, e = episodeSelect.value || 1;
+          window.open(isTV ? `https://dl.vidsrc.vip/tv/${item.id}/${s}/${e}` : `https://dl.vidsrc.vip/movie/${item.id}`, '_blank');
+        };
+
+        results.appendChild(card);
+        applyScrollingTitle(card);
+      });
+    }
+
+    // ===== SEASON/EPISODE LOADERS =====
+    async function loadSeasons(tvId, seasonSelect, episodeSelect) {
+      try {
+        const res  = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}`);
+        const data = await res.json();
+        const seasons = data.seasons || [];
+        seasonSelect.innerHTML = '';
+        seasons.forEach(s => {
+          if (s.season_number > 0) {
+            const opt = document.createElement('option');
+            opt.value = s.season_number; opt.textContent = `S${s.season_number}`;
+            seasonSelect.appendChild(opt);
+          }
+        });
+        if (seasons.length) loadEpisodes(tvId, seasonSelect.value || 1, episodeSelect);
+      } catch (e) { console.error(e); }
+    }
+
+    async function loadEpisodes(tvId, season, episodeSelect) {
+      try {
+        const res  = await fetch(`https://api.themoviedb.org/3/tv/${tvId}/season/${season}?api_key=${API_KEY}`);
+        const data = await res.json();
+        episodeSelect.innerHTML = '';
+        (data.episodes || []).forEach(ep => {
+          const opt = document.createElement('option');
+          opt.value = ep.episode_number; opt.textContent = `E${ep.episode_number}`;
+          episodeSelect.appendChild(opt);
+        });
+      } catch (e) { console.error(e); }
+    }
+
+    function createBtn(text, className = 'btn', onClick = null) {
+      const btn = document.createElement('button');
+      btn.className = className; btn.textContent = text;
+      if (onClick) btn.onclick = onClick;
+      return btn;
+    }
+
+    // ===== INIT =====
+    // Load theme/accent first (before DOM paint)
+    (() => {
+      const stored = localStorage.getItem('theme');
+      if (stored !== 'light') document.body.classList.add('dark-mode');
+      const accent = localStorage.getItem('accentColor');
+      if (accent) applyAccentColor(accent);
+      themeToggle.textContent = document.body.classList.contains('dark-mode') ? 'Light Mode' : 'Dark Mode';
+    })();
+
+    const savedType     = localStorage.getItem('selectedBrowseType');
+    const savedCategory = localStorage.getItem('selectedBrowseCategory');
+    let initialPill;
+    if (savedType && savedCategory) {
+      initialPill = document.querySelector(`.pill[data-type="${savedType}"][data-category="${savedCategory}"]`);
+    }
+    if (!initialPill) {
+      initialPill = document.querySelector('.pill[data-type="movie"][data-category="popular"]');
+    }
+    if (initialPill) {
+      initialPill.classList.add('active');
+      if (initialPill.dataset.action === 'browse') {
+        startCategory(initialPill.dataset.type, initialPill.dataset.category);
+      }
+    }
+  </script>
+</body>
+</html>
