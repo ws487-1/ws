@@ -130,6 +130,56 @@
     }
     .btn-icon img { width: 20px; height: 20px; display: block; pointer-events: none; }
 
+    /* --- Pill-style card buttons --- */
+    .btn-card-pill {
+      cursor: pointer;
+      outline: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-family: inherit;
+      font-weight: 500;
+      line-height: 1.5;
+      text-align: center;
+      padding: 4px 13px;
+      font-size: 13px;
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      background: var(--pill-bg);
+      color: var(--muted-text);
+      user-select: none;
+      -webkit-user-select: none;
+      white-space: nowrap;
+      transition: background-color 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+    }
+
+    .btn-card-pill:hover, .btn-card-pill:focus {
+      outline: none;
+      box-shadow: none;
+    }
+
+    .btn-card-pill:active {
+      transform: scale(0.95);
+    }
+
+    .btn-card-pill.btn-card-pill-primary {
+      background-color: var(--primary-color);
+      border-color: var(--primary-color);
+      color: #fff;
+    }
+
+    .btn-card-pill img {
+      width: 14px;
+      height: 14px;
+      display: block;
+    }
+
+    /* Heart pill button overrides */
+    .btn-card-pill.btn-heart img.heart-empty { filter: invert(1); }
+    body:not(.dark-mode) .btn-card-pill.btn-heart img.heart-empty { filter: invert(0); }
+    .btn-card-pill.btn-heart img.heart-filled { filter: none; }
+
     /* --- Inputs --- */
     input[type="text"], select {
       display: inline-block;
@@ -165,7 +215,6 @@
       margin-bottom: 22px;
     }
 
-    /* Right fade to signal scrollability */
     .category-scroll-wrapper::after {
       content: '';
       position: absolute;
@@ -218,7 +267,6 @@
       border-color: var(--primary-color);
     }
 
-    /* Utility/action pills (History, Favorites) */
     .pill.pill-action {
       color: var(--text-color);
       font-weight: 600;
@@ -387,7 +435,7 @@
     .meta-subtitle {
       font-size: 0.82rem;
       color: var(--muted-text);
-      margin: 0 0 6px 0;
+      margin: 0 0 8px 0;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -404,38 +452,40 @@
     }
 
     .meta-badge .star { color: #f4b942; }
-
     .meta-dot { color: var(--border-color); }
 
-    .meta-overview {
-      font-size: 0.8rem;
-      color: var(--muted-text);
-      margin: 0 0 10px 0;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      line-height: 1.45;
-    }
-
-    .controls { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+    /* Card controls using pill style */
+    .controls { display: flex; flex-direction: column; gap: 7px; margin-bottom: 0; }
 
     .controls-top-row {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 6px; width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      width: 100%;
     }
-    .controls-top-row .btn { width: 100%; }
 
-    .controls-middle-row { display: flex; gap: 6px; align-items: center; }
+    .controls-middle-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
 
     .controls select {
-      height: 28px; padding: 0 24px 0 8px;
-      font-size: 13px; border-radius: 4px; flex: 1;
+      height: 28px;
+      padding: 0 8px;
+      font-size: 13px;
+      border-radius: 20px;
+      flex: 1;
+      border-color: var(--border-color);
+      background-color: var(--pill-bg);
+      color: var(--muted-text);
     }
 
-    .actions-row { display: flex; gap: 8px; }
-    .actions-row .btn { flex: 1; }
+    .actions-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
 
     /* History Remove */
     .history-remove-btn {
@@ -480,11 +530,6 @@
       width: 100%; aspect-ratio: 16/9;
       height: auto; border: none; display: block;
     }
-
-    /* Heart */
-    .btn-heart img.heart-empty { filter: invert(1); }
-    body:not(.dark-mode) .btn-heart img.heart-empty { filter: invert(0); }
-    .btn-heart img.heart-filled { filter: none; }
 
     #loadMore { display: none; width: 100%; margin-top: 20px; }
     #msg { color: var(--muted-text); font-style: italic; margin-bottom: 10px; font-size: 0.9rem; }
@@ -539,7 +584,7 @@
       <button id="go" class="btn btn-primary">Search</button>
     </div>
 
-    <!-- ===== PILL NAVIGATION (replaces old Browse toggle + collapsible section) ===== -->
+    <!-- ===== PILL NAVIGATION ===== -->
     <div class="category-scroll-wrapper">
       <div class="category-scroll" id="categoryScroll">
         <button class="pill pill-action" data-action="history">History</button>
@@ -723,7 +768,6 @@
       document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
       if (pill) {
         pill.classList.add('active');
-        // Smooth scroll pill into center view
         pill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       }
     }
@@ -1153,23 +1197,17 @@
         `;
         content.appendChild(metaSubtitle);
 
-        // Overview (2-line preview)
-        if (item.overview) {
-          const overview = document.createElement('p');
-          overview.className = 'meta-overview';
-          overview.textContent = item.overview;
-          content.appendChild(overview);
-        }
+        // *** No overview/description rendered ***
 
         const controls = document.createElement('div');
         controls.className = 'controls';
 
-        // Top row: TMDB, Trailer, Heart
+        // Top row: TMDB, Trailer, Heart — all pill style
         const controlsTopRow = document.createElement('div');
         controlsTopRow.className = 'controls-top-row';
 
-        const tmdbBtn    = createBtn('TMDB',   'btn btn-ghost btn-sm', () => window.open(`https://www.themoviedb.org/${item.media_type}/${item.id}`, '_blank'));
-        const trailerBtn = createBtn('Trailer','btn btn-ghost btn-sm', async () => {
+        const tmdbBtn    = createCardPill('TMDB',    false, () => window.open(`https://www.themoviedb.org/${item.media_type}/${item.id}`, '_blank'));
+        const trailerBtn = createCardPill('Trailer', false, async () => {
           try {
             const res  = await fetch(`https://api.themoviedb.org/3/${item.media_type}/${item.id}/videos?api_key=${API_KEY}`);
             const data = await res.json();
@@ -1179,11 +1217,12 @@
           } catch { alert('Failed to load trailer.'); }
         });
 
+        // Heart pill button
         const heartBtnCard = document.createElement('button');
-        heartBtnCard.className = 'btn btn-ghost btn-sm btn-heart';
+        heartBtnCard.className = 'btn-card-pill btn-heart';
         const heartImg = document.createElement('img');
         heartImg.alt = 'Favourite';
-        heartImg.style.cssText = 'width:18px;height:18px;';
+        heartImg.style.cssText = 'width:14px;height:14px;';
         heartBtnCard.appendChild(heartImg);
 
         const favorites   = JSON.parse(localStorage.getItem('favorites') || '[]');
@@ -1214,7 +1253,7 @@
         controlsTopRow.append(tmdbBtn, trailerBtn, heartBtnCard);
         controls.appendChild(controlsTopRow);
 
-        // Middle row: source + season/episode
+        // Middle row: source + season/episode selects (pill-rounded selects)
         const controlsMiddleRow = document.createElement('div');
         controlsMiddleRow.className = 'controls-middle-row';
 
@@ -1253,13 +1292,13 @@
         controls.appendChild(controlsMiddleRow);
         content.appendChild(controls);
 
-        // Actions row
+        // Actions row — all pill style
         const actions = document.createElement('div');
         actions.className = 'actions-row';
 
-        const dlBtn   = createBtn('Download','btn btn-ghost');
-        const openBtn = createBtn('Open',    'btn btn-ghost');
-        const playBtn = createBtn('Play',    'btn btn-primary');
+        const dlBtn   = createCardPill('Download', false);
+        const openBtn = createCardPill('Open',     false);
+        const playBtn = createCardPill('Play',     true);   // primary pill
 
         actions.append(dlBtn, openBtn, playBtn);
         content.appendChild(actions);
@@ -1271,7 +1310,8 @@
         // Player
         const playerTopControls = document.createElement('div');
         playerTopControls.className = 'player-top-controls';
-        playerTopControls.appendChild(createBtn('Close Player', 'btn btn-ghost btn-sm', () => closeCurrentPlayer()));
+        const closePill = createCardPill('Close Player', false, () => closeCurrentPlayer());
+        playerTopControls.appendChild(closePill);
 
         const playerContainer = document.createElement('div');
         playerContainer.className = 'player-container';
@@ -1306,6 +1346,15 @@
       });
     }
 
+    // ===== CARD PILL BUTTON FACTORY =====
+    function createCardPill(text, isPrimary = false, onClick = null) {
+      const btn = document.createElement('button');
+      btn.className = 'btn-card-pill' + (isPrimary ? ' btn-card-pill-primary' : '');
+      btn.textContent = text;
+      if (onClick) btn.onclick = onClick;
+      return btn;
+    }
+
     // ===== SEASON/EPISODE LOADERS =====
     async function loadSeasons(tvId, seasonSelect, episodeSelect) {
       try {
@@ -1337,15 +1386,7 @@
       } catch (e) { console.error(e); }
     }
 
-    function createBtn(text, className = 'btn', onClick = null) {
-      const btn = document.createElement('button');
-      btn.className = className; btn.textContent = text;
-      if (onClick) btn.onclick = onClick;
-      return btn;
-    }
-
     // ===== INIT =====
-    // Load theme/accent first (before DOM paint)
     (() => {
       const stored = localStorage.getItem('theme');
       if (stored !== 'light') document.body.classList.add('dark-mode');
