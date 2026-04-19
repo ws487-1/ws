@@ -8,6 +8,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..800&display=swap" rel="stylesheet" />
 
+  <!-- Haptic feedback library -->
+  <script src="https://haptics.lochie.me/haptics.js"></script>
+
   <style>
     :root {
       --bg-color: #ffffff;
@@ -68,7 +71,6 @@
       letter-spacing: -0.5px;
     }
 
-    /* --- Button Pulse --- */
     @keyframes btnPulse {
       0%   { transform: scale(1);    opacity: 1; }
       35%  { transform: scale(0.93); opacity: 0.75; }
@@ -130,7 +132,6 @@
     }
     .btn-icon img { width: 20px; height: 20px; display: block; pointer-events: none; }
 
-    /* --- Pill-style card buttons --- */
     .btn-card-pill {
       cursor: pointer;
       outline: 0;
@@ -175,12 +176,10 @@
       display: block;
     }
 
-    /* Heart pill button overrides */
     .btn-card-pill.btn-heart img.heart-empty { filter: invert(1); }
     body:not(.dark-mode) .btn-card-pill.btn-heart img.heart-empty { filter: invert(0); }
     .btn-card-pill.btn-heart img.heart-filled { filter: none; }
 
-    /* --- Inputs --- */
     input[type="text"], select {
       display: inline-block;
       padding: 6px 12px;
@@ -196,7 +195,6 @@
     }
     input[type="text"]:focus, select:focus { border-color: var(--primary-color); }
 
-    /* --- Layout --- */
     .top-bar {
       display: flex;
       justify-content: space-between;
@@ -209,7 +207,6 @@
     .search-area { display: flex; gap: 8px; margin-bottom: 14px; }
     .search-area input { flex: 1; }
 
-    /* ===== PILL NAVIGATION ===== */
     .category-scroll-wrapper {
       position: relative;
       margin-bottom: 22px;
@@ -283,7 +280,6 @@
       margin: 0 2px;
     }
 
-    /* --- Settings Overlay --- */
     .settings-overlay {
       position: fixed;
       top: 0; left: 0;
@@ -332,7 +328,6 @@
     }
     .save-indicator.show { opacity: 1; }
 
-    /* Color Picker */
     .color-picker-section {
       padding: 15px 0;
       border-bottom: 1px solid var(--border-color);
@@ -369,7 +364,6 @@
     .color-preset:hover { transform: scale(1.1); border-color: var(--text-color); }
     .color-preset.active { border-color: var(--text-color); border-width: 3px; }
 
-    /* Download Section */
     .download-section { padding: 15px 0; }
     .download-btn {
       display: inline-block;
@@ -384,7 +378,6 @@
     .install-steps ol { margin: 12px 0; padding-left: 20px; }
     .install-steps li { margin-bottom: 8px; }
 
-    /* --- Movie Card --- */
     .movie-card {
       padding: 14px 0;
       border-bottom: 1px solid var(--border-color);
@@ -407,7 +400,6 @@
       display: flex; flex-direction: column; justify-content: center;
     }
 
-    /* Scrolling Title */
     .meta-title { margin: 0 0 2px 0; }
     .title-scroll-wrapper {
       overflow: hidden; white-space: nowrap;
@@ -454,7 +446,6 @@
     .meta-badge .star { color: #f4b942; }
     .meta-dot { color: var(--border-color); }
 
-    /* Card controls using pill style */
     .controls { display: flex; flex-direction: column; gap: 7px; margin-bottom: 0; }
 
     .controls-top-row {
@@ -487,7 +478,6 @@
       flex-wrap: wrap;
     }
 
-    /* History Remove */
     .history-remove-btn {
       position: absolute; top: 12px; right: 4px;
       width: 24px; height: 24px;
@@ -507,7 +497,6 @@
     }
     .history-remove-btn:active { transform: scale(0.95); }
 
-    /* Player */
     .player-top-controls {
       display: none;
       justify-content: flex-end;
@@ -539,7 +528,6 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
-    /* Lightbox */
     .lightbox-overlay {
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.85);
@@ -584,7 +572,6 @@
       <button id="go" class="btn btn-primary">Search</button>
     </div>
 
-    <!-- ===== PILL NAVIGATION ===== -->
     <div class="category-scroll-wrapper">
       <div class="category-scroll" id="categoryScroll">
         <button class="pill pill-action" data-action="history">History</button>
@@ -709,6 +696,16 @@
     // ===== CONFIG =====
     const API_KEY = '79d7c854f26de5ac978215ce03ff0c87';
 
+    // ===== HAPTICS WRAPPER =====
+    // Safe wrapper around haptics.lochie.me — silently no-ops on unsupported devices
+    // Intensity map: selection → light nav taps, light → secondary actions,
+    //                medium → primary actions, heavy → destructive, success → confirmations
+    function h(type) {
+      try {
+        if (typeof haptic === 'function') haptic(type);
+      } catch (e) { /* unsupported device — fail silently */ }
+    }
+
     const sources = [
       { name: "VIDEASY",      movieUrl: id => `https://player.videasy.net/movie/${id}`,                  seriesUrl: (id,s,e) => `https://player.videasy.net/tv/${id}/${s}/${e}` },
       { name: "VIDLINK",      movieUrl: id => `https://vidlink.pro/movie/${id}`,                          seriesUrl: (id,s,e) => `https://vidlink.pro/tv/${id}/${s}/${e}` },
@@ -779,6 +776,7 @@
     // ===== PILL CLICK HANDLERS =====
     document.querySelectorAll('.pill[data-action]').forEach(pill => {
       pill.addEventListener('click', () => {
+        h('selection'); // Light selection tap for navigation pills
         const action = pill.dataset.action;
         if (action === 'history') {
           setActivePill(pill);
@@ -908,10 +906,12 @@
 
     function initSettingsListeners() {
       document.getElementById('defaultMovieSource').addEventListener('change', e => {
+        h('selection');
         localStorage.setItem('defaultMovieSource', e.target.value);
         showSaveIndicator('movieSourceSaved');
       });
       document.getElementById('defaultTVSource').addEventListener('change', e => {
+        h('selection');
         localStorage.setItem('defaultTVSource', e.target.value);
         showSaveIndicator('tvSourceSaved');
       });
@@ -932,6 +932,7 @@
       });
       document.querySelectorAll('.color-preset').forEach(p => {
         p.addEventListener('click', () => {
+          h('light'); // Light tap for colour selection
           const c = p.dataset.color;
           document.getElementById('accentColor').value = c;
           document.getElementById('colorHex').value = c;
@@ -944,6 +945,7 @@
     // ===== DARK MODE =====
     themeToggle.addEventListener('click', e => {
       e.preventDefault(); e.target.blur();
+      h('light'); // Subtle tap for theme toggle
       document.body.classList.toggle('dark-mode');
       const isDark = document.body.classList.contains('dark-mode');
       themeToggle.textContent = isDark ? 'Light Mode' : 'Dark Mode';
@@ -984,13 +986,32 @@
       }, 400);
     }
 
-    settingsToggle.addEventListener('click', e => { e.preventDefault(); openSettings(); });
-    settingsClose.addEventListener('click',  e => { e.preventDefault(); closeSettings(); });
+    settingsToggle.addEventListener('click', e => {
+      e.preventDefault();
+      h('medium'); // Medium tap for opening settings
+      openSettings();
+    });
+    settingsClose.addEventListener('click', e => {
+      e.preventDefault();
+      h('light'); // Light tap for going back
+      closeSettings();
+    });
 
     // ===== SEARCH =====
-    go.addEventListener('click', () => startSearch(q.value.trim()));
-    q.addEventListener('keydown', e => { if (e.key === 'Enter') startSearch(q.value.trim()); });
-    loadMoreBtn.addEventListener('click', () => loadMore());
+    go.addEventListener('click', () => {
+      h('medium'); // Solid tap for search action
+      startSearch(q.value.trim());
+    });
+    q.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        h('medium');
+        startSearch(q.value.trim());
+      }
+    });
+    loadMoreBtn.addEventListener('click', () => {
+      h('light'); // Light tap for load more
+      loadMore();
+    });
 
     // ===== HELPERS =====
     function setMsg(text) { msg.textContent = text || ''; }
@@ -1015,11 +1036,13 @@
     lightbox.appendChild(lightboxImg);
     document.body.appendChild(lightbox);
     lightbox.addEventListener('click', () => {
+      h('light');
       lightbox.classList.remove('show');
       setTimeout(() => { lightbox.style.display = 'none'; }, 300);
     });
     function openLightbox(posterPath) {
       if (!posterPath) return;
+      h('light'); // Light tap for opening poster
       lightboxImg.src = `https://image.tmdb.org/t/p/original${posterPath}`;
       lightbox.style.display = 'flex';
       lightbox.offsetHeight;
@@ -1141,6 +1164,7 @@
           removeBtn.textContent = '✕';
           removeBtn.addEventListener('click', e => {
             e.stopPropagation();
+            h('heavy'); // Heavy tap for destructive remove action
             removeFromHistory(item.id, item.media_type);
             card.style.transition = 'opacity 0.25s ease, transform 0.25s ease, max-height 0.3s ease 0.2s, padding 0.3s ease 0.2s';
             card.style.opacity = '0';
@@ -1186,7 +1210,7 @@
         metaTitleWrapper.appendChild(scrollWrapper);
         content.appendChild(metaTitleWrapper);
 
-        // Subtitle: year · type · rating
+        // Subtitle
         const metaSubtitle = document.createElement('p');
         metaSubtitle.className = 'meta-subtitle';
         metaSubtitle.innerHTML = `
@@ -1197,17 +1221,19 @@
         `;
         content.appendChild(metaSubtitle);
 
-        // *** No overview/description rendered ***
-
         const controls = document.createElement('div');
         controls.className = 'controls';
 
-        // Top row: TMDB, Trailer, Heart — all pill style
+        // Top row: TMDB, Trailer, Heart
         const controlsTopRow = document.createElement('div');
         controlsTopRow.className = 'controls-top-row';
 
-        const tmdbBtn    = createCardPill('TMDB',    false, () => window.open(`https://www.themoviedb.org/${item.media_type}/${item.id}`, '_blank'));
+        const tmdbBtn    = createCardPill('TMDB',    false, () => {
+          h('light'); // Light tap for external link
+          window.open(`https://www.themoviedb.org/${item.media_type}/${item.id}`, '_blank');
+        });
         const trailerBtn = createCardPill('Trailer', false, async () => {
+          h('light'); // Light tap for trailer
           try {
             const res  = await fetch(`https://api.themoviedb.org/3/${item.media_type}/${item.id}/videos?api_key=${API_KEY}`);
             const data = await res.json();
@@ -1239,10 +1265,12 @@
           const favs  = JSON.parse(localStorage.getItem('favorites') || '[]');
           const index = favs.findIndex(f => f.id === item.id && f.media_type === item.media_type);
           if (index > -1) {
+            h('light'); // Light tap for un-favouriting
             favs.splice(index, 1);
             heartImg.src = 'https://areyouabot.neocities.org/heartempty.png';
             heartImg.className = 'heart-empty';
           } else {
+            h('success'); // Success tap for adding to favourites
             favs.push({ id: item.id, media_type: item.media_type, title, year, poster_path: item.poster_path, overview: item.overview, vote_average: item.vote_average });
             heartImg.src = 'https://areyouabot.neocities.org/heart.png';
             heartImg.className = 'heart-filled';
@@ -1253,7 +1281,7 @@
         controlsTopRow.append(tmdbBtn, trailerBtn, heartBtnCard);
         controls.appendChild(controlsTopRow);
 
-        // Middle row: source + season/episode selects (pill-rounded selects)
+        // Middle row: source + season/episode selects
         const controlsMiddleRow = document.createElement('div');
         controlsMiddleRow.className = 'controls-middle-row';
 
@@ -1268,6 +1296,8 @@
           opt.value = s.name; opt.textContent = s.name;
           srcSelect.appendChild(opt);
         });
+
+        srcSelect.addEventListener('change', () => h('selection')); // Selection tap for source change
 
         const defaultSource = isTV
           ? localStorage.getItem('defaultTVSource')
@@ -1284,6 +1314,8 @@
         const seasonSelect  = document.createElement('select');
         const episodeSelect = document.createElement('select');
         if (isTV) {
+          seasonSelect.addEventListener('change', () => h('selection')); // Selection tap for season change
+          episodeSelect.addEventListener('change', () => h('selection')); // Selection tap for episode change
           controlsMiddleRow.append(seasonSelect, episodeSelect);
           loadSeasons(item.id, seasonSelect, episodeSelect);
           seasonSelect.addEventListener('change', () => loadEpisodes(item.id, seasonSelect.value, episodeSelect));
@@ -1292,13 +1324,13 @@
         controls.appendChild(controlsMiddleRow);
         content.appendChild(controls);
 
-        // Actions row — all pill style
+        // Actions row
         const actions = document.createElement('div');
         actions.className = 'actions-row';
 
         const dlBtn   = createCardPill('Download', false);
         const openBtn = createCardPill('Open',     false);
-        const playBtn = createCardPill('Play',     true);   // primary pill
+        const playBtn = createCardPill('Play',     true); // primary pill
 
         actions.append(dlBtn, openBtn, playBtn);
         content.appendChild(actions);
@@ -1310,7 +1342,10 @@
         // Player
         const playerTopControls = document.createElement('div');
         playerTopControls.className = 'player-top-controls';
-        const closePill = createCardPill('Close Player', false, () => closeCurrentPlayer());
+        const closePill = createCardPill('Close Player', false, () => {
+          h('medium'); // Medium tap for closing player
+          closeCurrentPlayer();
+        });
         playerTopControls.appendChild(closePill);
 
         const playerContainer = document.createElement('div');
@@ -1332,11 +1367,24 @@
 
         playBtn.onclick = () => {
           const url = getUrl();
-          if (url) { saveToHistory(item); openPlayer(playerContainer, playerTopControls, iframe, url, card); }
-          else alert('Please select a source.');
+          if (url) {
+            h('success'); // Success tap — the main action, starting playback
+            saveToHistory(item);
+            openPlayer(playerContainer, playerTopControls, iframe, url, card);
+          } else {
+            h('warning'); // Warning tap when source isn't selected
+            alert('Please select a source.');
+          }
         };
-        openBtn.onclick = () => { const url = getUrl(); if (url) window.open(url, '_blank'); };
-        dlBtn.onclick   = () => {
+        openBtn.onclick = () => {
+          const url = getUrl();
+          if (url) {
+            h('medium'); // Medium tap for opening in browser
+            window.open(url, '_blank');
+          }
+        };
+        dlBtn.onclick = () => {
+          h('medium'); // Medium tap for download
           const s = seasonSelect.value || 1, e = episodeSelect.value || 1;
           window.open(isTV ? `https://dl.vidsrc.vip/tv/${item.id}/${s}/${e}` : `https://dl.vidsrc.vip/movie/${item.id}`, '_blank');
         };
