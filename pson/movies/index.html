@@ -394,6 +394,14 @@
       padding: 15px 0;
       border-bottom: 1px solid var(--border-color);
     }
+    .color-subsection-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted-text);
+      margin-bottom: 10px;
+    }
     .color-picker-container { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
     input[type="color"] {
       width: 60px; height: 40px;
@@ -428,14 +436,46 @@
 
     .download-section { padding: 15px 0; }
     .download-btn {
-      display: inline-block;
+      display: block;
+      width: 100%;
+      box-sizing: border-box;
+      text-align: center;
       background-color: var(--primary-color);
-      color: white; padding: 10px 32px;
-      border-radius: 6px; text-decoration: none;
+      color: white; padding: 12px 32px;
+      border-radius: 10px; text-decoration: none;
       font-weight: 600; transition: background-color 0.2s;
       margin-bottom: 16px;
     }
     .download-btn:hover { background-color: var(--primary-hover); }
+
+    /* iOS-style toggle switch */
+    .toggle-switch {
+      width: 48px; height: 28px;
+      border-radius: 14px;
+      border: none;
+      background: var(--border-color);
+      cursor: pointer;
+      position: relative;
+      flex-shrink: 0;
+      transition: background-color 0.22s ease;
+      padding: 0;
+    }
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+      transition: transform 0.22s ease;
+    }
+    .toggle-switch.on {
+      background: var(--primary-color);
+    }
+    .toggle-switch.on::after {
+      transform: translateX(20px);
+    }
     .install-steps { color: var(--muted-text); font-size: 0.9rem; line-height: 1.8; }
     .install-steps ol { margin: 12px 0; padding-left: 20px; }
     .install-steps li { margin-bottom: 8px; }
@@ -600,7 +640,7 @@
       position: fixed; inset: 0;
       background: rgba(0,0,0,0.85);
       z-index: 2000;
-      display: flex; align-items: center; justify-content: center;
+      display: none; align-items: center; justify-content: center;
       opacity: 0; transition: opacity 0.3s ease;
       cursor: zoom-out;
     }
@@ -628,7 +668,6 @@
     <div class="top-bar">
       <h1>movies/series</h1>
       <div class="top-bar-buttons">
-        <button id="themeToggle" class="btn btn-ghost btn-sm">Dark Mode</button>
         <button id="settingsToggle" class="btn btn-ghost btn-icon">
           <img class="settings-icon" src="https://wills.im/pson/movies/settings.svg" alt="Settings">
         </button>
@@ -721,28 +760,35 @@
 
       <h2>Appearance</h2>
 
+      <!-- Dark mode toggle -->
+      <div class="setting-row">
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
+          <span class="setting-label">Dark Mode</span>
+          <button id="themeToggle" class="toggle-switch" role="switch" aria-label="Toggle dark mode"></button>
+        </div>
+      </div>
+
+      <!-- Accent colour -->
       <div class="color-picker-section">
         <div class="color-picker-container">
           <input type="color" id="accentColor" value="#0061fe">
           <input type="text" class="color-preview" id="colorHex" value="#0061fe" maxlength="7" placeholder="#0061fe">
         </div>
         <div class="color-presets">
-          <div class="color-preset" data-color="#f94144" style="background-color:#f94144;" title="Red"></div>
-          <div class="color-preset" data-color="#f3722c" style="background-color:#f3722c;" title="Orange"></div>
-          <div class="color-preset" data-color="#f8961e" style="background-color:#f8961e;" title="Amber"></div>
-          <div class="color-preset" data-color="#f9c74f" style="background-color:#f9c74f;" title="Yellow"></div>
-          <div class="color-preset" data-color="#90be6d" style="background-color:#90be6d;" title="Green"></div>
-          <div class="color-preset" data-color="#43aa8b" style="background-color:#43aa8b;" title="Teal"></div>
-          <div class="color-preset" data-color="#0061fe" style="background-color:#0061fe;" title="Blue"></div>
-          <div class="color-preset" data-color="#577590" style="background-color:#577590;" title="Blue Slate"></div>
+          <div class="color-preset" data-group="accent" data-color="#f94144" style="background-color:#f94144;" title="Red"></div>
+          <div class="color-preset" data-group="accent" data-color="#f3722c" style="background-color:#f3722c;" title="Orange"></div>
+          <div class="color-preset" data-group="accent" data-color="#f8961e" style="background-color:#f8961e;" title="Amber"></div>
+          <div class="color-preset" data-group="accent" data-color="#f9c74f" style="background-color:#f9c74f;" title="Yellow"></div>
+          <div class="color-preset" data-group="accent" data-color="#90be6d" style="background-color:#90be6d;" title="Green"></div>
+          <div class="color-preset" data-group="accent" data-color="#43aa8b" style="background-color:#43aa8b;" title="Teal"></div>
+          <div class="color-preset" data-group="accent" data-color="#0061fe" style="background-color:#0061fe;" title="Blue"></div>
+          <div class="color-preset" data-group="accent" data-color="#577590" style="background-color:#577590;" title="Blue Slate"></div>
         </div>
       </div>
 
       <h2>Download iOS App</h2>
       <div class="download-section">
-        <div style="text-align:center;">
-          <a href="https://github.com/ws487-1/ws/raw/refs/heads/main/pson/movies/wills.im.mobileconfig" class="download-btn">Download App</a>
-        </div>
+        <a href="https://github.com/ws487-1/ws/raw/refs/heads/main/pson/movies/wills.im.mobileconfig" class="download-btn">Download App</a>
         <div class="install-steps">
           <strong>Installation Instructions:</strong>
           <ol>
@@ -795,36 +841,47 @@
     }
 
     const sources = [
-      { name: "VIDEASY",      movieUrl: id => `https://player.videasy.net/movie/${id}`,                  seriesUrl: (id,s,e) => `https://player.videasy.net/tv/${id}/${s}/${e}` },
-      { name: "VIDLINK",      movieUrl: id => `https://vidlink.pro/movie/${id}`,                          seriesUrl: (id,s,e) => `https://vidlink.pro/tv/${id}/${s}/${e}` },
-      { name: "VIDSRC 1",     movieUrl: id => `https://vidsrcme.ru/embed/movie/${id}/`,                   seriesUrl: (id,s,e) => `https://vidsrcme.ru/embed/tv/${id}/${s}-${e}` },
-      { name: "VIDSRC 2",     movieUrl: id => `https://vidsrcme.su/embed/movie/${id}/`,                   seriesUrl: (id,s,e) => `https://vidsrcme.su/embed/tv/${id}/${s}-${e}` },
-      { name: "VIDSRC 3",     movieUrl: id => `https://vidsrc-me.ru/embed/movie/${id}/`,                  seriesUrl: (id,s,e) => `https://vidsrc-me.ru/embed/tv/${id}/${s}-${e}` },
-      { name: "VIDSRC 4",     movieUrl: id => `https://vidsrc-me.su/embed/movie/${id}/`,                  seriesUrl: (id,s,e) => `https://vidsrc-me.su/embed/tv/${id}/${s}-${e}` },
-      { name: "VIDSRC 5",     movieUrl: id => `https://vidsrc-embed.ru/embed/movie/${id}/`,               seriesUrl: (id,s,e) => `https://vidsrc-embed.ru/embed/tv/${id}/${s}-${e}` },
-      { name: "VIDSRC 6",     movieUrl: id => `https://vidsrc-embed.su/embed/movie/${id}/`,               seriesUrl: (id,s,e) => `https://vidsrc-embed.su/embed/tv/${id}/${s}-${e}` },
-      { name: "VIDSRC 7",     movieUrl: id => `https://vsrc.su/embed/movie/${id}/`,                       seriesUrl: (id,s,e) => `https://vsrc.su/embed/tv/${id}/${s}/${e}` },
-      { name: "AUTOEMBED",    movieUrl: id => `https://player.autoembed.cc/embed/movie/${id}`,            seriesUrl: (id,s,e) => `https://player.autoembed.cc/embed/tv/${id}/${s}/${e}` },
-      { name: "SUPEREMBED",   movieUrl: id => `https://multiembed.mov/?video_id=${id}&tmdb=1`,            seriesUrl: (id,s,e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}` },
-      { name: "NONTONGO",     movieUrl: id => `https://www.NontonGo.win/embed/movie/${id}`,               seriesUrl: (id,s,e) => `https://www.NontonGo.win/embed/tv/${id}/${s}/${e}` },
-      { name: "MOVIESAPICLUB",movieUrl: id => `https://moviesapi.club/movie/${id}`,                       seriesUrl: (id,s,e) => `https://moviesapi.club/tv/${id}-${s}-${e}` },
-      { name: "CINEZO",       movieUrl: id => `https://api.cinezo.net/embed/tmdb-movie-${id}`,            seriesUrl: (id,s,e) => `https://api.cinezo.net/embed/tmdb-tv-${id}/${s}/${e}` },
-      { name: "CINEMAOS",     movieUrl: id => `https://cinemaos.tech/player/${id}`,                       seriesUrl: (id,s,e) => `https://cinemaos.tech/player/${id}/${s}/${e}` },
-      { name: "VIDKING",      movieUrl: id => `https://www.vidking.net/embed/movie/${id}`,                seriesUrl: (id,s,e) => `https://www.vidking.net/embed/tv/${id}/${s}/${e}` },
-      { name: "VIDUP",        movieUrl: id => `https://vidup.to/movie/${id}`,                             seriesUrl: (id,s,e) => `https://vidup.to/tv/${id}/${s}/${e}` },
-      { name: "BIDSRC",       movieUrl: id => `https://bidsrc.pro/movie/${id}`,                           seriesUrl: (id,s,e) => `https://bidsrc.pro/tv/${id}/${s}/${e}` },
-      { name: "FILMEX",       movieUrl: id => `https://fmovies4u.com/embed/tmdb-movie-${id}`,             seriesUrl: (id,s,e) => `https://fmovies4u.com/embed/tmdb-tv-${id}/${s}/${e}` },
-      { name: "VIDIFY",       movieUrl: id => `https://player.vidify.top/embed/movie/${id}`,              seriesUrl: (id,s,e) => `https://player.vidify.top/embed/tv/${id}/${s}/${e}` },
-      { name: "VIDPLUS",      movieUrl: id => `https://player.vidplus.to/embed/movie/${id}`,              seriesUrl: (id,s,e) => `https://player.vidplus.to/embed/tv/${id}/${s}/${e}` },
-      { name: "VIDFAST",      movieUrl: id => `https://vidfast.pro/movie/${id}`,                          seriesUrl: (id,s,e) => `https://vidfast.pro/tv/${id}/${s}/${e}` },
-      { name: "VIDNEST",      movieUrl: id => `https://vidnest.fun/movie/${id}`,                          seriesUrl: (id,s,e) => `https://vidnest.fun/tv/${id}/${s}/${e}` },
-      { name: "VIDORA",       movieUrl: id => `https://vidora.su/movie/${id}`,                            seriesUrl: (id,s,e) => `https://vidora.su/tv/${id}/${s}/${e}` },
-      { name: "SPENCERDEVS",  movieUrl: id => `https://spencerdevs.xyz/movie/${id}`,                      seriesUrl: (id,s,e) => `https://spencerdevs.xyz/tv/${id}/${s}/${e}` },
-      { name: "VIDROCK",      movieUrl: id => `https://vidrock.net/movie/${id}`,                          seriesUrl: (id,s,e) => `https://vidrock.net/tv/${id}/${s}/${e}` },
-      { name: "111MOVIES",    movieUrl: id => `https://111movies.com/movie/${id}`,                        seriesUrl: (id,s,e) => `https://111movies.com/tv/${id}/${s}/${e}` },
-      { name: "SUPERFLIXAPI", movieUrl: id => `https://superflixapi.asia/filme/${id}`,                    seriesUrl: (id,s,e) => `https://superflixapi.asia/serie/${id}/${s}/${e}` },
-      { name: "PSTREAM",      movieUrl: id => `https://pstream.mov/media/tmdb-movie-${id}`,               seriesUrl: (id,s,e) => `https://pstream.mov/media/tmdb-tv-${id}` }
-    ];
+  { name: "111MOVIES", movieUrl: id => `https://111movies.com/movie/${id}`, seriesUrl: (id,s,e)=>`https://111movies.com/tv/${id}/${s}/${e}` },
+  { name: "AUTOEMBED", movieUrl: id => `https://player.autoembed.cc/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://player.autoembed.cc/embed/tv/${id}/${s}/${e}` },
+  { name: "CINEMAOS", movieUrl: id => `https://cinemaos.tech/player/${id}`, seriesUrl: (id,s,e)=>`https://cinemaos.tech/player/${id}/${s}/${e}` },
+  { name: "EMBEDMASTER", movieUrl: id => `https://embedmaster.link/movie/${id}`, seriesUrl: (id,s,e)=>`https://embedmaster.link/tv/${id}/${s}/${e}` },
+  { name: "FILMEX", movieUrl: id => `https://fmovies4u.com/embed/tmdb-movie-${id}`, seriesUrl: (id,s,e)=>`https://fmovies4u.com/embed/tmdb-tv-${id}/${s}/${e}` },
+  { name: "HEXA", movieUrl: id => `https://hexa.su/watch/movie/${id}`, seriesUrl: (id,s,e)=>`https://hexa.su/watch/tv/${id}/${s}/${e}` },
+  { name: "MAPPLE", movieUrl: id => `https://mapple.mov/watch/movie/${id}`, seriesUrl: (id,s,e)=>`https://mapple.mov/watch/tv/${id}-${s}-${e}` },
+  { name: "MOVIESAPICLUB", movieUrl: id => `https://moviesapi.club/movie/${id}`, seriesUrl: (id,s,e)=>`https://moviesapi.club/tv/${id}-${s}-${e}` },
+  { name: "NONTONGO", movieUrl: id => `https://www.NontonGo.win/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://www.NontonGo.win/embed/tv/${id}/${s}/${e}` },
+  { name: "PEACHIFY", movieUrl: id => `https://peachify.top/?type=movie&id=${id}`, seriesUrl: (id,s,e)=>`https://peachify.top/?type=tv&id=${id}&s=${s}&e=${e}` },
+  { name: "SPENCERDEVS", movieUrl: id => `https://spencerdevs.xyz/movie/${id}`, seriesUrl: (id,s,e)=>`https://spencerdevs.xyz/tv/${id}/${s}/${e}` },
+  { name: "SUPEREMBED", movieUrl: id => `https://multiembed.mov/?video_id=${id}&tmdb=1`, seriesUrl: (id,s,e)=>`https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}` },
+  { name: "SUPERFLIXAPI", movieUrl: id => `https://superflixapi.asia/filme/${id}`, seriesUrl: (id,s,e)=>`https://superflixapi.asia/serie/${id}/${s}/${e}` },
+  { name: "UEMBED", movieUrl: id => `https://uembed.xyz/?id=${id}`, seriesUrl: (id,s,e)=>`https://uembed.xyz/?id=${id}/${s}/${e}` },
+  { name: "VIDCORE", movieUrl: id => `https://vidcore.net/movie/${id}`, seriesUrl: (id,s,e)=>`https://vidcore.net/tv/${id}/${s}/${e}` },
+  { name: "VIDEASY", movieUrl: id => `https://player.videasy.net/movie/${id}`, seriesUrl: (id,s,e)=>`https://player.videasy.net/tv/${id}/${s}/${e}` },
+  { name: "VIDFAST", movieUrl: id => `https://vidfast.pro/movie/${id}`, seriesUrl: (id,s,e)=>`https://vidfast.pro/tv/${id}/${s}/${e}` },
+  { name: "VIDIFY", movieUrl: id => `https://player.vidify.top/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://player.vidify.top/embed/tv/${id}/${s}/${e}` },
+  { name: "VIDKING", movieUrl: id => `https://www.vidking.net/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://www.vidking.net/embed/tv/${id}/${s}/${e}` },
+  { name: "VIDLINK", movieUrl: id => `https://vidlink.pro/movie/${id}`, seriesUrl: (id,s,e)=>`https://vidlink.pro/tv/${id}/${s}/${e}` },
+  { name: "VIDNEST", movieUrl: id => `https://vidnest.fun/movie/${id}`, seriesUrl: (id,s,e)=>`https://vidnest.fun/tv/${id}/${s}/${e}` },
+  { name: "VIDORA", movieUrl: id => `https://vidora.su/movie/${id}`, seriesUrl: (id,s,e)=>`https://vidora.su/tv/${id}/${s}/${e}` },
+  { name: "VIDPLUS", movieUrl: id => `https://player.vidplus.to/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://player.vidplus.to/embed/tv/${id}/${s}/${e}` },
+  { name: "VIDROCK", movieUrl: id => `https://vidrock.net/movie/${id}`, seriesUrl: (id,s,e)=>`https://vidrock.net/tv/${id}/${s}/${e}` },
+  { name: "VIDSRC 1", movieUrl: id => `https://vidsrcme.ru/embed/movie/${id}/`, seriesUrl: (id,s,e)=>`https://vidsrcme.ru/embed/tv/${id}/${s}-${e}` },
+  { name: "VIDSRC 2", movieUrl: id => `https://vidsrcme.su/embed/movie/${id}/`, seriesUrl: (id,s,e)=>`https://vidsrcme.su/embed/tv/${id}/${s}-${e}` },
+  { name: "VIDSRC 3", movieUrl: id => `https://vidsrc-me.ru/embed/movie/${id}/`, seriesUrl: (id,s,e)=>`https://vidsrc-me.ru/embed/tv/${id}/${s}-${e}` },
+  { name: "VIDSRC 4", movieUrl: id => `https://vidsrc-me.su/embed/movie/${id}/`, seriesUrl: (id,s,e)=>`https://vidsrc-me.su/embed/tv/${id}/${s}-${e}` },
+  { name: "VIDSRC 5", movieUrl: id => `https://vidsrc-embed.ru/embed/movie/${id}/`, seriesUrl: (id,s,e)=>`https://vidsrc-embed.ru/embed/tv/${id}/${s}-${e}` },
+  { name: "VIDSRC 6", movieUrl: id => `https://vidsrc-embed.su/embed/movie/${id}/`, seriesUrl: (id,s,e)=>`https://vidsrc-embed.su/embed/tv/${id}/${s}-${e}` },
+  { name: "VIDSRC 7", movieUrl: id => `https://vsrc.su/embed/movie/${id}/`, seriesUrl: (id,s,e)=>`https://vsrc.su/embed/tv/${id}/${s}-${e}` },
+  { name: "VIDSRX", movieUrl: id => `https://vixsrc.to/movie/${id}/`, seriesUrl: (id,s,e)=>`https://vixsrc.to/tv/${id}/${s}/${e}/` },
+  { name: "VIDSRCWTF 1", movieUrl: id => `https://vidsrc.wtf/api/1/movie/?id=${id}`, seriesUrl: (id,s,e)=>`https://vidsrc.wtf/api/1/tv/?id=${id}&s=${s}&e=${e}` },
+  { name: "VIDSRCWTF 2", movieUrl: id => `https://vidsrc.wtf/api/2/movie/?id=${id}`, seriesUrl: (id,s,e)=>`https://vidsrc.wtf/api/2/tv/?id=${id}&s=${s}&e=${e}` },
+  { name: "VIDSRCWTF 3", movieUrl: id => `https://vidsrc.wtf/api/3/movie/?id=${id}`, seriesUrl: (id,s,e)=>`https://vidsrc.wtf/api/3/tv/?id=${id}&s=${s}&e=${e}` },
+  { name: "VIDSRCWTF 4", movieUrl: id => `https://vidsrc.wtf/api/4/movie/?id=${id}`, seriesUrl: (id,s,e)=>`https://vidsrc.wtf/api/4/tv/?id=${id}&s=${s}&e=${e}` },
+  { name: "VIDUP", movieUrl: id => `https://vidup.to/movie/${id}`, seriesUrl: (id,s,e)=>`https://vidup.to/tv/${id}/${s}/${e}` },
+  { name: "VIDZEE 1", movieUrl: id => `https://player.vidzee.wtf/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://player.vidzee.wtf/embed/tv/${id}/${s}/${e}` },
+  { name: "VIDZEE 2", movieUrl: id => `https://player.vidzee.wtf/v2/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://player.vidzee.wtf/v2/embed/tv/${id}/${s}/${e}` },
+  { name: "XPRIME", movieUrl: id => `https://xprime.today/watch/${id}`, seriesUrl: (id,s,e)=>`https://xprime.today/watch/${id}/${s}/${e}` }
+];
 
     // ===== DOM =====
     const q             = document.getElementById('q');
@@ -832,7 +889,6 @@
     const results       = document.getElementById('results');
     const msg           = document.getElementById('msg');
     const loadMoreBtn   = document.getElementById('loadMore');
-    const themeToggle   = document.getElementById('themeToggle');
     const settingsToggle= document.getElementById('settingsToggle');
     const settingsOverlay=document.getElementById('settingsOverlay');
     const settingsClose = document.getElementById('settingsClose');
@@ -944,19 +1000,16 @@
 
     // ===== SETTINGS =====
     function loadAllSettings() {
-      const stored = localStorage.getItem('theme');
-      if (stored === 'light') {
-        themeToggle.textContent = 'Dark Mode';
-      } else {
-        document.body.classList.add('dark-mode');
-        themeToggle.textContent = 'Light Mode';
-      }
+      const isDark = document.body.classList.contains('dark-mode');
+      const themeToggleEl = document.getElementById('themeToggle');
+      if (themeToggleEl) themeToggleEl.classList.toggle('on', isDark);
+
       const accentColor = localStorage.getItem('accentColor') || DEFAULT_ACCENT;
       applyAccentColor(accentColor);
       if (document.getElementById('accentColor')) {
         document.getElementById('accentColor').value = accentColor;
         document.getElementById('colorHex').value = accentColor;
-        updateActivePreset(accentColor);
+        updateActivePreset('accent', accentColor);
       }
       const defaultMovieSource = localStorage.getItem('defaultMovieSource') || '';
       const defaultTVSource    = localStorage.getItem('defaultTVSource')    || '';
@@ -980,8 +1033,8 @@
       return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
     }
 
-    function updateActivePreset(color) {
-      document.querySelectorAll('.color-preset').forEach(p => {
+    function updateActivePreset(group, color) {
+      document.querySelectorAll(`.color-preset[data-group="${group}"]`).forEach(p => {
         p.classList.remove('active');
         if (p.dataset.color.toLowerCase() === color.toLowerCase()) p.classList.add('active');
       });
@@ -993,6 +1046,20 @@
     }
 
     function initSettingsListeners() {
+      // Dark mode toggle
+      const themeToggleEl = document.getElementById('themeToggle');
+      if (themeToggleEl) {
+        // Clone to wipe any prior listener added on a previous settings open
+        const fresh = themeToggleEl.cloneNode(true);
+        themeToggleEl.parentNode.replaceChild(fresh, themeToggleEl);
+        fresh.addEventListener('click', () => {
+          h('light');
+          document.body.classList.toggle('dark-mode');
+          const isDark = document.body.classList.contains('dark-mode');
+          fresh.classList.toggle('on', isDark);
+          localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        });
+      }
       document.getElementById('defaultMovieSource').addEventListener('change', e => {
         h('selection');
         localStorage.setItem('defaultMovieSource', e.target.value);
@@ -1003,42 +1070,35 @@
         localStorage.setItem('defaultTVSource', e.target.value);
         showSaveIndicator('tvSourceSaved');
       });
+      // Accent colour native picker
       document.getElementById('accentColor').addEventListener('input', e => {
         const c = e.target.value;
         document.getElementById('colorHex').value = c;
-        applyAccentColor(c); updateActivePreset(c);
+        applyAccentColor(c); updateActivePreset('accent', c);
         localStorage.setItem('accentColor', c);
       });
+      // Accent colour hex input
       document.getElementById('colorHex').addEventListener('input', e => {
         let c = e.target.value;
         if (!c.startsWith('#')) c = '#' + c;
         if (/^#[0-9A-F]{6}$/i.test(c)) {
           document.getElementById('accentColor').value = c;
-          applyAccentColor(c); updateActivePreset(c);
+          applyAccentColor(c); updateActivePreset('accent', c);
           localStorage.setItem('accentColor', c);
         }
       });
+      // Accent colour preset swatches
       document.querySelectorAll('.color-preset').forEach(p => {
         p.addEventListener('click', () => {
           h('light');
           const c = p.dataset.color;
           document.getElementById('accentColor').value = c;
           document.getElementById('colorHex').value = c;
-          applyAccentColor(c); updateActivePreset(c);
+          applyAccentColor(c); updateActivePreset('accent', c);
           localStorage.setItem('accentColor', c);
         });
       });
     }
-
-    // ===== DARK MODE =====
-    themeToggle.addEventListener('click', e => {
-      e.preventDefault(); e.target.blur();
-      h('light');
-      document.body.classList.toggle('dark-mode');
-      const isDark = document.body.classList.contains('dark-mode');
-      themeToggle.textContent = isDark ? 'Light Mode' : 'Dark Mode';
-      localStorage.setItem('theme', isDark ? 'dark' : 'light');
-    });
 
     // ===== SETTINGS OPEN/CLOSE =====
     function openSettings() {
@@ -1538,10 +1598,8 @@
     (() => {
       const stored = localStorage.getItem('theme');
       if (stored !== 'light') document.body.classList.add('dark-mode');
-      // Always apply an accent — stored value takes priority, otherwise use the new default blue
       const accent = localStorage.getItem('accentColor') || DEFAULT_ACCENT;
       applyAccentColor(accent);
-      themeToggle.textContent = document.body.classList.contains('dark-mode') ? 'Light Mode' : 'Dark Mode';
     })();
 
     const savedType     = localStorage.getItem('selectedBrowseType');
