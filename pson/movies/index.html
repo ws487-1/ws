@@ -110,17 +110,9 @@
 
     .btn img { width: 18px; height: 18px; display: block; }
 
-    /*
-      Settings icon fix:
-      Force the icon to solid black first, so it works regardless of the SVG's
-      original colour. In dark mode invert it to white.
-    */
-    .settings-icon {
-      filter: brightness(0);
-    }
-    body.dark-mode .settings-icon {
-      filter: brightness(0) invert(1);
-    }
+    /* Settings icon: force solid black, invert in dark mode */
+    .settings-icon { filter: brightness(0); }
+    body.dark-mode .settings-icon { filter: brightness(0) invert(1); }
 
     .btn-primary { color: #fff; background-color: var(--primary-color); border-color: var(--primary-color); }
     .btn-primary:hover, .btn-primary:focus, .btn-primary:active {
@@ -165,14 +157,8 @@
       transition: background-color 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
     }
 
-    .btn-card-pill:hover, .btn-card-pill:focus {
-      outline: none;
-      box-shadow: none;
-    }
-
-    .btn-card-pill:active {
-      transform: scale(0.95);
-    }
+    .btn-card-pill:hover, .btn-card-pill:focus { outline: none; box-shadow: none; }
+    .btn-card-pill:active { transform: scale(0.95); }
 
     .btn-card-pill.btn-card-pill-primary {
       background-color: var(--primary-color);
@@ -180,25 +166,21 @@
       color: #fff;
     }
 
-    .btn-card-pill img {
-      width: 14px;
-      height: 14px;
-      display: block;
-    }
+    .btn-card-pill img { width: 14px; height: 14px; display: block; }
 
     /* Heart icon: normalise to a consistent colour regardless of source image */
     .btn-card-pill.btn-heart img.heart-empty  { filter: brightness(0) opacity(0.45); }
     body.dark-mode .btn-card-pill.btn-heart img.heart-empty { filter: brightness(0) invert(1) opacity(0.45); }
-    .btn-card-pill.btn-heart img.heart-filled  { filter: none; }
+    .btn-card-pill.btn-heart img.heart-filled { filter: none; }
 
     /* ===== HEART FAVOURITE ANIMATION ===== */
     @keyframes heartPop {
-      0%   { transform: scale(1)    rotate(0deg); }
+      0%   { transform: scale(1)    rotate(0deg);  }
       20%  { transform: scale(1.6)  rotate(-14deg); }
-      45%  { transform: scale(0.8)  rotate(7deg);  }
-      65%  { transform: scale(1.25) rotate(-4deg); }
-      82%  { transform: scale(0.95) rotate(2deg);  }
-      100% { transform: scale(1)    rotate(0deg);  }
+      45%  { transform: scale(0.8)  rotate(7deg);   }
+      65%  { transform: scale(1.25) rotate(-4deg);  }
+      82%  { transform: scale(0.95) rotate(2deg);   }
+      100% { transform: scale(1)    rotate(0deg);   }
     }
 
     .heart-animating {
@@ -268,9 +250,7 @@
       transition: opacity 0.25s ease, background 0.3s;
     }
 
-    .category-scroll-wrapper.has-scrolled::before {
-      opacity: 1;
-    }
+    .category-scroll-wrapper.has-scrolled::before { opacity: 1; }
 
     .category-scroll-wrapper::after {
       content: '';
@@ -330,9 +310,7 @@
       color: var(--text-color);
       font-weight: 600;
     }
-    .pill.pill-action.active {
-      color: #fff;
-    }
+    .pill.pill-action.active { color: #fff; }
 
     .pill-sep {
       width: 1px;
@@ -393,14 +371,6 @@
     .color-picker-section {
       padding: 15px 0;
       border-bottom: 1px solid var(--border-color);
-    }
-    .color-subsection-label {
-      font-size: 0.8rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--muted-text);
-      margin-bottom: 10px;
     }
     .color-picker-container { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; }
     input[type="color"] {
@@ -470,12 +440,9 @@
       box-shadow: 0 1px 4px rgba(0,0,0,0.3);
       transition: transform 0.22s ease;
     }
-    .toggle-switch.on {
-      background: var(--primary-color);
-    }
-    .toggle-switch.on::after {
-      transform: translateX(20px);
-    }
+    .toggle-switch.on { background: var(--primary-color); }
+    .toggle-switch.on::after { transform: translateX(20px); }
+
     .install-steps { color: var(--muted-text); font-size: 0.9rem; line-height: 1.8; }
     .install-steps ol { margin: 12px 0; padding-left: 20px; }
     .install-steps li { margin-bottom: 8px; }
@@ -508,9 +475,7 @@
       -webkit-mask-image: linear-gradient(to right, transparent 0%, black 5%, black 90%, transparent 100%);
       mask-image: linear-gradient(to right, transparent 0%, black 5%, black 90%, transparent 100%);
     }
-    .title-scroll-wrapper.no-scroll {
-      -webkit-mask-image: none; mask-image: none;
-    }
+    .title-scroll-wrapper.no-scroll { -webkit-mask-image: none; mask-image: none; }
     .title-scroll-text {
       display: inline-block; font-weight: 700; font-size: 1rem;
     }
@@ -519,11 +484,11 @@
       padding-left: 8%; padding-right: 15%;
     }
     @keyframes titleMarquee {
-      0%   { transform: translateX(0%); }
-      10%  { transform: translateX(0%); }
+      0%   { transform: translateX(0%);   }
+      10%  { transform: translateX(0%);   }
       80%  { transform: translateX(-80%); }
       90%  { transform: translateX(-80%); }
-      100% { transform: translateX(0%); }
+      100% { transform: translateX(0%);   }
     }
 
     .meta-subtitle {
@@ -550,16 +515,10 @@
 
     .controls { display: flex; flex-direction: column; gap: 7px; margin-bottom: 0; }
 
-    .controls-top-row {
-      display: flex;
-      gap: 6px;
-      width: 100%;
-    }
+    .controls-top-row { display: flex; gap: 6px; width: 100%; }
 
     .controls-top-row .btn-card-pill,
-    .actions-row .btn-card-pill {
-      flex: 1;
-    }
+    .actions-row .btn-card-pill { flex: 1; }
 
     .controls-middle-row {
       display: flex;
@@ -628,12 +587,71 @@
       height: auto; border: none; display: block;
     }
 
+    /* Downloader picker panel — slides down inline below the actions row,
+       same animation language as .player-container */
+    .downloader-panel {
+      width: 100%;
+      display: none;
+      margin-top: 0;
+      overflow: hidden;
+      opacity: 0;
+      max-height: 0;
+      transition: opacity 0.3s ease, max-height 0.3s ease, margin-top 0.3s ease;
+    }
+    .downloader-panel.opening { display: block; max-height: 0; opacity: 0; margin-top: 0; }
+    .downloader-panel.show    { display: block; max-height: 240px; opacity: 1; margin-top: 8px; }
+    .downloader-panel.closing { max-height: 0; opacity: 0; margin-top: 0; }
+
+    .downloader-panel-inner {
+      padding: 12px;
+      background: var(--secondary-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+    }
+
+    .downloader-panel-label {
+      font-size: 0.7rem;
+      color: var(--muted-text);
+      font-weight: 600;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .downloader-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .downloader-pill {
+      cursor: pointer;
+      outline: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-family: inherit;
+      font-weight: 500;
+      font-size: 12px;
+      padding: 5px 12px;
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      background: var(--input-bg);
+      color: var(--text-color);
+      white-space: nowrap;
+      transition: background-color 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .downloader-pill:hover  { background: var(--secondary-hover); border-color: var(--text-color); }
+    .downloader-pill:active { transform: scale(0.95); }
+
     #loadMore { display: none; width: 100%; margin-top: 20px; }
     #msg { color: var(--muted-text); font-style: italic; margin-bottom: 10px; font-size: 0.9rem; }
 
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(6px); }
-      to   { opacity: 1; transform: translateY(0); }
+      to   { opacity: 1; transform: translateY(0);   }
     }
 
     .lightbox-overlay {
@@ -668,8 +686,8 @@
     <div class="top-bar">
       <h1>movies/series</h1>
       <div class="top-bar-buttons">
-        <button id="settingsToggle" class="btn btn-ghost btn-icon">
-          <img class="settings-icon" src="https://wills.im/pson/movies/settings.svg" alt="Settings">
+        <button id="settingsToggle" class="btn btn-ghost btn-icon" aria-label="Settings">
+          <img class="settings-icon" src="https://wills.im/pson/movies/settings.svg" alt="">
         </button>
       </div>
     </div>
@@ -711,24 +729,7 @@
       <div class="setting-row">
         <label class="setting-label" for="defaultMovieSource">Default Movie Source</label>
         <div style="display:flex;align-items:center;flex:1;">
-          <select id="defaultMovieSource">
-            <option value="">Automatic</option>
-            <option value="VIDEASY">VIDEASY</option><option value="VIDLINK">VIDLINK</option>
-            <option value="VIDSRC 1">VIDSRC 1</option><option value="VIDSRC 2">VIDSRC 2</option>
-            <option value="VIDSRC 3">VIDSRC 3</option><option value="VIDSRC 4">VIDSRC 4</option>
-            <option value="VIDSRC 5">VIDSRC 5</option><option value="VIDSRC 6">VIDSRC 6</option>
-            <option value="VIDSRC 7">VIDSRC 7</option><option value="AUTOEMBED">AUTOEMBED</option>
-            <option value="SUPEREMBED">SUPEREMBED</option><option value="NONTONGO">NONTONGO</option>
-            <option value="MOVIESAPICLUB">MOVIESAPICLUB</option><option value="CINEZO">CINEZO</option>
-            <option value="CINEMAOS">CINEMAOS</option><option value="VIDKING">VIDKING</option>
-            <option value="VIDUP">VIDUP</option><option value="BIDSRC">BIDSRC</option>
-            <option value="FILMEX">FILMEX</option><option value="VIDIFY">VIDIFY</option>
-            <option value="VIDPLUS">VIDPLUS</option><option value="VIDFAST">VIDFAST</option>
-            <option value="VIDNEST">VIDNEST</option><option value="VIDORA">VIDORA</option>
-            <option value="SPENCERDEVS">SPENCERDEVS</option><option value="VIDROCK">VIDROCK</option>
-            <option value="111MOVIES">111MOVIES</option><option value="SUPERFLIXAPI">SUPERFLIXAPI</option>
-            <option value="PSTREAM">PSTREAM</option>
-          </select>
+          <select id="defaultMovieSource"></select>
           <span class="save-indicator" id="movieSourceSaved">✓</span>
         </div>
       </div>
@@ -736,31 +737,13 @@
       <div class="setting-row">
         <label class="setting-label" for="defaultTVSource">Default TV Source</label>
         <div style="display:flex;align-items:center;flex:1;">
-          <select id="defaultTVSource">
-            <option value="">Automatic</option>
-            <option value="VIDEASY">VIDEASY</option><option value="VIDLINK">VIDLINK</option>
-            <option value="VIDSRC 1">VIDSRC 1</option><option value="VIDSRC 2">VIDSRC 2</option>
-            <option value="VIDSRC 3">VIDSRC 3</option><option value="VIDSRC 4">VIDSRC 4</option>
-            <option value="VIDSRC 5">VIDSRC 5</option><option value="VIDSRC 6">VIDSRC 6</option>
-            <option value="VIDSRC 7">VIDSRC 7</option><option value="AUTOEMBED">AUTOEMBED</option>
-            <option value="SUPEREMBED">SUPEREMBED</option><option value="NONTONGO">NONTONGO</option>
-            <option value="MOVIESAPICLUB">MOVIESAPICLUB</option><option value="CINEZO">CINEZO</option>
-            <option value="CINEMAOS">CINEMAOS</option><option value="VIDKING">VIDKING</option>
-            <option value="VIDUP">VIDUP</option><option value="BIDSRC">BIDSRC</option>
-            <option value="FILMEX">FILMEX</option><option value="VIDIFY">VIDIFY</option>
-            <option value="VIDPLUS">VIDPLUS</option><option value="VIDFAST">VIDFAST</option>
-            <option value="VIDNEST">VIDNEST</option><option value="VIDORA">VIDORA</option>
-            <option value="SPENCERDEVS">SPENCERDEVS</option><option value="VIDROCK">VIDROCK</option>
-            <option value="111MOVIES">111MOVIES</option><option value="SUPERFLIXAPI">SUPERFLIXAPI</option>
-            <option value="PSTREAM">PSTREAM</option>
-          </select>
+          <select id="defaultTVSource"></select>
           <span class="save-indicator" id="tvSourceSaved">✓</span>
         </div>
       </div>
 
       <h2>Appearance</h2>
 
-      <!-- Dark mode toggle -->
       <div class="setting-row">
         <div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
           <span class="setting-label">Dark Mode</span>
@@ -768,7 +751,6 @@
         </div>
       </div>
 
-      <!-- Accent colour -->
       <div class="color-picker-section">
         <div class="color-picker-container">
           <input type="color" id="accentColor" value="#0061fe">
@@ -810,6 +792,60 @@
     // ===== CONFIG =====
     const API_KEY = '79d7c854f26de5ac978215ce03ff0c87';
     const DEFAULT_ACCENT = '#0061fe';
+    const HEART_FILLED_URL = 'https://areyouabot.neocities.org/heart.png';
+    const HEART_EMPTY_URL  = 'https://areyouabot.neocities.org/heartempty.png';
+
+    // ===== SOURCES (single source of truth — settings dropdowns are populated from this) =====
+    const sources = [
+      { name: "111MOVIES",     movieUrl: id => `https://111movies.com/movie/${id}`,                        seriesUrl: (id,s,e) => `https://111movies.com/tv/${id}/${s}/${e}` },
+      { name: "ANYEMBED",      movieUrl: id => `https://anyembed.com/embed/tmdb-movie-${id}`,              seriesUrl: (id,s,e) => `https://anyembed.com/embed/tmdb-tv-${id}-${s}-${e}` },
+      { name: "CINEMAOS",      movieUrl: id => `https://cinemaos.tech/player/${id}`,                       seriesUrl: (id,s,e) => `https://cinemaos.tech/player/${id}/${s}/${e}` },
+      { name: "CINESRC",       movieUrl: id => `https://cinesrc.st/embed/movie/${id}`,                     seriesUrl: (id,s,e) => `https://cinesrc.st/embed/tv/${id}?s=${s}&e=${e}` },
+      { name: "EMBEDMASTER",   movieUrl: id => `https://embedmaster.link/movie/${id}`,                     seriesUrl: (id,s,e) => `https://embedmaster.link/tv/${id}/${s}/${e}` },
+      { name: "GODRIVEPLAYER", movieUrl: id => `https://godriveplayer.com/player.php?tmdb=${id}`,          seriesUrl: (id,s,e) => `https://godriveplayer.com/player.php?type=series&tmdb=${id}&season=${s}&episode=${e}` },
+      { name: "HEXA",          movieUrl: id => `https://hexa.su/watch/movie/${id}`,                        seriesUrl: (id,s,e) => `https://hexa.su/watch/tv/${id}/${s}/${e}` },
+      { name: "MAPPLE",        movieUrl: id => `https://mapple.uk/watch/movie/${id}`,                      seriesUrl: (id,s,e) => `https://mapple.uk/watch/tv/${id}-${s}-${e}` },
+      { name: "MOVIESAPICLUB", movieUrl: id => `https://moviesapi.club/movie/${id}`,                       seriesUrl: (id,s,e) => `https://moviesapi.club/tv/${id}-${s}-${e}` },
+      { name: "NONTONGO",      movieUrl: id => `https://www.NontonGo.win/embed/movie/${id}`,               seriesUrl: (id,s,e) => `https://www.NontonGo.win/embed/tv/${id}/${s}/${e}` },
+      { name: "PEACHIFY",      movieUrl: id => `https://peachify.top/?type=movie&id=${id}`,                seriesUrl: (id,s,e) => `https://peachify.top/?type=tv&id=${id}&s=${s}&e=${e}` },
+      { name: "PRIMESRC",      movieUrl: id => `https://primesrc.me/embed/movie?tmdb=${id}`,               seriesUrl: (id,s,e) => `https://primesrc.me/embed/tv?tmdb=${id}&season=${s}&episode=${e}` },
+      { name: "SPENCERDEVS",   movieUrl: id => `https://spencerdevs.xyz/movie/${id}`,                      seriesUrl: (id,s,e) => `https://spencerdevs.xyz/tv/${id}/${s}/${e}` },
+      { name: "STREAMMAFIA",   movieUrl: id => `https://embed.streammafia.to/embed/movie/${id}`,           seriesUrl: (id,s,e) => `https://embed.streammafia.to/embed/tv/${id}/${s}/${e}` },
+      { name: "SUPEREMBED",    movieUrl: id => `https://multiembed.mov/?video_id=${id}&tmdb=1`,            seriesUrl: (id,s,e) => `https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}` },
+      { name: "SUPERFLIXAPI",  movieUrl: id => `https://superflixapi.asia/filme/${id}`,                    seriesUrl: (id,s,e) => `https://superflixapi.asia/serie/${id}/${s}/${e}` },
+      { name: "VIDCORE",       movieUrl: id => `https://vidcore.net/movie/${id}`,                          seriesUrl: (id,s,e) => `https://vidcore.net/tv/${id}/${s}/${e}` },
+      { name: "VIDEASY",       movieUrl: id => `https://player.videasy.net/movie/${id}`,                   seriesUrl: (id,s,e) => `https://player.videasy.net/tv/${id}/${s}/${e}` },
+      { name: "VIDFAST",       movieUrl: id => `https://vidfast.pro/movie/${id}`,                          seriesUrl: (id,s,e) => `https://vidfast.pro/tv/${id}/${s}/${e}` },
+      { name: "VIDIFY",        movieUrl: id => `https://player.vidify.top/embed/movie/${id}`,              seriesUrl: (id,s,e) => `https://player.vidify.top/embed/tv/${id}/${s}/${e}` },
+      { name: "VIDKING",       movieUrl: id => `https://www.vidking.net/embed/movie/${id}`,                seriesUrl: (id,s,e) => `https://www.vidking.net/embed/tv/${id}/${s}/${e}` },
+      { name: "VIDLINK",       movieUrl: id => `https://vidlink.pro/movie/${id}`,                          seriesUrl: (id,s,e) => `https://vidlink.pro/tv/${id}/${s}/${e}` },
+      { name: "VIDNEST",       movieUrl: id => `https://vidnest.fun/movie/${id}`,                          seriesUrl: (id,s,e) => `https://vidnest.fun/tv/${id}/${s}/${e}` },
+      { name: "VIDPLUS",       movieUrl: id => `https://player.vidplus.to/embed/movie/${id}`,              seriesUrl: (id,s,e) => `https://player.vidplus.to/embed/tv/${id}/${s}/${e}` },
+      { name: "VIDROCK",       movieUrl: id => `https://vidrock.net/movie/${id}`,                          seriesUrl: (id,s,e) => `https://vidrock.net/tv/${id}/${s}/${e}` },
+      { name: "VIDSRC 1",      movieUrl: id => `https://vsembed.ru/embed/movie/${id}/`,                    seriesUrl: (id,s,e) => `https://vsembed.ru/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRC 2",      movieUrl: id => `https://vsembed.su/embed/movie/${id}/`,                    seriesUrl: (id,s,e) => `https://vsembed.su/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRC 3",      movieUrl: id => `https://vidsrcme.ru/embed/movie/${id}/`,                   seriesUrl: (id,s,e) => `https://vidsrcme.ru/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRC 4",      movieUrl: id => `https://vidsrcme.su/embed/movie/${id}/`,                   seriesUrl: (id,s,e) => `https://vidsrcme.su/embed/tv/${id}/${s}-${e}` },
+      { name: "VIDSRX",        movieUrl: id => `https://vixsrc.to/movie/${id}/`,                           seriesUrl: (id,s,e) => `https://vixsrc.to/tv/${id}/${s}/${e}/` },
+      { name: "VIDSRCWTF 1",   movieUrl: id => `https://vidsrc.wtf/api/1/movie/?id=${id}`,                 seriesUrl: (id,s,e) => `https://vidsrc.wtf/api/1/tv/?id=${id}&s=${s}&e=${e}` },
+      { name: "VIDSRCWTF 2",   movieUrl: id => `https://vidsrc.wtf/api/2/movie/?id=${id}`,                 seriesUrl: (id,s,e) => `https://vidsrc.wtf/api/2/tv/?id=${id}&s=${s}&e=${e}` },
+      { name: "VIDSRCWTF 3",   movieUrl: id => `https://vidsrc.wtf/api/3/movie/?id=${id}`,                 seriesUrl: (id,s,e) => `https://vidsrc.wtf/api/3/tv/?id=${id}&s=${s}&e=${e}` },
+      { name: "VIDSRCWTF 4",   movieUrl: id => `https://vidsrc.wtf/api/4/movie/?id=${id}`,                 seriesUrl: (id,s,e) => `https://vidsrc.wtf/api/4/tv/?id=${id}&s=${s}&e=${e}` },
+      { name: "VIDUP",         movieUrl: id => `https://vidup.to/movie/${id}`,                             seriesUrl: (id,s,e) => `https://vidup.to/tv/${id}/${s}/${e}` },
+      { name: "VIDZEE 1",      movieUrl: id => `https://player.vidzee.wtf/embed/movie/${id}`,              seriesUrl: (id,s,e) => `https://player.vidzee.wtf/embed/tv/${id}/${s}/${e}` },
+      { name: "VIDZEE 2",      movieUrl: id => `https://player.vidzee.wtf/v2/embed/movie/${id}`,           seriesUrl: (id,s,e) => `https://player.vidzee.wtf/v2/embed/tv/${id}/${s}/${e}` },
+      { name: "ZXCSTREAM",     movieUrl: id => `https://zxcstream.xyz/player/movie/${id}`,                 seriesUrl: (id,s,e) => `https://zxcstream.xyz/player/tv/${id}/${s}/${e}` },
+    ];
+
+    // ===== DOWNLOADERS (single source of truth — alphabetical) =====
+    const downloaders = [
+      { name: "02MOVIEDOWNLOADER", movieUrl: id => `https://02moviedownloader.site/api/download/movie/${id}`,         seriesUrl: (id,s,e) => `https://02moviedownloader.site/api/download/tv/${id}/${s}/${e}` },
+      { name: "BUNNYDDL",          movieUrl: id => `https://bunnyddl.termsandconditionshere.workers.dev/movie/${id}`, seriesUrl: (id,s,e) => `https://bunnyddl.termsandconditionshere.workers.dev/tv/${id}/${s}/${e}` },
+      { name: "PEACHIFY",          movieUrl: id => `https://dl.peachify.top/movie/${id}`,                             seriesUrl: (id,s,e) => `https://dl.peachify.top/tv/${id}/${s}/${e}` },
+      { name: "STREAMMAFIA",       movieUrl: id => `https://dl.streammafia.to/media/movie/${id}`,                     seriesUrl: (id,s,e) => `https://dl.streammafia.to/media/tv/${id}?season=${s}&episode=${e}` },
+      { name: "VIDSRCVIP",         movieUrl: id => `https://dl.vidsrc.vip/movie/${id}`,                               seriesUrl: (id,s,e) => `https://dl.vidsrc.vip/tv/${id}/${s}/${e}` },
+      { name: "VIDVAULT",          movieUrl: id => `https://vidvault.ru/movie/${id}`,                                 seriesUrl: (id,s,e) => `https://vidvault.ru/tv/${id}/${s}/${e}` },
+    ];
 
     // ===== HAPTICS WRAPPER =====
     function h(type) {
@@ -840,57 +876,16 @@
       floater.addEventListener('animationend', () => floater.remove(), { once: true });
     }
 
-    const sources = [
-  { name: "111MOVIES", movieUrl: id => `https://111movies.com/movie/${id}`, seriesUrl: (id,s,e)=>`https://111movies.com/tv/${id}/${s}/${e}` },
-  { name: "ANYEMBED", movieUrl: id => `https://anyembed.com/embed/tmdb-movie-${id}`, seriesUrl: (id,s,e)=>`https://anyembed.com/embed/tmdb-tv-${id}-${s}-${e}` },
-  { name: "CINEMAOS", movieUrl: id => `https://cinemaos.tech/player/${id}`, seriesUrl: (id,s,e)=>`https://cinemaos.tech/player/${id}/${s}/${e}` },
-  { name: "CINESRC", movieUrl: id => `https://cinesrc.st/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://cinesrc.st/embed/tv/${id}?s=${s}&e=${e}` },
-  { name: "EMBEDMASTER", movieUrl: id => `https://embedmaster.link/movie/${id}`, seriesUrl: (id,s,e)=>`https://embedmaster.link/tv/${id}/${s}/${e}` },
-  { name: "GODRIVEPLAYER", movieUrl: id => `https://godriveplayer.com/player.php?tmdb=${id}`, seriesUrl: (id,s,e)=>`https://godriveplayer.com/player.php?type=series&tmdb=${id}&season=${s}&episode=${e}` },
-  { name: "HEXA", movieUrl: id => `https://hexa.su/watch/movie/${id}`, seriesUrl: (id,s,e)=>`https://hexa.su/watch/tv/${id}/${s}/${e}` },
-  { name: "MAPPLE", movieUrl: id => `https://mapple.uk/watch/movie/${id}`, seriesUrl: (id,s,e)=>`https://mapple.uk/watch/tv/${id}-${s}-${e}` },
-  { name: "MOVIESAPICLUB", movieUrl: id => `https://moviesapi.club/movie/${id}`, seriesUrl: (id,s,e)=>`https://moviesapi.club/tv/${id}-${s}-${e}` },
-  { name: "NONTONGO", movieUrl: id => `https://www.NontonGo.win/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://www.NontonGo.win/embed/tv/${id}/${s}/${e}` },
-  { name: "PEACHIFY", movieUrl: id => `https://peachify.top/?type=movie&id=${id}`, seriesUrl: (id,s,e)=>`https://peachify.top/?type=tv&id=${id}&s=${s}&e=${e}` },
-  { name: "PRIMESRC", movieUrl: id => `https://primesrc.me/embed/movie?tmdb=${id}`, seriesUrl: (id,s,e)=>`https://primesrc.me/embed/tv?tmdb=${id}&season=${s}&episode=${e}` },
-  { name: "SPENCERDEVS", movieUrl: id => `https://spencerdevs.xyz/movie/${id}`, seriesUrl: (id,s,e)=>`https://spencerdevs.xyz/tv/${id}/${s}/${e}` },
-  { name: "STREAMMAFIA", movieUrl: id => `https://embed.streammafia.to/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://embed.streammafia.to/embed/tv/${id}/${s}/${e}` },
-  { name: "SUPEREMBED", movieUrl: id => `https://multiembed.mov/?video_id=${id}&tmdb=1`, seriesUrl: (id,s,e)=>`https://multiembed.mov/?video_id=${id}&tmdb=1&s=${s}&e=${e}` },
-  { name: "SUPERFLIXAPI", movieUrl: id => `https://superflixapi.asia/filme/${id}`, seriesUrl: (id,s,e)=>`https://superflixapi.asia/serie/${id}/${s}/${e}` },
-  { name: "VIDCORE", movieUrl: id => `https://vidcore.net/movie/${id}`, seriesUrl: (id,s,e)=>`https://vidcore.net/tv/${id}/${s}/${e}` },
-  { name: "VIDEASY", movieUrl: id => `https://player.videasy.net/movie/${id}`, seriesUrl: (id,s,e)=>`https://player.videasy.net/tv/${id}/${s}/${e}` },
-  { name: "VIDFAST", movieUrl: id => `https://vidfast.pro/movie/${id}`, seriesUrl: (id,s,e)=>`https://vidfast.pro/tv/${id}/${s}/${e}` },
-  { name: "VIDIFY", movieUrl: id => `https://player.vidify.top/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://player.vidify.top/embed/tv/${id}/${s}/${e}` },
-  { name: "VIDKING", movieUrl: id => `https://www.vidking.net/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://www.vidking.net/embed/tv/${id}/${s}/${e}` },
-  { name: "VIDLINK", movieUrl: id => `https://vidlink.pro/movie/${id}`, seriesUrl: (id,s,e)=>`https://vidlink.pro/tv/${id}/${s}/${e}` },
-  { name: "VIDNEST", movieUrl: id => `https://vidnest.fun/movie/${id}`, seriesUrl: (id,s,e)=>`https://vidnest.fun/tv/${id}/${s}/${e}` },
-  { name: "VIDPLUS", movieUrl: id => `https://player.vidplus.to/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://player.vidplus.to/embed/tv/${id}/${s}/${e}` },
-  { name: "VIDROCK", movieUrl: id => `https://vidrock.net/movie/${id}`, seriesUrl: (id,s,e)=>`https://vidrock.net/tv/${id}/${s}/${e}` },
-  { name: "VIDSRC 1", movieUrl: id => `https://vsembed.ru/embed/movie/${id}/`, seriesUrl: (id,s,e)=>`https:/vsembed.ru/embed/tv/${id}/${s}-${e}` },
-  { name: "VIDSRC 2", movieUrl: id => `https://vsembed.su/embed/movie/${id}/`, seriesUrl: (id,s,e)=>`https:/vsembed.su/embed/tv/${id}/${s}-${e}` },
-  { name: "VIDSRC 3", movieUrl: id => `https://vidsrcme.ru/embed/movie/${id}/`, seriesUrl: (id,s,e)=>`https://vidsrcme.ru/embed/tv/${id}/${s}-${e}` },
-  { name: "VIDSRC 4", movieUrl: id => `https://vidsrcme.su/embed/movie/${id}/`, seriesUrl: (id,s,e)=>`https://vidsrcme.su/embed/tv/${id}/${s}-${e}` },
-  { name: "VIDSRX", movieUrl: id => `https://vixsrc.to/movie/${id}/`, seriesUrl: (id,s,e)=>`https://vixsrc.to/tv/${id}/${s}/${e}/` },
-  { name: "VIDSRCWTF 1", movieUrl: id => `https://vidsrc.wtf/api/1/movie/?id=${id}`, seriesUrl: (id,s,e)=>`https://vidsrc.wtf/api/1/tv/?id=${id}&s=${s}&e=${e}` },
-  { name: "VIDSRCWTF 2", movieUrl: id => `https://vidsrc.wtf/api/2/movie/?id=${id}`, seriesUrl: (id,s,e)=>`https://vidsrc.wtf/api/2/tv/?id=${id}&s=${s}&e=${e}` },
-  { name: "VIDSRCWTF 3", movieUrl: id => `https://vidsrc.wtf/api/3/movie/?id=${id}`, seriesUrl: (id,s,e)=>`https://vidsrc.wtf/api/3/tv/?id=${id}&s=${s}&e=${e}` },
-  { name: "VIDSRCWTF 4", movieUrl: id => `https://vidsrc.wtf/api/4/movie/?id=${id}`, seriesUrl: (id,s,e)=>`https://vidsrc.wtf/api/4/tv/?id=${id}&s=${s}&e=${e}` },
-  { name: "VIDUP", movieUrl: id => `https://vidup.to/movie/${id}`, seriesUrl: (id,s,e)=>`https://vidup.to/tv/${id}/${s}/${e}` },
-  { name: "VIDZEE 1", movieUrl: id => `https://player.vidzee.wtf/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://player.vidzee.wtf/embed/tv/${id}/${s}/${e}` },
-  { name: "VIDZEE 2", movieUrl: id => `https://player.vidzee.wtf/v2/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://player.vidzee.wtf/v2/embed/tv/${id}/${s}/${e}` },
-  { name: "ZXCSTREAM", movieUrl: id => `https://zxcstream.xyz/player/movie/${id}`, seriesUrl: (id,s,e)=>`https://zxcstream.xyz/player/tv/${id}/${s}/${e}` },
-];
-
     // ===== DOM =====
-    const q             = document.getElementById('q');
-    const go            = document.getElementById('go');
-    const results       = document.getElementById('results');
-    const msg           = document.getElementById('msg');
-    const loadMoreBtn   = document.getElementById('loadMore');
-    const settingsToggle= document.getElementById('settingsToggle');
-    const settingsOverlay=document.getElementById('settingsOverlay');
-    const settingsClose = document.getElementById('settingsClose');
-    const pageDiv       = document.querySelector('.page');
+    const q              = document.getElementById('q');
+    const go             = document.getElementById('go');
+    const results        = document.getElementById('results');
+    const msg            = document.getElementById('msg');
+    const loadMoreBtn    = document.getElementById('loadMore');
+    const settingsToggle = document.getElementById('settingsToggle');
+    const settingsOverlay= document.getElementById('settingsOverlay');
+    const settingsClose  = document.getElementById('settingsClose');
+    const pageDiv        = document.querySelector('.page');
 
     // ===== STATE =====
     let mode = 'category';
@@ -900,7 +895,55 @@
     let page = 1;
     let totalPages = 1;
     let currentOpenPlayer = null;
+    let currentOpenDownloaderPanel = null;
     let isTransitioning = false;
+
+    // ===== HELPERS =====
+    function setMsg(text) { msg.textContent = text || ''; }
+    function posterUrl(path) { return path ? `https://image.tmdb.org/t/p/w500${path}` : ''; }
+    function toggleLoadMore() { loadMoreBtn.style.display = (page < totalPages) ? 'block' : 'none'; }
+
+    function applyScrollingTitle(card) {
+      const wrapper = card.querySelector('.title-scroll-wrapper');
+      const text    = card.querySelector('.title-scroll-text');
+      if (!wrapper || !text) return;
+      if (text.scrollWidth > wrapper.clientWidth) {
+        text.classList.add('scrolling');
+      } else {
+        wrapper.classList.add('no-scroll');
+      }
+    }
+
+    // ===== SOURCE DROPDOWN POPULATION =====
+    // Settings dropdowns get an "Automatic" entry; per-card dropdowns get a disabled "Source" placeholder.
+    function populateSettingsSourceSelect(selectEl) {
+      selectEl.innerHTML = '';
+      const automatic = document.createElement('option');
+      automatic.value = '';
+      automatic.textContent = 'Automatic';
+      selectEl.appendChild(automatic);
+      sources.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.name;
+        opt.textContent = s.name;
+        selectEl.appendChild(opt);
+      });
+    }
+
+    function populateCardSourceSelect(selectEl) {
+      selectEl.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.textContent = 'Source';
+      placeholder.disabled = true;
+      placeholder.selected = true;
+      selectEl.appendChild(placeholder);
+      sources.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.name;
+        opt.textContent = s.name;
+        selectEl.appendChild(opt);
+      });
+    }
 
     // ===== PILL HELPERS =====
     function setActivePill(pill) {
@@ -974,6 +1017,7 @@
       page = 1; totalPages = 1;
       results.innerHTML = '';
       closeCurrentPlayer();
+      currentOpenDownloaderPanel = null;
       setMsg(`${history.length} item${history.length === 1 ? '' : 's'} in history`);
       renderResults(history, false);
       loadMoreBtn.style.display = 'none';
@@ -991,32 +1035,13 @@
       page = 1; totalPages = 1;
       results.innerHTML = '';
       closeCurrentPlayer();
+      currentOpenDownloaderPanel = null;
       setMsg(`${favorites.length} favourite${favorites.length === 1 ? '' : 's'}`);
       renderResults(favorites, false);
       loadMoreBtn.style.display = 'none';
     }
 
     // ===== SETTINGS =====
-    function loadAllSettings() {
-      const isDark = document.body.classList.contains('dark-mode');
-      const themeToggleEl = document.getElementById('themeToggle');
-      if (themeToggleEl) themeToggleEl.classList.toggle('on', isDark);
-
-      const accentColor = localStorage.getItem('accentColor') || DEFAULT_ACCENT;
-      applyAccentColor(accentColor);
-      if (document.getElementById('accentColor')) {
-        document.getElementById('accentColor').value = accentColor;
-        document.getElementById('colorHex').value = accentColor;
-        updateActivePreset('accent', accentColor);
-      }
-      const defaultMovieSource = localStorage.getItem('defaultMovieSource') || '';
-      const defaultTVSource    = localStorage.getItem('defaultTVSource')    || '';
-      if (document.getElementById('defaultMovieSource'))
-        document.getElementById('defaultMovieSource').value = defaultMovieSource;
-      if (document.getElementById('defaultTVSource'))
-        document.getElementById('defaultTVSource').value = defaultTVSource;
-    }
-
     function applyAccentColor(color) {
       document.documentElement.style.setProperty('--primary-color', color);
       document.documentElement.style.setProperty('--primary-hover', adjustBrightness(color, -10));
@@ -1040,24 +1065,38 @@
 
     function showSaveIndicator(id) {
       const el = document.getElementById(id);
-      if (el) { el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2000); }
+      if (!el) return;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2000);
+    }
+
+    // Sync UI elements in settings overlay to current localStorage values.
+    // Listeners are attached ONCE in init(), so this just updates values.
+    function syncSettingsUI() {
+      const isDark = document.body.classList.contains('dark-mode');
+      document.getElementById('themeToggle').classList.toggle('on', isDark);
+
+      const accent = localStorage.getItem('accentColor') || DEFAULT_ACCENT;
+      applyAccentColor(accent);
+      document.getElementById('accentColor').value = accent;
+      document.getElementById('colorHex').value    = accent;
+      updateActivePreset('accent', accent);
+
+      document.getElementById('defaultMovieSource').value = localStorage.getItem('defaultMovieSource') || '';
+      document.getElementById('defaultTVSource').value    = localStorage.getItem('defaultTVSource')    || '';
     }
 
     function initSettingsListeners() {
       // Dark mode toggle
-      const themeToggleEl = document.getElementById('themeToggle');
-      if (themeToggleEl) {
-        // Clone to wipe any prior listener added on a previous settings open
-        const fresh = themeToggleEl.cloneNode(true);
-        themeToggleEl.parentNode.replaceChild(fresh, themeToggleEl);
-        fresh.addEventListener('click', () => {
-          h('light');
-          document.body.classList.toggle('dark-mode');
-          const isDark = document.body.classList.contains('dark-mode');
-          fresh.classList.toggle('on', isDark);
-          localStorage.setItem('theme', isDark ? 'dark' : 'light');
-        });
-      }
+      document.getElementById('themeToggle').addEventListener('click', e => {
+        h('light');
+        document.body.classList.toggle('dark-mode');
+        const isDark = document.body.classList.contains('dark-mode');
+        e.currentTarget.classList.toggle('on', isDark);
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+      });
+
+      // Default sources
       document.getElementById('defaultMovieSource').addEventListener('change', e => {
         h('selection');
         localStorage.setItem('defaultMovieSource', e.target.value);
@@ -1068,31 +1107,37 @@
         localStorage.setItem('defaultTVSource', e.target.value);
         showSaveIndicator('tvSourceSaved');
       });
+
       // Accent colour native picker
       document.getElementById('accentColor').addEventListener('input', e => {
         const c = e.target.value;
         document.getElementById('colorHex').value = c;
-        applyAccentColor(c); updateActivePreset('accent', c);
+        applyAccentColor(c);
+        updateActivePreset('accent', c);
         localStorage.setItem('accentColor', c);
       });
+
       // Accent colour hex input
       document.getElementById('colorHex').addEventListener('input', e => {
         let c = e.target.value;
         if (!c.startsWith('#')) c = '#' + c;
         if (/^#[0-9A-F]{6}$/i.test(c)) {
           document.getElementById('accentColor').value = c;
-          applyAccentColor(c); updateActivePreset('accent', c);
+          applyAccentColor(c);
+          updateActivePreset('accent', c);
           localStorage.setItem('accentColor', c);
         }
       });
+
       // Accent colour preset swatches
       document.querySelectorAll('.color-preset').forEach(p => {
         p.addEventListener('click', () => {
           h('light');
           const c = p.dataset.color;
           document.getElementById('accentColor').value = c;
-          document.getElementById('colorHex').value = c;
-          applyAccentColor(c); updateActivePreset('accent', c);
+          document.getElementById('colorHex').value    = c;
+          applyAccentColor(c);
+          updateActivePreset('accent', c);
           localStorage.setItem('accentColor', c);
         });
       });
@@ -1107,10 +1152,10 @@
       setTimeout(() => {
         pageDiv.style.display = 'none';
         settingsOverlay.style.display = 'block';
-        settingsOverlay.offsetHeight;
+        settingsOverlay.offsetHeight; // force reflow
         requestAnimationFrame(() => {
           settingsOverlay.classList.add('show');
-          loadAllSettings(); initSettingsListeners();
+          syncSettingsUI();
           setTimeout(() => { isTransitioning = false; }, 400);
         });
       }, 400);
@@ -1124,7 +1169,7 @@
       setTimeout(() => {
         settingsOverlay.style.display = 'none';
         pageDiv.style.display = 'block';
-        pageDiv.offsetHeight;
+        pageDiv.offsetHeight; // force reflow
         requestAnimationFrame(() => {
           pageDiv.classList.remove('fade-out');
           setTimeout(() => { isTransitioning = false; }, 400);
@@ -1132,51 +1177,18 @@
       }, 400);
     }
 
-    settingsToggle.addEventListener('click', e => {
-      e.preventDefault();
-      h('medium');
-      openSettings();
-    });
-    settingsClose.addEventListener('click', e => {
-      e.preventDefault();
-      h('light');
-      closeSettings();
-    });
+    settingsToggle.addEventListener('click', e => { e.preventDefault(); h('medium'); openSettings(); });
+    settingsClose.addEventListener('click',  e => { e.preventDefault(); h('light');  closeSettings(); });
 
     // ===== SEARCH =====
-    go.addEventListener('click', () => {
-      h('medium');
-      startSearch(q.value.trim());
-    });
+    go.addEventListener('click', () => { h('medium'); startSearch(q.value.trim()); });
     q.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        h('medium');
-        startSearch(q.value.trim());
-      }
+      if (e.key === 'Enter') { h('medium'); startSearch(q.value.trim()); }
     });
-    loadMoreBtn.addEventListener('click', () => {
-      h('light');
-      loadMore();
-    });
-
-    // ===== HELPERS =====
-    function setMsg(text) { msg.textContent = text || ''; }
-    function posterUrl(path) { return path ? `https://image.tmdb.org/t/p/w500${path}` : ''; }
-    function toggleLoadMore() { loadMoreBtn.style.display = (page < totalPages) ? 'block' : 'none'; }
-
-    function applyScrollingTitle(card) {
-      const wrapper = card.querySelector('.title-scroll-wrapper');
-      const text    = card.querySelector('.title-scroll-text');
-      if (!wrapper || !text) return;
-      if (text.scrollWidth > wrapper.clientWidth) {
-        text.classList.add('scrolling');
-      } else {
-        wrapper.classList.add('no-scroll');
-      }
-    }
+    loadMoreBtn.addEventListener('click', () => { h('light'); loadMore(); });
 
     // ===== LIGHTBOX =====
-    const lightbox = document.createElement('div');
+    const lightbox    = document.createElement('div');
     lightbox.className = 'lightbox-overlay';
     const lightboxImg = document.createElement('img');
     lightbox.appendChild(lightboxImg);
@@ -1211,7 +1223,8 @@
     }
 
     function openPlayer(playerContainer, playerTopControls, iframe, url, card) {
-      if (currentOpenPlayer) closeCurrentPlayer();
+      const wasOpen = !!currentOpenPlayer;
+      if (wasOpen) closeCurrentPlayer();
       setTimeout(() => {
         iframe.src = url;
         playerContainer.classList.add('opening');
@@ -1225,7 +1238,35 @@
           card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 10);
         currentOpenPlayer = { playerContainer, playerTopControls, iframe };
-      }, currentOpenPlayer ? 420 : 0);
+      }, wasOpen ? 420 : 0);
+    }
+
+    // ===== DOWNLOADER PANEL =====
+    // Same animation pattern as the player — at most one panel open across all cards.
+    function closeDownloaderPanel(panel) {
+      if (!panel || !panel.classList.contains('show')) return;
+      panel.classList.add('closing');
+      panel.classList.remove('show');
+      setTimeout(() => {
+        panel.classList.remove('closing');
+        panel.style.display = 'none';
+        if (currentOpenDownloaderPanel === panel) currentOpenDownloaderPanel = null;
+      }, 300);
+    }
+
+    function openDownloaderPanel(panel) {
+      const wasOpen = !!currentOpenDownloaderPanel && currentOpenDownloaderPanel !== panel;
+      if (wasOpen) closeDownloaderPanel(currentOpenDownloaderPanel);
+      setTimeout(() => {
+        panel.classList.add('opening');
+        panel.style.display = 'block';
+        panel.offsetHeight; // force reflow
+        setTimeout(() => {
+          panel.classList.remove('opening');
+          panel.classList.add('show');
+        }, 10);
+        currentOpenDownloaderPanel = panel;
+      }, wasOpen ? 320 : 0);
     }
 
     // ===== CORE LOGIC =====
@@ -1234,6 +1275,7 @@
       mode = 'search'; queryText = term; page = 1;
       results.innerHTML = '';
       closeCurrentPlayer();
+      currentOpenDownloaderPanel = null;
       clearActivePills();
       setMsg('Searching…');
       fetchAndRender(false);
@@ -1243,6 +1285,7 @@
       mode = 'category'; type = t; category = c; page = 1;
       results.innerHTML = '';
       closeCurrentPlayer();
+      currentOpenDownloaderPanel = null;
       setMsg('Loading…');
       fetchAndRender(false);
     }
@@ -1260,12 +1303,10 @@
         let endpoint = '';
         if (mode === 'search') {
           endpoint = `https://api.themoviedb.org/3/search/multi?api_key=${API_KEY}&query=${encodeURIComponent(queryText)}&page=${page}`;
+        } else if (category === 'trending') {
+          endpoint = `https://api.themoviedb.org/3/trending/${type}/day?api_key=${API_KEY}&page=${page}`;
         } else {
-          if (category === 'trending') {
-            endpoint = `https://api.themoviedb.org/3/trending/${type}/day?api_key=${API_KEY}&page=${page}`;
-          } else {
-            endpoint = `https://api.themoviedb.org/3/${type}/${category}?api_key=${API_KEY}&page=${page}`;
-          }
+          endpoint = `https://api.themoviedb.org/3/${type}/${category}?api_key=${API_KEY}&page=${page}`;
         }
         const res  = await fetch(endpoint);
         const data = await res.json();
@@ -1282,6 +1323,15 @@
       }
     }
 
+    // ===== CARD PILL FACTORY =====
+    function createCardPill(text, isPrimary = false, onClick = null) {
+      const btn = document.createElement('button');
+      btn.className = 'btn-card-pill' + (isPrimary ? ' btn-card-pill-primary' : '');
+      btn.textContent = text;
+      if (onClick) btn.onclick = onClick;
+      return btn;
+    }
+
     // ===== RENDER =====
     function renderResults(items, append = false) {
       if (!append) {
@@ -1292,11 +1342,11 @@
       items.forEach(item => {
         if (item.media_type === 'person') return;
 
-        const title   = item.title || item.name || '(untitled)';
-        const year    = (item.release_date || item.first_air_date || '').split('-')[0] || 'N/A';
-        const isTV    = item.media_type === 'tv';
-        const img     = posterUrl(item.poster_path);
-        const rating  = item.vote_average ? Math.round(item.vote_average * 10) / 10 : null;
+        const title  = item.title || item.name || '(untitled)';
+        const year   = (item.release_date || item.first_air_date || '').split('-')[0] || 'N/A';
+        const isTV   = item.media_type === 'tv';
+        const img    = posterUrl(item.poster_path);
+        const rating = item.vote_average ? Math.round(item.vote_average * 10) / 10 : null;
         const isHistoryMode = mode === 'history';
 
         const card = document.createElement('div');
@@ -1318,7 +1368,11 @@
             card.style.overflow = 'hidden';
             setTimeout(() => {
               card.style.maxHeight = card.offsetHeight + 'px';
-              setTimeout(() => { card.style.maxHeight = '0'; card.style.paddingTop = '0'; card.style.paddingBottom = '0'; }, 10);
+              setTimeout(() => {
+                card.style.maxHeight = '0';
+                card.style.paddingTop = '0';
+                card.style.paddingBottom = '0';
+              }, 10);
             }, 200);
             setTimeout(() => {
               card.remove();
@@ -1374,7 +1428,7 @@
         const controlsTopRow = document.createElement('div');
         controlsTopRow.className = 'controls-top-row';
 
-        const tmdbBtn    = createCardPill('TMDB',    false, () => {
+        const tmdbBtn = createCardPill('TMDB', false, () => {
           h('light');
           window.open(`https://www.themoviedb.org/${item.media_type}/${item.id}`, '_blank');
         });
@@ -1383,7 +1437,7 @@
           try {
             const res  = await fetch(`https://api.themoviedb.org/3/${item.media_type}/${item.id}/videos?api_key=${API_KEY}`);
             const data = await res.json();
-            const trailers = data.results.filter(v => v.type === 'Trailer' && v.site === 'YouTube');
+            const trailers = (data.results || []).filter(v => v.type === 'Trailer' && v.site === 'YouTube');
             if (trailers.length) window.open(`https://www.youtube.com/watch?v=${trailers[0].key}`, '_blank');
             else alert('No trailer available.');
           } catch { alert('Failed to load trailer.'); }
@@ -1394,16 +1448,15 @@
         heartBtnCard.className = 'btn-card-pill btn-heart';
         const heartImg = document.createElement('img');
         heartImg.alt = 'Favourite';
-        heartImg.style.cssText = 'width:14px;height:14px;';
         heartBtnCard.appendChild(heartImg);
 
         const favorites   = JSON.parse(localStorage.getItem('favorites') || '[]');
         const isFavorited = favorites.some(f => f.id === item.id && f.media_type === item.media_type);
         if (isFavorited) {
-          heartImg.src = 'https://areyouabot.neocities.org/heart.png';
+          heartImg.src = HEART_FILLED_URL;
           heartImg.className = 'heart-filled';
         } else {
-          heartImg.src = 'https://areyouabot.neocities.org/heartempty.png';
+          heartImg.src = HEART_EMPTY_URL;
           heartImg.className = 'heart-empty';
         }
 
@@ -1414,13 +1467,20 @@
             // Un-favourite
             h('light');
             favs.splice(index, 1);
-            heartImg.src = 'https://areyouabot.neocities.org/heartempty.png';
+            heartImg.src = HEART_EMPTY_URL;
             heartImg.className = 'heart-empty';
           } else {
             // Add to favourites — trigger the cute animation
             h('success');
-            favs.push({ id: item.id, media_type: item.media_type, title, year, poster_path: item.poster_path, overview: item.overview, vote_average: item.vote_average });
-            heartImg.src = 'https://areyouabot.neocities.org/heart.png';
+            favs.push({
+              id: item.id,
+              media_type: item.media_type,
+              title, year,
+              poster_path: item.poster_path,
+              overview: item.overview,
+              vote_average: item.vote_average
+            });
+            heartImg.src = HEART_FILLED_URL;
             heartImg.className = 'heart-filled';
             triggerHeartFavAnim(heartBtnCard);
           }
@@ -1435,17 +1495,7 @@
         controlsMiddleRow.className = 'controls-middle-row';
 
         const srcSelect = document.createElement('select');
-        const placeholder = document.createElement('option');
-        placeholder.textContent = 'Source';
-        placeholder.disabled = true;
-        placeholder.selected = true;
-        srcSelect.appendChild(placeholder);
-        sources.forEach(s => {
-          const opt = document.createElement('option');
-          opt.value = s.name; opt.textContent = s.name;
-          srcSelect.appendChild(opt);
-        });
-
+        populateCardSourceSelect(srcSelect);
         srcSelect.addEventListener('change', () => h('selection'));
 
         const defaultSource = isTV
@@ -1505,13 +1555,43 @@
         iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
         playerContainer.appendChild(iframe);
 
+        // Downloader panel (hidden until Download is clicked)
+        const downloaderPanel = document.createElement('div');
+        downloaderPanel.className = 'downloader-panel';
+        const downloaderInner = document.createElement('div');
+        downloaderInner.className = 'downloader-panel-inner';
+        const downloaderLabel = document.createElement('div');
+        downloaderLabel.className = 'downloader-panel-label';
+        downloaderLabel.textContent = 'Download from';
+        const downloaderList = document.createElement('div');
+        downloaderList.className = 'downloader-list';
+        downloaders.forEach(d => {
+          const pill = document.createElement('button');
+          pill.className = 'downloader-pill';
+          pill.textContent = d.name;
+          pill.onclick = () => {
+            h('medium');
+            const s = seasonSelect.value || 1;
+            const ep = episodeSelect.value || 1;
+            const url = isTV ? d.seriesUrl(item.id, s, ep) : d.movieUrl(item.id);
+            window.open(url, '_blank');
+            closeDownloaderPanel(downloaderPanel);
+          };
+          downloaderList.appendChild(pill);
+        });
+        downloaderInner.append(downloaderLabel, downloaderList);
+        downloaderPanel.appendChild(downloaderInner);
+
+        card.appendChild(downloaderPanel);
         card.appendChild(playerTopControls);
         card.appendChild(playerContainer);
 
         const getUrl = () => {
           const src = sources.find(s => s.name === srcSelect.value);
           if (!src) return null;
-          return isTV ? src.seriesUrl(item.id, seasonSelect.value || 1, episodeSelect.value || 1) : src.movieUrl(item.id);
+          return isTV
+            ? src.seriesUrl(item.id, seasonSelect.value || 1, episodeSelect.value || 1)
+            : src.movieUrl(item.id);
         };
 
         playBtn.onclick = () => {
@@ -1527,29 +1607,21 @@
         };
         openBtn.onclick = () => {
           const url = getUrl();
-          if (url) {
-            h('medium');
-            window.open(url, '_blank');
-          }
+          if (url) { h('medium'); window.open(url, '_blank'); }
         };
         dlBtn.onclick = () => {
-          h('medium');
-          const s = seasonSelect.value || 1, e = episodeSelect.value || 1;
-          window.open(isTV ? `https://dl.vidsrc.vip/tv/${item.id}/${s}/${e}` : `https://dl.vidsrc.vip/movie/${item.id}`, '_blank');
+          if (downloaderPanel.classList.contains('show')) {
+            h('light');
+            closeDownloaderPanel(downloaderPanel);
+          } else {
+            h('medium');
+            openDownloaderPanel(downloaderPanel);
+          }
         };
 
         results.appendChild(card);
         applyScrollingTitle(card);
       });
-    }
-
-    // ===== CARD PILL BUTTON FACTORY =====
-    function createCardPill(text, isPrimary = false, onClick = null) {
-      const btn = document.createElement('button');
-      btn.className = 'btn-card-pill' + (isPrimary ? ' btn-card-pill-primary' : '');
-      btn.textContent = text;
-      if (onClick) btn.onclick = onClick;
-      return btn;
     }
 
     // ===== SEASON/EPISODE LOADERS =====
@@ -1562,7 +1634,8 @@
         seasons.forEach(s => {
           if (s.season_number > 0) {
             const opt = document.createElement('option');
-            opt.value = s.season_number; opt.textContent = `S${s.season_number}`;
+            opt.value = s.season_number;
+            opt.textContent = `S${s.season_number}`;
             seasonSelect.appendChild(opt);
           }
         });
@@ -1577,7 +1650,8 @@
         episodeSelect.innerHTML = '';
         (data.episodes || []).forEach(ep => {
           const opt = document.createElement('option');
-          opt.value = ep.episode_number; opt.textContent = `E${ep.episode_number}`;
+          opt.value = ep.episode_number;
+          opt.textContent = `E${ep.episode_number}`;
           episodeSelect.appendChild(opt);
         });
       } catch (e) { console.error(e); }
@@ -1593,28 +1667,38 @@
     })();
 
     // ===== INIT =====
-    (() => {
-      const stored = localStorage.getItem('theme');
-      if (stored !== 'light') document.body.classList.add('dark-mode');
-      const accent = localStorage.getItem('accentColor') || DEFAULT_ACCENT;
-      applyAccentColor(accent);
-    })();
+    (function init() {
+      // Theme + accent
+      const storedTheme = localStorage.getItem('theme');
+      if (storedTheme !== 'light') document.body.classList.add('dark-mode');
+      applyAccentColor(localStorage.getItem('accentColor') || DEFAULT_ACCENT);
 
-    const savedType     = localStorage.getItem('selectedBrowseType');
-    const savedCategory = localStorage.getItem('selectedBrowseCategory');
-    let initialPill;
-    if (savedType && savedCategory) {
-      initialPill = document.querySelector(`.pill[data-type="${savedType}"][data-category="${savedCategory}"]`);
-    }
-    if (!initialPill) {
-      initialPill = document.querySelector('.pill[data-type="movie"][data-category="popular"]');
-    }
-    if (initialPill) {
-      initialPill.classList.add('active');
-      if (initialPill.dataset.action === 'browse') {
-        startCategory(initialPill.dataset.type, initialPill.dataset.category);
+      // Populate settings dropdowns from the live `sources` list, then sync values
+      populateSettingsSourceSelect(document.getElementById('defaultMovieSource'));
+      populateSettingsSourceSelect(document.getElementById('defaultTVSource'));
+      syncSettingsUI();
+
+      // Attach settings listeners ONCE on page load (was previously re-attached
+      // each time settings opened, leaking duplicate handlers)
+      initSettingsListeners();
+
+      // Restore last-browsed pill or fall back to Popular Movies
+      const savedType     = localStorage.getItem('selectedBrowseType');
+      const savedCategory = localStorage.getItem('selectedBrowseCategory');
+      let initialPill;
+      if (savedType && savedCategory) {
+        initialPill = document.querySelector(`.pill[data-type="${savedType}"][data-category="${savedCategory}"]`);
       }
-    }
+      if (!initialPill) {
+        initialPill = document.querySelector('.pill[data-type="movie"][data-category="popular"]');
+      }
+      if (initialPill) {
+        initialPill.classList.add('active');
+        if (initialPill.dataset.action === 'browse') {
+          startCategory(initialPill.dataset.type, initialPill.dataset.category);
+        }
+      }
+    })();
   </script>
 </body>
 </html>
