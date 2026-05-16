@@ -8,8 +8,6 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@500&display=swap');
 
-* { cursor: none; }
-
 body {
     margin: 0;
     height: 100vh;
@@ -37,7 +35,6 @@ body {
     width: 2rem;
     height: 2rem;
     object-fit: contain;
-    cursor: none;
     transition: transform 0.45s cubic-bezier(0.34, 1.6, 0.64, 1);
 }
 .name-row img.returning {
@@ -124,41 +121,9 @@ a { color: #333333; text-decoration: none; }
 .email-address.conceal { animation: clipConceal 0.4s cubic-bezier(0.4,0,0.2,1) forwards; }
 @keyframes clipReveal { 0% { clip-path: inset(0 100% 0 0); } 100% { clip-path: inset(0 0 0 0); } }
 @keyframes clipConceal { 0% { clip-path: inset(0 0 0 0); } 100% { clip-path: inset(0 100% 0 0); } }
-
-/* ── Custom cursor ── */
-#cur-dot, #cur-ring {
-    position: fixed;
-    border-radius: 50%;
-    pointer-events: none;
-    transform: translate(-50%, -50%);
-    z-index: 9999;
-}
-#cur-dot {
-    width: 5px;
-    height: 5px;
-    background: #333333;
-    z-index: 10000;
-}
-#cur-ring {
-    width: 26px;
-    height: 26px;
-    border: 1px solid rgba(51,51,51,0.4);
-    transition:
-        width  0.38s cubic-bezier(0.16,1,0.3,1),
-        height 0.38s cubic-bezier(0.16,1,0.3,1),
-        border-color 0.3s;
-}
-body.ch #cur-ring {
-    width: 42px;
-    height: 42px;
-    border-color: #333333;
-}
 </style>
 </head>
 <body>
-
-<div id="cur-dot"></div>
-<div id="cur-ring"></div>
 
 <div class="container">
     <div class="name-row">
@@ -168,8 +133,8 @@ body.ch #cur-ring {
 
     <div class="link-row">
         my
-        <span class="link-icon"><img src="linkedin.svg" alt="LinkedIn"></span>
-        <a href="https://www.linkedin.com/in/will-0046a33bb" target="_blank" class="underline">LinkedIn</a>
+        <span class="link-icon"><img src="https://wills.im/pson/instagram.svg" alt="Instagram"></span>
+        <a href="https://www.instagram.com/willsimpson.0" target="_blank" class="underline">Instagram</a>
     </div>
 
     <div class="link-row">
@@ -183,31 +148,13 @@ body.ch #cur-ring {
             <span class="email-address" id="email-address">2006.willsimpson@gmail.com</span>
         </span>
     </div>
+
+    <div class="link-row">
+        <a href="https://wills.im/pson/movies" class="underline">movies</a>
+    </div>
 </div>
 
 <script>
-/* ── Custom cursor ── */
-const dot  = document.getElementById('cur-dot');
-const ring = document.getElementById('cur-ring');
-let mx = -200, my = -200, rx = -200, ry = -200;
-
-document.addEventListener('mousemove', e => {
-    mx = e.clientX; my = e.clientY;
-    dot.style.left = mx + 'px';
-    dot.style.top  = my + 'px';
-});
-(function follow(){
-    rx += (mx - rx) * 0.13;
-    ry += (my - ry) * 0.13;
-    ring.style.left = rx + 'px';
-    ring.style.top  = ry + 'px';
-    requestAnimationFrame(follow);
-})();
-document.querySelectorAll('a, #msn-icon, .link-icon').forEach(el => {
-    el.addEventListener('mouseenter', () => document.body.classList.add('ch'));
-    el.addEventListener('mouseleave', () => document.body.classList.remove('ch'));
-});
-
 /* ── MSN icon ── */
 const icon = document.getElementById('msn-icon');
 let isAvoiding = false;
