@@ -7,8 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..800&display=swap" rel="stylesheet" />
-
-  <!-- Haptic feedback library -->
   <script src="https://haptics.lochie.me/haptics.js"></script>
 
   <style>
@@ -110,7 +108,6 @@
 
     .btn img { width: 18px; height: 18px; display: block; }
 
-    /* Settings icon: force solid black, invert in dark mode */
     .settings-icon { filter: brightness(0); }
     body.dark-mode .settings-icon { filter: brightness(0) invert(1); }
 
@@ -168,12 +165,10 @@
 
     .btn-card-pill img { width: 14px; height: 14px; display: block; }
 
-    /* Heart icon: normalise to a consistent colour regardless of source image */
     .btn-card-pill.btn-heart img.heart-empty  { filter: brightness(0) opacity(0.45); }
     body.dark-mode .btn-card-pill.btn-heart img.heart-empty { filter: brightness(0) invert(1) opacity(0.45); }
     .btn-card-pill.btn-heart img.heart-filled { filter: none; }
 
-    /* ===== HEART FAVOURITE ANIMATION ===== */
     @keyframes heartPop {
       0%   { transform: scale(1)    rotate(0deg);  }
       20%  { transform: scale(1.6)  rotate(-14deg); }
@@ -229,6 +224,215 @@
     .search-area { display: flex; gap: 8px; margin-bottom: 14px; }
     .search-area input { flex: 1; }
 
+    /* ===== CONTINUE WATCHING STRIP ===== */
+    .cw-section {
+      margin-left: -20px;
+      margin-right: -20px;
+      margin-bottom: 18px;
+      display: none; /* shown via JS when items exist */
+    }
+
+    .cw-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      margin-bottom: 10px;
+    }
+
+    .cw-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted-text);
+    }
+
+    .cw-clear-btn {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--muted-text);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 2px 0;
+      font-family: inherit;
+      opacity: 0.7;
+    }
+    .cw-clear-btn:active { opacity: 0.4; }
+
+    .cw-scroll-wrapper {
+      position: relative;
+    }
+
+    .cw-scroll-wrapper::before,
+    .cw-scroll-wrapper::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 48px;
+      pointer-events: none;
+      z-index: 1;
+      transition: opacity 0.2s ease;
+    }
+
+    .cw-scroll-wrapper::before {
+      left: 0;
+      background: linear-gradient(to right, var(--bg-color) 20%, transparent 100%);
+      opacity: 0;
+    }
+
+    .cw-scroll-wrapper.has-scrolled::before { opacity: 1; }
+
+    .cw-scroll-wrapper::after {
+      right: 0;
+      background: linear-gradient(to left, var(--bg-color) 20%, transparent 100%);
+      opacity: 1;
+    }
+
+    .cw-scroll {
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      padding-left: 20px;
+      padding-right: 20px;
+      padding-bottom: 4px;
+      -webkit-overflow-scrolling: touch;
+    }
+    .cw-scroll::-webkit-scrollbar { display: none; }
+
+    .cw-card {
+      flex-shrink: 0;
+      width: 148px;
+      position: relative;
+      border-radius: 8px;
+      overflow: hidden;
+      cursor: pointer;
+      background: var(--secondary-bg);
+      /* subtle press animation */
+      transition: transform 0.15s ease, opacity 0.15s ease;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .cw-card:active { transform: scale(0.96); opacity: 0.85; }
+
+    .cw-backdrop {
+      width: 100%;
+      aspect-ratio: 16/9;
+      object-fit: cover;
+      display: block;
+      background: var(--secondary-bg);
+    }
+
+    /* gradient overlay so text is legible over any backdrop */
+    .cw-card-overlay {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        transparent 30%,
+        rgba(0,0,0,0.55) 65%,
+        rgba(0,0,0,0.82) 100%
+      );
+      pointer-events: none;
+    }
+
+    .cw-card-info {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 6px 8px 7px;
+      pointer-events: none;
+    }
+
+    .cw-card-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.3;
+      margin-bottom: 2px;
+    }
+
+    .cw-card-sub {
+      font-size: 0.64rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.72);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+    }
+
+    /* play icon centred on the card */
+    .cw-play-icon {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -60%); /* shift up slightly so it clears the text */
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .cw-play-icon svg {
+      width: 13px;
+      height: 13px;
+      fill: #fff;
+      margin-left: 2px; /* optical centre for play triangle */
+    }
+
+    /* dismiss × button */
+    .cw-dismiss {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(3px);
+      -webkit-backdrop-filter: blur(3px);
+      border: none;
+      color: rgba(255,255,255,0.85);
+      font-size: 10px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 2;
+      padding: 0;
+      font-family: inherit;
+      transition: background 0.15s, transform 0.15s;
+    }
+    .cw-dismiss:active { background: rgba(200,50,50,0.75); transform: scale(0.9); }
+
+    /* fade-out animation when dismissed */
+    @keyframes cwCardOut {
+      to { opacity: 0; transform: scale(0.88); }
+    }
+    .cw-card.removing {
+      animation: cwCardOut 0.22s ease forwards;
+      pointer-events: none;
+    }
+
+    /* ===== END CONTINUE WATCHING ===== */
+
     .category-scroll-wrapper {
       position: relative;
       margin-bottom: 22px;
@@ -236,33 +440,30 @@
       margin-right: -20px;
     }
 
-    .category-scroll-wrapper::before {
+    .category-scroll-wrapper::before,
+    .category-scroll-wrapper::after {
       content: '';
       position: absolute;
-      left: 0;
       top: 0;
       bottom: 8px;
-      width: 56px;
-      background: linear-gradient(to left, transparent, var(--bg-color));
+      width: 48px;
       pointer-events: none;
       z-index: 1;
+      transition: opacity 0.2s ease;
+    }
+
+    .category-scroll-wrapper::before {
+      left: 0;
+      background: linear-gradient(to right, var(--bg-color) 20%, transparent 100%);
       opacity: 0;
-      transition: opacity 0.25s ease, background 0.3s;
     }
 
     .category-scroll-wrapper.has-scrolled::before { opacity: 1; }
 
     .category-scroll-wrapper::after {
-      content: '';
-      position: absolute;
       right: 0;
-      top: 0;
-      bottom: 8px;
-      width: 56px;
-      background: linear-gradient(to right, transparent, var(--bg-color));
-      pointer-events: none;
-      z-index: 1;
-      transition: background 0.3s;
+      background: linear-gradient(to left, var(--bg-color) 20%, transparent 100%);
+      opacity: 1;
     }
 
     .category-scroll {
@@ -418,7 +619,6 @@
     }
     .download-btn:hover { background-color: var(--primary-hover); }
 
-    /* iOS-style toggle switch */
     .toggle-switch {
       width: 48px; height: 28px;
       border-radius: 14px;
@@ -567,28 +767,46 @@
     .player-top-controls {
       display: none;
       justify-content: flex-end;
-      margin-top: 12px; gap: 8px;
-      opacity: 0; transition: opacity 0.3s ease;
+      margin-top: 10px; gap: 8px;
+      opacity: 0;
+      transition: opacity 0.25s ease;
     }
     .player-top-controls.show { display: flex; opacity: 1; }
 
     .player-container {
-      width: 100%; display: none; margin-top: 6px;
-      background: #000; border-radius: 8px; overflow: hidden;
-      opacity: 0; max-height: 0;
-      transition: opacity 0.4s ease, max-height 0.4s ease;
+      display: none;
+      width: 100%;
+      margin-top: 8px;
+      background: #000;
+      border-radius: 10px;
+      overflow: hidden;
     }
-    .player-container.opening { display: block; max-height: 0; opacity: 0; }
-    .player-container.show { display: block; max-height: 2000px; opacity: 1; }
-    .player-container.closing { max-height: 0; opacity: 0; }
+
+    .player-container.show {
+      display: block;
+      animation: playerReveal 0.28s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    .player-container.closing {
+      display: block;
+      animation: playerHide 0.22s ease forwards;
+    }
+
+    @keyframes playerReveal {
+      from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0)    scale(1);    }
+    }
+
+    @keyframes playerHide {
+      from { opacity: 1; transform: translateY(0)    scale(1);    }
+      to   { opacity: 0; transform: translateY(-8px) scale(0.98); }
+    }
 
     iframe.mini-player {
       width: 100%; aspect-ratio: 16/9;
       height: auto; border: none; display: block;
     }
 
-    /* Downloader picker panel — slides down inline below the actions row,
-       same animation language as .player-container */
     .downloader-panel {
       width: 100%;
       display: none;
@@ -678,6 +896,161 @@
       select { width: 100%; }
       .color-presets { gap: 8px; }
       .color-preset { width: 36px; height: 36px; }
+      .cw-card { width: 132px; }
+    }
+
+    /* Prev / Next episode row — appears below player for TV */
+    .ep-nav-row {
+      display: none;
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .ep-nav-row.visible { display: flex; }
+
+    .ep-nav-btn {
+      flex: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-sizing: border-box;
+      padding: 8px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      background: var(--pill-bg);
+      color: var(--muted-text);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, transform 0.1s, border-color 0.15s;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .ep-nav-btn:active { transform: scale(0.95); background: var(--secondary-hover); }
+    .ep-nav-btn:disabled { opacity: 0.3; pointer-events: none; }
+    .ep-nav-btn svg { flex-shrink: 0; width: 12px; height: 12px; }
+
+    /* Loading pulse on Play button while iframe is loading */
+    @keyframes playLoading {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.55; }
+    }
+    .btn-card-pill-primary.loading {
+      animation: playLoading 0.9s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    /* Source badge shown in player controls bar */
+    .player-source-badge {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted-text);
+      letter-spacing: 0.05em;
+      opacity: 0.7;
+      margin-right: auto;
+      align-self: center;
+    }
+
+    /* CW section fade-in on first render */
+    @keyframes cwFadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .cw-section.animating {
+      animation: cwFadeIn 0.3s ease forwards;
+    }
+
+    /* Swipe-hint shimmer on CW cards (first load only) */
+    .cw-card .cw-backdrop { transition: filter 0.2s ease; }
+    .cw-card:active .cw-backdrop { filter: brightness(0.75); }
+
+    /* ===== BACKGROUND PRESETS ===== */
+    /* Applied via body data-bg attribute */
+    body[data-bg="charcoal"]    { --bg-color: #111113; --secondary-bg: #1c1c1f; --input-bg: #1c1c1f; --border-color: #2e2e33; --pill-bg: #1f1f22; --muted-text: #8e8e96; }
+    body[data-bg="navy"]        { --bg-color: #0a0f1e; --secondary-bg: #111827; --input-bg: #111827; --border-color: #1e2d45; --pill-bg: #111827; --muted-text: #8096b8; }
+    body[data-bg="forest"]      { --bg-color: #0b120d; --secondary-bg: #111e14; --input-bg: #111e14; --border-color: #1a3020; --pill-bg: #111e14; --muted-text: #6a9a75; }
+    body[data-bg="wine"]        { --bg-color: #120810; --secondary-bg: #1d1119; --input-bg: #1d1119; --border-color: #311628; --pill-bg: #1d1119; --muted-text: #9a6888; }
+    body[data-bg="warm"]        { --bg-color: #141210; --secondary-bg: #1e1a17; --input-bg: #1e1a17; --border-color: #2e2620; --pill-bg: #1e1a17; --muted-text: #9a8878; }
+    /* Light variants */
+    body[data-bg="light-warm"]  { --bg-color: #faf7f4; --secondary-bg: #f1ece7; --input-bg: #ffffff; --border-color: #e0d8d0; --pill-bg: #ede8e2; --muted-text: #7a6e65; }
+    body[data-bg="light-cool"]  { --bg-color: #f4f6fa; --secondary-bg: #eaeff7; --input-bg: #ffffff; --border-color: #d8e0ee; --pill-bg: #e4eaf5; --muted-text: #6878a0; }
+
+    /* ===== POSTER / CW CARD BORDERS ===== */
+    /* Controlled by CSS vars set via JS from settings */
+    .poster {
+      border: var(--poster-border-width, 0px) solid var(--poster-border-color, transparent);
+    }
+    .cw-card {
+      outline: var(--poster-border-width, 0px) solid var(--poster-border-color, transparent);
+    }
+
+    /* ===== BG PRESET PICKER in settings ===== */
+    .bg-preset-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .bg-preset-swatch {
+      aspect-ratio: 1;
+      border-radius: 10px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: transform 0.15s, border-color 0.15s;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: flex-end;
+    }
+    .bg-preset-swatch:active { transform: scale(0.92); }
+    .bg-preset-swatch.active { border-color: var(--primary-color); }
+    .bg-preset-swatch .swatch-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding: 4px 5px;
+      width: 100%;
+      background: rgba(0,0,0,0.45);
+      color: rgba(255,255,255,0.9);
+      text-align: center;
+    }
+
+    /* Poster border controls */
+    .border-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+    .border-controls input[type="range"] {
+      flex: 1;
+      min-width: 80px;
+      height: 4px;
+      accent-color: var(--primary-color);
+    }
+    .border-controls input[type="color"] {
+      width: 44px;
+      height: 32px;
+      border-radius: 6px;
+      padding: 2px;
+      flex-shrink: 0;
+    }
+    .border-thickness-label {
+      font-size: 12px;
+      color: var(--muted-text);
+      min-width: 28px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+    .setting-sublabel {
+      font-size: 0.82rem;
+      color: var(--muted-text);
+      margin-bottom: 4px;
     }
   </style>
 </head>
@@ -710,6 +1083,17 @@
         <button class="pill" data-action="browse" data-type="tv"    data-category="top_rated">Top Rated TV</button>
         <button class="pill" data-action="browse" data-type="movie" data-category="now_playing">Now Playing</button>
         <button class="pill" data-action="browse" data-type="tv"    data-category="on_the_air">On Air</button>
+      </div>
+    </div>
+
+    <!-- Continue Watching strip — sits below the browse pills -->
+    <div class="cw-section" id="cwSection">
+      <div class="cw-header">
+        <span class="cw-label">Continue watching</span>
+        <button class="cw-clear-btn" id="cwClearBtn">Clear all</button>
+      </div>
+      <div class="cw-scroll-wrapper" id="cwScrollWrapper">
+        <div class="cw-scroll" id="cwScroll"></div>
       </div>
     </div>
 
@@ -768,6 +1152,41 @@
         </div>
       </div>
 
+      <h2>Background</h2>
+
+      <div class="setting-row">
+        <div style="width:100%">
+          <p class="setting-sublabel">Preset backgrounds — experimental. Overrides dark mode colour only.</p>
+          <div class="bg-preset-grid" id="bgPresetGrid">
+            <!-- filled by JS -->
+          </div>
+        </div>
+      </div>
+
+      <h2>Poster Borders</h2>
+
+      <div class="setting-row">
+        <div style="width:100%">
+          <p class="setting-sublabel">Adds an outline to poster images and Continue Watching cards.</p>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <span class="setting-label" style="font-size:0.9rem;">Show borders</span>
+            <button id="posterBorderToggle" class="toggle-switch" role="switch" aria-label="Toggle poster borders"></button>
+          </div>
+          <div id="posterBorderControls" style="display:none;">
+            <p class="setting-sublabel">Thickness</p>
+            <div class="border-controls">
+              <input type="range" id="posterBorderWidth" min="1" max="6" step="1" value="1">
+              <span class="border-thickness-label" id="posterBorderWidthLabel">1px</span>
+            </div>
+            <p class="setting-sublabel" style="margin-top:10px;">Colour</p>
+            <div class="border-controls">
+              <input type="color" id="posterBorderColor" value="#444444">
+              <input type="text" class="color-preview" id="posterBorderColorHex" value="#444444" maxlength="7" placeholder="#444444" style="flex:1;height:32px;">
+            </div>
+          </div>
+        </div>
+      </div>
+
       <h2>Download iOS App</h2>
       <div class="download-section">
         <a href="https://github.com/ws487-1/ws/raw/refs/heads/main/pson/movies/wills.im.mobileconfig" class="download-btn">Download App</a>
@@ -794,8 +1213,9 @@
     const DEFAULT_ACCENT = '#0061fe';
     const HEART_FILLED_URL = 'https://areyouabot.neocities.org/heart.png';
     const HEART_EMPTY_URL  = 'https://areyouabot.neocities.org/heartempty.png';
+    const CW_MAX = 12; // max items shown in continue watching strip
 
-    // ===== SOURCES (single source of truth — settings dropdowns are populated from this) =====
+    // ===== SOURCES =====
     const sources = [
       { name: "111MOVIES",     movieUrl: id => `https://111movies.com/movie/${id}`,                        seriesUrl: (id,s,e) => `https://111movies.com/tv/${id}/${s}/${e}` },
       { name: "ANYEMBED",      movieUrl: id => `https://anyembed.com/embed/tmdb-movie-${id}`,              seriesUrl: (id,s,e) => `https://anyembed.com/embed/tmdb-tv-${id}-${s}-${e}` },
@@ -837,7 +1257,7 @@
       { name: "ZXCSTREAM",     movieUrl: id => `https://zxcstream.xyz/player/movie/${id}`,                 seriesUrl: (id,s,e) => `https://zxcstream.xyz/player/tv/${id}/${s}/${e}` },
     ];
 
-    // ===== DOWNLOADERS (single source of truth — alphabetical) =====
+    // ===== DOWNLOADERS =====
     const downloaders = [
       { name: "02MOVIEDOWNLOADER", movieUrl: id => `https://02moviedownloader.site/api/download/movie/${id}`,         seriesUrl: (id,s,e) => `https://02moviedownloader.site/api/download/tv/${id}/${s}/${e}` },
       { name: "BUNNYDDL",          movieUrl: id => `https://bunnyddl.termsandconditionshere.workers.dev/movie/${id}`, seriesUrl: (id,s,e) => `https://bunnyddl.termsandconditionshere.workers.dev/tv/${id}/${s}/${e}` },
@@ -849,23 +1269,17 @@
 
     // ===== HAPTICS WRAPPER =====
     function h(type) {
-      try {
-        if (typeof haptic === 'function') haptic(type);
-      } catch (e) { /* unsupported device — fail silently */ }
+      try { if (typeof haptic === 'function') haptic(type); } catch (e) {}
     }
 
-    // ===== HEART FAVOURITE ANIMATION =====
+    // ===== HEART ANIMATION =====
     function triggerHeartFavAnim(btn) {
       const img = btn.querySelector('img');
       if (!img) return;
-
-      // Bouncy pop on the heart image itself
       img.classList.remove('heart-animating');
-      void img.offsetWidth; // force reflow to restart animation
+      void img.offsetWidth;
       img.classList.add('heart-animating');
       img.addEventListener('animationend', () => img.classList.remove('heart-animating'), { once: true });
-
-      // A little ❤️ that floats up and fades out
       const rect = btn.getBoundingClientRect();
       const floater = document.createElement('div');
       floater.className = 'heart-floater';
@@ -877,15 +1291,18 @@
     }
 
     // ===== DOM =====
-    const q              = document.getElementById('q');
-    const go             = document.getElementById('go');
-    const results        = document.getElementById('results');
-    const msg            = document.getElementById('msg');
-    const loadMoreBtn    = document.getElementById('loadMore');
-    const settingsToggle = document.getElementById('settingsToggle');
-    const settingsOverlay= document.getElementById('settingsOverlay');
-    const settingsClose  = document.getElementById('settingsClose');
-    const pageDiv        = document.querySelector('.page');
+    const q               = document.getElementById('q');
+    const go              = document.getElementById('go');
+    const results         = document.getElementById('results');
+    const msg             = document.getElementById('msg');
+    const loadMoreBtn     = document.getElementById('loadMore');
+    const settingsToggle  = document.getElementById('settingsToggle');
+    const settingsOverlay = document.getElementById('settingsOverlay');
+    const settingsClose   = document.getElementById('settingsClose');
+    const pageDiv         = document.querySelector('.page');
+    const cwSection       = document.getElementById('cwSection');
+    const cwScroll        = document.getElementById('cwScroll');
+    const cwClearBtn      = document.getElementById('cwClearBtn');
 
     // ===== STATE =====
     let mode = 'category';
@@ -901,6 +1318,7 @@
     // ===== HELPERS =====
     function setMsg(text) { msg.textContent = text || ''; }
     function posterUrl(path) { return path ? `https://image.tmdb.org/t/p/w500${path}` : ''; }
+    function backdropUrl(path) { return path ? `https://image.tmdb.org/t/p/w300${path}` : ''; }
     function toggleLoadMore() { loadMoreBtn.style.display = (page < totalPages) ? 'block' : 'none'; }
 
     function applyScrollingTitle(card) {
@@ -915,7 +1333,6 @@
     }
 
     // ===== SOURCE DROPDOWN POPULATION =====
-    // Settings dropdowns get an "Automatic" entry; per-card dropdowns get a disabled "Source" placeholder.
     function populateSettingsSourceSelect(selectEl) {
       selectEl.innerHTML = '';
       const automatic = document.createElement('option');
@@ -981,20 +1398,26 @@
     });
 
     // ===== HISTORY =====
-    function saveToHistory(item) {
+    // Now stores season/episode for TV, and backdrop_path for the CW strip.
+    function saveToHistory(item, season, episode) {
       const history = JSON.parse(localStorage.getItem('history') || '[]');
       const existingIndex = history.findIndex(h => h.id === item.id && h.media_type === item.media_type);
-      if (existingIndex > -1) history.splice(existingIndex, 1);
-      history.unshift({
+      const entry = {
         id: item.id,
         media_type: item.media_type,
         title: item.title || item.name || '(untitled)',
         year: (item.release_date || item.first_air_date || '').split('-')[0] || 'N/A',
         poster_path: item.poster_path,
+        backdrop_path: item.backdrop_path || null,
         overview: item.overview,
         vote_average: item.vote_average,
-        timestamp: Date.now()
-      });
+        timestamp: Date.now(),
+        // season/episode only meaningful for TV; stored as numbers
+        last_season:  item.media_type === 'tv' ? (Number(season)  || 1) : null,
+        last_episode: item.media_type === 'tv' ? (Number(episode) || 1) : null,
+      };
+      if (existingIndex > -1) history.splice(existingIndex, 1);
+      history.unshift(entry);
       if (history.length > 100) history.splice(100);
       localStorage.setItem('history', JSON.stringify(history));
     }
@@ -1041,6 +1464,181 @@
       loadMoreBtn.style.display = 'none';
     }
 
+    // ===== CONTINUE WATCHING =====
+    function getCWList() {
+      const history = JSON.parse(localStorage.getItem('history') || '[]');
+      // Only items that have been played (have a timestamp) — history IS the played list.
+      // Return most recent first, capped at CW_MAX.
+      return history.slice(0, CW_MAX);
+    }
+
+    function renderCWStrip() {
+      const items = getCWList();
+      cwScroll.innerHTML = '';
+
+      if (items.length === 0) {
+        cwSection.style.display = 'none';
+        return;
+      }
+
+      cwSection.style.display = 'block';
+      cwSection.classList.remove('animating');
+      void cwSection.offsetWidth;
+      cwSection.classList.add('animating');
+
+      items.forEach(item => {
+        const isTV  = item.media_type === 'tv';
+        const title = item.title || '(untitled)';
+        const backdropPath = item.backdrop_path;
+
+        const card = document.createElement('div');
+        card.className = 'cw-card';
+
+        // Backdrop image
+        const img = document.createElement('img');
+        img.className = 'cw-backdrop';
+        img.alt = title;
+        if (backdropPath) {
+          img.src = backdropUrl(backdropPath);
+        } else if (item.poster_path) {
+          // Fall back to poster, stretched — rare but graceful
+          img.src = posterUrl(item.poster_path);
+          img.style.objectPosition = 'top center';
+        } else {
+          img.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjE2OSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjMjIyIi8+PC9zdmc+';
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'cw-card-overlay';
+
+        // Play icon (centred)
+        const playIcon = document.createElement('div');
+        playIcon.className = 'cw-play-icon';
+        playIcon.innerHTML = `<svg viewBox="0 0 10 12" xmlns="http://www.w3.org/2000/svg"><polygon points="0,0 10,6 0,12"/></svg>`;
+
+        // Text info at bottom
+        const info = document.createElement('div');
+        info.className = 'cw-card-info';
+
+        const titleEl = document.createElement('div');
+        titleEl.className = 'cw-card-title';
+        titleEl.textContent = title;
+
+        const subEl = document.createElement('div');
+        subEl.className = 'cw-card-sub';
+        if (isTV && item.last_season != null) {
+          subEl.textContent = `S${item.last_season} E${item.last_episode}`;
+        } else {
+          subEl.textContent = item.year || '';
+        }
+
+        info.appendChild(titleEl);
+        info.appendChild(subEl);
+
+        // Dismiss button
+        const dismiss = document.createElement('button');
+        dismiss.className = 'cw-dismiss';
+        dismiss.innerHTML = '✕';
+        dismiss.title = 'Remove';
+        dismiss.addEventListener('click', e => {
+          e.stopPropagation();
+          h('light');
+          card.classList.add('removing');
+          card.addEventListener('animationend', () => {
+            removeFromHistory(item.id, item.media_type);
+            card.remove();
+            const remaining = getCWList();
+            if (remaining.length === 0) cwSection.style.display = 'none';
+          }, { once: true });
+        });
+
+        card.appendChild(img);
+        card.appendChild(overlay);
+        card.appendChild(playIcon);
+        card.appendChild(info);
+        card.appendChild(dismiss);
+
+        // Tapping the card renders the title inline in the main results area and plays it
+        card.addEventListener('click', () => {
+          h('success');
+
+          // Resolve source
+          const defaultSourceName = isTV
+            ? localStorage.getItem('defaultTVSource')
+            : localStorage.getItem('defaultMovieSource');
+          const src = defaultSourceName
+            ? sources.find(s => s.name === defaultSourceName)
+            : sources[0];
+          if (!src) return;
+
+          const s  = item.last_season  || 1;
+          const ep = item.last_episode || 1;
+          const url = isTV ? src.seriesUrl(item.id, s, ep) : src.movieUrl(item.id);
+
+          // Switch main area to show just this item, then auto-play
+          mode = 'cw-play';
+          clearActivePills();
+          results.innerHTML = '';
+          closeCurrentPlayer();
+          currentOpenDownloaderPanel = null;
+          setMsg('');
+          loadMoreBtn.style.display = 'none';
+
+          // Render the item as a single card
+          // We need a full item object — use the history entry which has everything we need
+          const itemForRender = {
+            id: item.id,
+            media_type: item.media_type,
+            title: item.title,
+            name: item.title,
+            release_date: item.year ? `${item.year}-01-01` : '',
+            first_air_date: item.year ? `${item.year}-01-01` : '',
+            poster_path: item.poster_path,
+            backdrop_path: item.backdrop_path,
+            overview: item.overview,
+            vote_average: item.vote_average,
+            last_season: item.last_season,
+            last_episode: item.last_episode,
+          };
+          renderResults([itemForRender], false);
+
+          // After render, find the Play button on the new card and trigger it
+          // Small delay so season/episode loads can fire first
+          setTimeout(() => {
+            const firstCard = results.querySelector('.movie-card');
+            if (!firstCard) return;
+
+            // Scroll the card into view smoothly, near top
+            firstCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            // Find and click the play pill
+            const playPill = [...firstCard.querySelectorAll('.btn-card-pill-primary')].find(b => b.textContent.trim() === 'Play');
+            if (playPill) {
+              // For TV we need seasons/episodes to have loaded — poll briefly
+              const tryPlay = (attempts) => {
+                const seasonSel = firstCard.querySelector('.controls-middle-row select:nth-child(2)');
+                if (isTV && seasonSel && seasonSel.options.length === 0 && attempts > 0) {
+                  setTimeout(() => tryPlay(attempts - 1), 200);
+                  return;
+                }
+                playPill.click();
+              };
+              tryPlay(isTV ? 8 : 0);
+            }
+          }, 60);
+        });
+
+        cwScroll.appendChild(card);
+      });
+    }
+
+    cwClearBtn.addEventListener('click', () => {
+      h('heavy');
+      localStorage.removeItem('history');
+      cwSection.style.display = 'none';
+      cwScroll.innerHTML = '';
+    });
+
     // ===== SETTINGS =====
     function applyAccentColor(color) {
       document.documentElement.style.setProperty('--primary-color', color);
@@ -1070,24 +1668,19 @@
       setTimeout(() => el.classList.remove('show'), 2000);
     }
 
-    // Sync UI elements in settings overlay to current localStorage values.
-    // Listeners are attached ONCE in init(), so this just updates values.
     function syncSettingsUI() {
       const isDark = document.body.classList.contains('dark-mode');
       document.getElementById('themeToggle').classList.toggle('on', isDark);
-
       const accent = localStorage.getItem('accentColor') || DEFAULT_ACCENT;
       applyAccentColor(accent);
       document.getElementById('accentColor').value = accent;
       document.getElementById('colorHex').value    = accent;
       updateActivePreset('accent', accent);
-
       document.getElementById('defaultMovieSource').value = localStorage.getItem('defaultMovieSource') || '';
       document.getElementById('defaultTVSource').value    = localStorage.getItem('defaultTVSource')    || '';
     }
 
     function initSettingsListeners() {
-      // Dark mode toggle
       document.getElementById('themeToggle').addEventListener('click', e => {
         h('light');
         document.body.classList.toggle('dark-mode');
@@ -1096,7 +1689,6 @@
         localStorage.setItem('theme', isDark ? 'dark' : 'light');
       });
 
-      // Default sources
       document.getElementById('defaultMovieSource').addEventListener('change', e => {
         h('selection');
         localStorage.setItem('defaultMovieSource', e.target.value);
@@ -1108,7 +1700,6 @@
         showSaveIndicator('tvSourceSaved');
       });
 
-      // Accent colour native picker
       document.getElementById('accentColor').addEventListener('input', e => {
         const c = e.target.value;
         document.getElementById('colorHex').value = c;
@@ -1117,7 +1708,6 @@
         localStorage.setItem('accentColor', c);
       });
 
-      // Accent colour hex input
       document.getElementById('colorHex').addEventListener('input', e => {
         let c = e.target.value;
         if (!c.startsWith('#')) c = '#' + c;
@@ -1129,7 +1719,6 @@
         }
       });
 
-      // Accent colour preset swatches
       document.querySelectorAll('.color-preset').forEach(p => {
         p.addEventListener('click', () => {
           h('light');
@@ -1143,6 +1732,110 @@
       });
     }
 
+
+    // ===== BACKGROUND PRESETS =====
+    const BG_PRESETS = [
+      { id: '',            label: 'Pure',    dark: '#000000', light: '#ffffff' },
+      { id: 'charcoal',    label: 'Charcoal',dark: '#111113', light: '#f5f5f6' },
+      { id: 'warm',        label: 'Warm',    dark: '#141210', light: '#faf7f4' },
+      { id: 'navy',        label: 'Navy',    dark: '#0a0f1e', light: '#f4f6fa' },
+      { id: 'forest',      label: 'Forest',  dark: '#0b120d', light: '#f4faf5' },
+      { id: 'wine',        label: 'Wine',    dark: '#120810', light: '#faf4f9' },
+      { id: 'light-warm',  label: 'L·Warm',  dark: '#faf7f4', light: '#faf7f4' },
+      { id: 'light-cool',  label: 'L·Cool',  dark: '#f4f6fa', light: '#f4f6fa' },
+    ];
+
+    function buildBgPresetGrid() {
+      const grid = document.getElementById('bgPresetGrid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      const current = localStorage.getItem('bgPreset') || '';
+      BG_PRESETS.forEach(preset => {
+        const swatch = document.createElement('div');
+        swatch.className = 'bg-preset-swatch' + (preset.id === current ? ' active' : '');
+        const isDark = document.body.classList.contains('dark-mode');
+        swatch.style.background = isDark ? preset.dark : preset.light;
+        swatch.innerHTML = `<span class="swatch-label">${preset.label}</span>`;
+        swatch.addEventListener('click', () => {
+          h('light');
+          localStorage.setItem('bgPreset', preset.id);
+          applyBgPreset(preset.id);
+          grid.querySelectorAll('.bg-preset-swatch').forEach(s => s.classList.remove('active'));
+          swatch.classList.add('active');
+        });
+        grid.appendChild(swatch);
+      });
+    }
+
+    function applyBgPreset(id) {
+      // Remove all data-bg presets, then apply chosen one
+      document.body.removeAttribute('data-bg');
+      if (id) document.body.setAttribute('data-bg', id);
+    }
+
+    // ===== POSTER BORDERS =====
+    function applyPosterBorder(enabled, width, color) {
+      if (enabled) {
+        document.documentElement.style.setProperty('--poster-border-width', width + 'px');
+        document.documentElement.style.setProperty('--poster-border-color', color);
+      } else {
+        document.documentElement.style.setProperty('--poster-border-width', '0px');
+        document.documentElement.style.setProperty('--poster-border-color', 'transparent');
+      }
+    }
+
+    function initBorderSettings() {
+      const toggle    = document.getElementById('posterBorderToggle');
+      const controls  = document.getElementById('posterBorderControls');
+      const widthSlider = document.getElementById('posterBorderWidth');
+      const widthLabel  = document.getElementById('posterBorderWidthLabel');
+      const colorPicker = document.getElementById('posterBorderColor');
+      const colorHexEl  = document.getElementById('posterBorderColorHex');
+
+      if (!toggle) return;
+
+      const enabled = localStorage.getItem('posterBorderEnabled') === 'true';
+      const width   = localStorage.getItem('posterBorderWidth')   || '1';
+      const color   = localStorage.getItem('posterBorderColor')   || '#444444';
+
+      toggle.classList.toggle('on', enabled);
+      controls.style.display = enabled ? 'block' : 'none';
+      widthSlider.value = width;
+      widthLabel.textContent = width + 'px';
+      colorPicker.value = color;
+      colorHexEl.value  = color;
+      applyPosterBorder(enabled, width, color);
+
+      toggle.addEventListener('click', () => {
+        h('light');
+        const on = !toggle.classList.contains('on');
+        toggle.classList.toggle('on', on);
+        controls.style.display = on ? 'block' : 'none';
+        localStorage.setItem('posterBorderEnabled', on);
+        applyPosterBorder(on, widthSlider.value, colorPicker.value);
+      });
+
+      widthSlider.addEventListener('input', () => {
+        const w = widthSlider.value;
+        widthLabel.textContent = w + 'px';
+        localStorage.setItem('posterBorderWidth', w);
+        applyPosterBorder(toggle.classList.contains('on'), w, colorPicker.value);
+      });
+
+      const updateBorderColor = (c) => {
+        colorPicker.value = c;
+        colorHexEl.value  = c;
+        localStorage.setItem('posterBorderColor', c);
+        applyPosterBorder(toggle.classList.contains('on'), widthSlider.value, c);
+      };
+
+      colorPicker.addEventListener('input', e => updateBorderColor(e.target.value));
+      colorHexEl.addEventListener('input', e => {
+        let c = e.target.value;
+        if (!c.startsWith('#')) c = '#' + c;
+        if (/^#[0-9A-F]{6}$/i.test(c)) updateBorderColor(c);
+      });
+    }
     // ===== SETTINGS OPEN/CLOSE =====
     function openSettings() {
       if (isTransitioning) return;
@@ -1152,10 +1845,11 @@
       setTimeout(() => {
         pageDiv.style.display = 'none';
         settingsOverlay.style.display = 'block';
-        settingsOverlay.offsetHeight; // force reflow
+        settingsOverlay.offsetHeight;
         requestAnimationFrame(() => {
           settingsOverlay.classList.add('show');
           syncSettingsUI();
+          buildBgPresetGrid();
           setTimeout(() => { isTransitioning = false; }, 400);
         });
       }, 400);
@@ -1169,7 +1863,7 @@
       setTimeout(() => {
         settingsOverlay.style.display = 'none';
         pageDiv.style.display = 'block';
-        pageDiv.offsetHeight; // force reflow
+        pageDiv.offsetHeight;
         requestAnimationFrame(() => {
           pageDiv.classList.remove('fade-out');
           setTimeout(() => { isTransitioning = false; }, 400);
@@ -1180,6 +1874,14 @@
     settingsToggle.addEventListener('click', e => { e.preventDefault(); h('medium'); openSettings(); });
     settingsClose.addEventListener('click',  e => { e.preventDefault(); h('light');  closeSettings(); });
 
+
+    // ===== KEYBOARD SHORTCUTS =====
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        if (currentOpenPlayer) { h('light'); closeCurrentPlayer(); }
+        if (currentOpenDownloaderPanel) { h('light'); closeDownloaderPanel(currentOpenDownloaderPanel); }
+      }
+    });
     // ===== SEARCH =====
     go.addEventListener('click', () => { h('medium'); startSearch(q.value.trim()); });
     q.addEventListener('keydown', e => {
@@ -1211,38 +1913,53 @@
     function closeCurrentPlayer() {
       if (!currentOpenPlayer) return;
       const { playerContainer, playerTopControls, iframe } = currentOpenPlayer;
+      currentOpenPlayer = null;
+      // Animate out
+      playerContainer.classList.remove('show');
       playerContainer.classList.add('closing');
       playerTopControls.classList.remove('show');
       setTimeout(() => {
-        iframe.src = '';
-        playerContainer.classList.remove('show', 'closing');
+        playerContainer.classList.remove('closing');
         playerContainer.style.display = 'none';
+        iframe.src = '';
         playerTopControls.style.display = 'none';
-        currentOpenPlayer = null;
-      }, 400);
+      }, 250);
     }
 
-    function openPlayer(playerContainer, playerTopControls, iframe, url, card) {
-      const wasOpen = !!currentOpenPlayer;
-      if (wasOpen) closeCurrentPlayer();
-      setTimeout(() => {
-        iframe.src = url;
-        playerContainer.classList.add('opening');
-        playerContainer.style.display = 'block';
-        playerTopControls.style.display = 'flex';
-        playerContainer.offsetHeight;
+    function openPlayer(playerContainer, playerTopControls, iframe, url) {
+      // Close any existing player first, then open after it's cleared
+      if (currentOpenPlayer) {
+        const prev = currentOpenPlayer;
+        currentOpenPlayer = null;
+        prev.playerContainer.classList.remove('show');
+        prev.playerContainer.classList.add('closing');
+        prev.playerTopControls.classList.remove('show');
         setTimeout(() => {
-          playerContainer.classList.remove('opening');
-          playerContainer.classList.add('show');
-          playerTopControls.classList.add('show');
-          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }, 10);
-        currentOpenPlayer = { playerContainer, playerTopControls, iframe };
-      }, wasOpen ? 420 : 0);
+          prev.playerContainer.classList.remove('closing');
+          prev.playerContainer.style.display = 'none';
+          prev.iframe.src = '';
+          prev.playerTopControls.style.display = 'none';
+          // Now open the new one
+          _doOpenPlayer(playerContainer, playerTopControls, iframe, url);
+        }, 260);
+      } else {
+        _doOpenPlayer(playerContainer, playerTopControls, iframe, url);
+      }
+    }
+
+    function _doOpenPlayer(playerContainer, playerTopControls, iframe, url) {
+      iframe.src = url;
+      playerContainer.style.display = 'block';
+      playerTopControls.style.display = 'flex';
+      // Single rAF is enough — display:block is already set, browser will paint before next frame
+      requestAnimationFrame(() => {
+        playerContainer.classList.add('show');
+        playerTopControls.classList.add('show');
+      });
+      currentOpenPlayer = { playerContainer, playerTopControls, iframe };
     }
 
     // ===== DOWNLOADER PANEL =====
-    // Same animation pattern as the player — at most one panel open across all cards.
     function closeDownloaderPanel(panel) {
       if (!panel || !panel.classList.contains('show')) return;
       panel.classList.add('closing');
@@ -1260,7 +1977,7 @@
       setTimeout(() => {
         panel.classList.add('opening');
         panel.style.display = 'block';
-        panel.offsetHeight; // force reflow
+        panel.offsetHeight;
         setTimeout(() => {
           panel.classList.remove('opening');
           panel.classList.add('show');
@@ -1376,6 +2093,7 @@
             }, 200);
             setTimeout(() => {
               card.remove();
+              renderCWStrip(); // keep strip in sync
               const remaining = JSON.parse(localStorage.getItem('history') || '[]');
               setMsg(remaining.length === 0 ? 'No history yet.' : `${remaining.length} item${remaining.length === 1 ? '' : 's'} in history`);
             }, 520);
@@ -1418,6 +2136,7 @@
           <span class="meta-dot">·</span>
           <span>${isTV ? 'TV' : 'Movie'}</span>
           ${rating ? `<span class="meta-dot">·</span><span class="meta-badge"><span class="star">★</span>${rating}</span>` : ''}
+          ${isHistoryMode && isTV && item.last_season != null ? `<span class="meta-dot">·</span><span class="meta-badge">S${item.last_season} E${item.last_episode}</span>` : ''}
         `;
         content.appendChild(metaSubtitle);
 
@@ -1464,13 +2183,11 @@
           const favs  = JSON.parse(localStorage.getItem('favorites') || '[]');
           const index = favs.findIndex(f => f.id === item.id && f.media_type === item.media_type);
           if (index > -1) {
-            // Un-favourite
             h('light');
             favs.splice(index, 1);
             heartImg.src = HEART_EMPTY_URL;
             heartImg.className = 'heart-empty';
           } else {
-            // Add to favourites — trigger the cute animation
             h('success');
             favs.push({
               id: item.id,
@@ -1499,14 +2216,10 @@
         srcSelect.addEventListener('change', () => h('selection'));
 
         const defaultSource = isTV
-          ? localStorage.getItem('defaultTVSource')
-          : localStorage.getItem('defaultMovieSource');
-        if (defaultSource) {
-          const si = sources.findIndex(s => s.name === defaultSource);
-          srcSelect.selectedIndex = si !== -1 ? si + 1 : 1;
-        } else {
-          srcSelect.selectedIndex = 1;
-        }
+          ? (localStorage.getItem('defaultTVSource') || 'VIDSRC 1')
+          : (localStorage.getItem('defaultMovieSource') || 'VIDSRC 1');
+        const si = sources.findIndex(s => s.name === defaultSource);
+        srcSelect.selectedIndex = si !== -1 ? si + 1 : 1;
 
         controlsMiddleRow.appendChild(srcSelect);
 
@@ -1516,8 +2229,9 @@
           seasonSelect.addEventListener('change', () => h('selection'));
           episodeSelect.addEventListener('change', () => h('selection'));
           controlsMiddleRow.append(seasonSelect, episodeSelect);
-          loadSeasons(item.id, seasonSelect, episodeSelect);
-          seasonSelect.addEventListener('change', () => loadEpisodes(item.id, seasonSelect.value, episodeSelect));
+          // Pass remembered S/E so loadSeasons can restore them
+          loadSeasons(item.id, seasonSelect, episodeSelect, item.last_season, item.last_episode);
+          seasonSelect.addEventListener('change', () => loadEpisodes(item.id, seasonSelect.value, episodeSelect, null));
         }
 
         controls.appendChild(controlsMiddleRow);
@@ -1541,6 +2255,11 @@
         // Player
         const playerTopControls = document.createElement('div');
         playerTopControls.className = 'player-top-controls';
+
+        const sourceBadge = document.createElement('span');
+        sourceBadge.className = 'player-source-badge';
+        playerTopControls.appendChild(sourceBadge);
+
         const closePill = createCardPill('Close Player', false, () => {
           h('medium');
           closeCurrentPlayer();
@@ -1555,7 +2274,7 @@
         iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture');
         playerContainer.appendChild(iframe);
 
-        // Downloader panel (hidden until Download is clicked)
+        // Downloader panel
         const downloaderPanel = document.createElement('div');
         downloaderPanel.className = 'downloader-panel';
         const downloaderInner = document.createElement('div');
@@ -1586,6 +2305,21 @@
         card.appendChild(playerTopControls);
         card.appendChild(playerContainer);
 
+        // Prev / Next episode row (TV only, shown after play)
+        const epNavRow   = document.createElement('div');
+        epNavRow.className = 'ep-nav-row';
+
+        const prevEpBtn  = document.createElement('button');
+        prevEpBtn.className = 'ep-nav-btn';
+        prevEpBtn.innerHTML = `<svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="1" width="2" height="10" rx="1" fill="currentColor"/><polygon points="12,1 3,6 12,11" fill="currentColor"/></svg><span class="prev-ep-label">Prev</span>`;
+
+        const nextEpBtn  = document.createElement('button');
+        nextEpBtn.className = 'ep-nav-btn';
+        nextEpBtn.innerHTML = `<span class="next-ep-label">Next</span><svg viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="0,1 9,6 0,11" fill="currentColor"/><rect x="10" y="1" width="2" height="10" rx="1" fill="currentColor"/></svg>`;
+
+        epNavRow.append(prevEpBtn, nextEpBtn);
+        if (isTV) card.appendChild(epNavRow);
+
         const getUrl = () => {
           const src = sources.find(s => s.name === srcSelect.value);
           if (!src) return null;
@@ -1598,8 +2332,93 @@
           const url = getUrl();
           if (url) {
             h('success');
-            saveToHistory(item);
-            openPlayer(playerContainer, playerTopControls, iframe, url, card);
+            saveToHistory(item, seasonSelect.value, episodeSelect.value);
+            renderCWStrip();
+            // Show source badge
+            sourceBadge.textContent = srcSelect.value || '';
+            // Loading pulse on button until iframe fires load
+            playBtn.classList.add('loading');
+            playBtn.textContent = 'Loading…';
+            const onLoad = () => {
+              playBtn.classList.remove('loading');
+              playBtn.textContent = 'Play';
+              iframe.removeEventListener('load', onLoad);
+            };
+            iframe.addEventListener('load', onLoad);
+            // Safety fallback — remove pulse after 8s regardless
+            setTimeout(() => { playBtn.classList.remove('loading'); playBtn.textContent = 'Play'; }, 8000);
+            openPlayer(playerContainer, playerTopControls, iframe, url);
+            // Prev / Next episode nav logic for TV
+            if (isTV && epNavRow) {
+              const refreshEpNav = () => {
+                const curEp = Number(episodeSelect.value) || 1;
+                const maxEp = episodeSelect.options.length;
+                const curS  = Number(seasonSelect.value) || 1;
+                const maxS  = seasonSelect.options.length;
+
+                // Previous
+                const hasPrev = curEp > 1 || curS > 1;
+                prevEpBtn.disabled = !hasPrev;
+                if (curEp > 1) {
+                  prevEpBtn.querySelector('.prev-ep-label').textContent = `S${curS} E${curEp - 1}`;
+                } else if (curS > 1) {
+                  prevEpBtn.querySelector('.prev-ep-label').textContent = `S${curS - 1}`;
+                } else {
+                  prevEpBtn.querySelector('.prev-ep-label').textContent = 'Prev';
+                }
+
+                // Next
+                const hasNext = curEp < maxEp || curS < maxS;
+                nextEpBtn.disabled = !hasNext;
+                if (curEp < maxEp) {
+                  nextEpBtn.querySelector('.next-ep-label').textContent = `S${curS} E${curEp + 1}`;
+                } else if (curS < maxS) {
+                  nextEpBtn.querySelector('.next-ep-label').textContent = `S${curS + 1}`;
+                } else {
+                  nextEpBtn.querySelector('.next-ep-label').textContent = 'Next';
+                }
+
+                epNavRow.classList.add('visible');
+              };
+
+              refreshEpNav();
+
+              nextEpBtn.onclick = () => {
+                h('medium');
+                const curEp = Number(episodeSelect.value) || 1;
+                const maxEp = episodeSelect.options.length;
+                if (curEp < maxEp) {
+                  episodeSelect.value = curEp + 1;
+                  playBtn.click();
+                } else {
+                  const curS = Number(seasonSelect.value) || 1;
+                  seasonSelect.value = curS + 1;
+                  loadEpisodes(item.id, seasonSelect.value, episodeSelect, 1).then(() => {
+                    episodeSelect.value = 1;
+                    playBtn.click();
+                  });
+                }
+              };
+
+              prevEpBtn.onclick = () => {
+                h('medium');
+                const curEp = Number(episodeSelect.value) || 1;
+                const curS  = Number(seasonSelect.value) || 1;
+                if (curEp > 1) {
+                  episodeSelect.value = curEp - 1;
+                  playBtn.click();
+                } else if (curS > 1) {
+                  seasonSelect.value = curS - 1;
+                  loadEpisodes(item.id, seasonSelect.value, episodeSelect, null).then(() => {
+                    // Jump to last episode of previous season
+                    if (episodeSelect.options.length) {
+                      episodeSelect.selectedIndex = episodeSelect.options.length - 1;
+                    }
+                    playBtn.click();
+                  });
+                }
+              };
+            }
           } else {
             h('warning');
             alert('Please select a source.');
@@ -1625,7 +2444,8 @@
     }
 
     // ===== SEASON/EPISODE LOADERS =====
-    async function loadSeasons(tvId, seasonSelect, episodeSelect) {
+    // lastSeason / lastEpisode are the remembered values from history — passed in to restore position.
+    async function loadSeasons(tvId, seasonSelect, episodeSelect, lastSeason, lastEpisode) {
       try {
         const res  = await fetch(`https://api.themoviedb.org/3/tv/${tvId}?api_key=${API_KEY}`);
         const data = await res.json();
@@ -1639,11 +2459,17 @@
             seasonSelect.appendChild(opt);
           }
         });
-        if (seasons.length) loadEpisodes(tvId, seasonSelect.value || 1, episodeSelect);
+        // Restore remembered season, or default to first available
+        const targetSeason = lastSeason || (seasons.find(s => s.season_number > 0) || {}).season_number || 1;
+        seasonSelect.value = targetSeason;
+        if (!seasonSelect.value && seasonSelect.options.length) {
+          seasonSelect.selectedIndex = 0;
+        }
+        await loadEpisodes(tvId, seasonSelect.value || targetSeason, episodeSelect, lastEpisode);
       } catch (e) { console.error(e); }
     }
 
-    async function loadEpisodes(tvId, season, episodeSelect) {
+    async function loadEpisodes(tvId, season, episodeSelect, lastEpisode) {
       try {
         const res  = await fetch(`https://api.themoviedb.org/3/tv/${tvId}/season/${season}?api_key=${API_KEY}`);
         const data = await res.json();
@@ -1654,35 +2480,54 @@
           opt.textContent = `E${ep.episode_number}`;
           episodeSelect.appendChild(opt);
         });
+        // Restore remembered episode if provided
+        if (lastEpisode) {
+          episodeSelect.value = lastEpisode;
+          if (!episodeSelect.value && episodeSelect.options.length) {
+            episodeSelect.selectedIndex = 0;
+          }
+        }
       } catch (e) { console.error(e); }
     }
 
-    // ===== CATEGORY SCROLL FADE =====
+    // ===== SCROLL EDGE FADE LISTENERS =====
     (() => {
       const catScroll  = document.getElementById('categoryScroll');
       const catWrapper = catScroll.parentElement;
       catScroll.addEventListener('scroll', () => {
         catWrapper.classList.toggle('has-scrolled', catScroll.scrollLeft > 8);
       }, { passive: true });
+
+      // CW strip left fade
+      const cwScrollEl = document.getElementById('cwScroll');
+      const cwWrapper  = document.getElementById('cwScrollWrapper');
+      if (cwScrollEl && cwWrapper) {
+        cwScrollEl.addEventListener('scroll', () => {
+          cwWrapper.classList.toggle('has-scrolled', cwScrollEl.scrollLeft > 8);
+        }, { passive: true });
+      }
     })();
 
     // ===== INIT =====
     (function init() {
-      // Theme + accent
       const storedTheme = localStorage.getItem('theme');
       if (storedTheme !== 'light') document.body.classList.add('dark-mode');
       applyAccentColor(localStorage.getItem('accentColor') || DEFAULT_ACCENT);
 
-      // Populate settings dropdowns from the live `sources` list, then sync values
       populateSettingsSourceSelect(document.getElementById('defaultMovieSource'));
       populateSettingsSourceSelect(document.getElementById('defaultTVSource'));
       syncSettingsUI();
-
-      // Attach settings listeners ONCE on page load (was previously re-attached
-      // each time settings opened, leaking duplicate handlers)
       initSettingsListeners();
 
-      // Restore last-browsed pill or fall back to Popular Movies
+      // Apply saved background preset
+      applyBgPreset(localStorage.getItem('bgPreset') || '');
+
+      // Apply saved poster borders
+      initBorderSettings();
+
+      // Render continue watching strip on load
+      renderCWStrip();
+
       const savedType     = localStorage.getItem('selectedBrowseType');
       const savedCategory = localStorage.getItem('selectedBrowseCategory');
       let initialPill;
