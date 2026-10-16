@@ -346,7 +346,17 @@ html.acc .dots i b{background:var(--acc)}
 .sw button,.sw label{width:30px;height:30px;border-radius:50%;flex:none;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2);position:relative;display:grid;place-items:center}
 .sw button.on::after,.sw label.on::after{content:"";position:absolute;inset:-4px;border-radius:50%;box-shadow:0 0 0 2px #fff}
 .sw label{background:conic-gradient(#ff375f,#ff9f0a,#ffd60a,#30d158,#64d2ff,#2f7bff,#7c5cff,#ff375f);overflow:visible}.sw input{position:absolute;inset:0;opacity:0;width:100%;height:100%}
-.sw .cls{background:linear-gradient(135deg,#fff 50%,#34c759 50%)}
+.sw .cls{background:#fff}
+/* person portrait border (matches posters) */
+.pborder .phead .pp::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1px rgba(255,255,255,.15);pointer-events:none;z-index:2}
+/* confirm sheet */
+.csheet{position:fixed;inset:0;z-index:300;display:flex;align-items:flex-end;background:rgba(0,0,0,.5);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.csheet .cbox{width:100%;margin:0 10px calc(max(env(safe-area-inset-bottom),10px) + 10px);border-radius:22px;padding:22px 18px 14px;text-align:center;background:rgba(36,36,40,.82)}
+.csheet h3{margin:0 0 6px;font-size:18px}.csheet p{margin:0 0 18px;color:var(--mut);font-size:14.5px;line-height:1.45}
+.csheet .btn{width:100%;height:50px;font-size:16px;margin-top:8px}.csheet .btn.danger{color:#ff453a;font-weight:700}
+.applist{margin-bottom:24px}.applist .srow{width:100%;text-align:left;font-weight:600;gap:12px}.applist .srow .ic{width:19px;height:19px;color:var(--mut)}.applist .srow:active{background:rgba(255,255,255,.06)}#eraseAll,#eraseAll .ic{color:#ff453a}
+.onbsz{display:flex;gap:10px}.onbsz .btn{flex:1;height:48px}.onbsz .btn.on{background:#fff;color:#000}
+.onbacc .sw{margin-top:0}
 /* 5. poster comparison arrow */
 .bparr{flex:none;align-self:center;display:grid;place-items:center;width:28px;height:28px;border-radius:50%;color:#fff;background:rgba(255,255,255,.12);margin-bottom:22px}.bparr .ic{width:16px;height:16px}
 .onbposters{align-items:center}.onbposters .bparr{margin-bottom:26px}
@@ -420,7 +430,7 @@ html.acc .tabbar button.on{color:var(--acc)}
 const API_KEY='79d7c854f26de5ac978215ce03ff0c87',API='https://api.themoviedb.org/3',IMG='https://image.tmdb.org/t/p/';
 
 const sources = [
-{ name: "STELLAR", movieUrl: id => `https://stellar.rip/en/watch/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://stellar.rip/en/watch/embed/tv/${id}-${s}-${e}` },
+  { name: "STELLAR", movieUrl: id => `https://stellar.rip/en/watch/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://stellar.rip/en/watch/embed/tv/${id}-${s}-${e}` },
   { name: "ATLANTIC", movieUrl: id => `https://atlantic.st/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://atlantic.st/embed/tv/${id}/${s}/${e}` },
   { name: "HIVE", movieUrl: id => `https://vidhive.lol/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://vidhive.lol/embed/tv/${id}/${s}/${e}` },
 ];
@@ -443,11 +453,16 @@ const LS={get:(k,d)=>{try{const v=localStorage.getItem(k);return v==null?d:JSON.
   // default sources: old stores the NAME, new stores an index into sources[]; resolved by name while the new key is unset
   for(const[o,n]of[['defaultMovieSource','defSrcMovie'],['defaultTVSource','defSrcTv']]){const name=raw(o);if(name&&raw(n)==null){const i=sources.findIndex(s=>s.name===name);if(i>=0)LS.set(n,i)}}
   // anyone with existing data is treated as already onboarded
-  if(raw('onboarded')==null&&['history','favorites','favorites2','rows4','accentColor','defaultMovieSource','defaultTVSource','posterBorderEnabled','theme','bgPreset','posterBorders','betterPosters','showAI'].some(k=>raw(k)!=null))LS.set('onboarded',true)})();
+  if(raw('onboarded')==null&&['history','favorites','favorites2','rows4','accentColor','defaultMovieSource','defaultTVSource','posterBorderEnabled','theme','bgPreset','posterBorders','betterPosters','showAI'].some(k=>raw(k)!=null))LS.set('onboarded',true);
+  // poster size default became Large (2); anyone already onboarded without an explicit choice keeps Small (3)
+  if(raw('onboarded')!=null&&raw('gridCols')==null)LS.set('gridCols','3')})();
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const ic=(n,c='')=>`<svg class="ic ${c}"><use href="#i-${n}"/></svg>`;
 const h=(html)=>{const t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstElementChild};
 let toastT;function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('on');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),1900)}
+function confirmSheet(title,msg,ok,danger){return new Promise(res=>{const o=h(`<div class="csheet"><div class="cbox glass"><h3>${esc(title)}</h3><p>${esc(msg)}</p><button class="btn ${danger?'danger':'primary'}" data-ok>${esc(ok)}</button><button class="btn" data-no>Cancel</button></div></div>`);
+  const done=v=>{o.animate([{opacity:1},{opacity:0}],{duration:160}).onfinish=()=>o.remove();res(v)};$('[data-ok]',o).onclick=()=>done(true);$('[data-no]',o).onclick=()=>done(false);o.onclick=e=>{if(e.target===o)done(false)};
+  document.body.append(o);o.animate([{opacity:0},{opacity:1}],{duration:180});$('.cbox',o).animate([{transform:'translateY(40px)'},{transform:'none'}],{duration:260,easing:'cubic-bezier(.2,.8,.2,1)'})})}
 const cache=new Map();
 function tm(path,params={}){const u=new URL(API+path);u.searchParams.set('api_key',API_KEY);u.searchParams.set('include_adult','false');for(const[k,v]of Object.entries(params))if(v!=null&&v!=='')u.searchParams.set(k,v);const key=u.toString();
   if(!cache.has(key))cache.set(key,fetch(key).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).catch(e=>{cache.delete(key);throw e}));return cache.get(key)}
@@ -502,7 +517,7 @@ async function loadProviders(){if(provList)return provList;const[a,b]=await Prom
 let GEN={movie:{},tv:{}};Promise.all(['movie','tv'].map(t=>tm(`/genre/${t}/list`).then(r=>r.genres.forEach(g=>GEN[t][g.id]=g.name)))).catch(()=>{});
 
 /* ---------- rows: "<movie|tv|all>:<key>" ---------- */
-const S={rows:LS.get('rows4',null),region:'ALL',fav:LS.get('favorites2',[]),addType:'movie'};
+const S={rows:(a=>Array.isArray(a)?a.filter(x=>typeof x==='string'):null)(LS.get('rows4',null)),region:'ALL',fav:(a=>Array.isArray(a)?a.filter(f=>f&&f.id&&f.media_type):[])(LS.get('favorites2',[])),addType:'movie'};
 const DEFAULT_ROWS=['cw','byw','movie:popular','tv:popular','movie:trending','tv:trending','movie:top','tv:top','movie:now','tv:air',...[8,119,337,350,1899,531,15].flatMap(p=>[`movie:p${p}`,`tv:p${p}`])];
 if(!S.rows)S.rows=DEFAULT_ROWS.slice();if(!LS.get('bywMig',false)){if(!S.rows.includes('byw'))S.rows.splice(S.rows.indexOf('cw')+1,0,'byw');LS.set('bywMig',true);LS.set('rows4',S.rows)}if(!LS.get('cwMig',false)){if(!S.rows.includes('cw'))S.rows.unshift('cw');LS.set('cwMig',true);LS.set('rows4',S.rows)}const saveRows=()=>{LS.set('rows4',S.rows);homeDirty=true};
 const SORTN={new:'New',top:'Top'};
@@ -537,24 +552,25 @@ function infinite(grid,sent,root,fetcher,{onEmpty,filter}={}){const st={page:0,t
     else if(!done){const r=sent.getBoundingClientRect();if(r.top<innerHeight+1400)requestAnimationFrame(more)}}
   return{more,reset(){st.gen++;Object.assign(st,{page:0,total:1,loading:false});st.seen.clear();grid.innerHTML='';sent.innerHTML='';more()},destroy(){st.gen++;io.disconnect()}}}
 
-/* ---------- layer stack (detail / grid / person) with history ---------- */
-const BOOT_HASH=location.hash;const stack=[];history.replaceState({L:0},'',location.pathname+location.search);
-function pushLayer(el){document.body.insertBefore(el,$('#tabbar'));stack.push(el);if(window._noPush){window._noPush=0;history.replaceState({L:stack.length},'',location.pathname)}else history.pushState({L:stack.length},'');
+/* ---------- layer stack (detail / grid / person) ----------
+   Layers never touch the browser history: no pushState/hash entries means iOS standalone edge-swipes have nothing to
+   navigate back/forward through. Close only via the back button, Escape or a tab tap. */
+const BOOT_HASH=location.hash;const stack=[];history.replaceState(null,'',location.pathname+location.search);
+let lastOpen=0;const openGuard=()=>{const n=Date.now();if(n-lastOpen<450)return false;lastOpen=n;return true}; // ignore double taps opening two layers
+function closeLayer(){if(!stack.length)return;popLayer();dispatchEvent(new Event('layerclose'))}
+function pushLayer(el){document.body.insertBefore(el,$('#tabbar'));stack.push(el);el.style.pointerEvents='none';setTimeout(()=>el.style.pointerEvents='',380); // no tap-through from the tap that opened it
+  
   el.animate([{opacity:0,transform:'scale(.965)'},{opacity:1,transform:'none'}],{duration:230,easing:'cubic-bezier(.2,.8,.2,1)'});
   const sc=$('.lscroll',el);sc.addEventListener('scroll',()=>el.classList.toggle('scrolled',sc.scrollTop>(el._thresh||60)),{passive:true});
-  $$('[data-back]',el).forEach(b=>b.onclick=()=>{history.back()});if(!el.classList.contains('detail'))swipeDismiss(el,sc);return el}
+  $$('[data-back]',el).forEach(b=>b.onclick=()=>{if(stack[stack.length-1]===el)closeLayer()});return el}
 function popLayer(){const el=stack.pop();if(!el)return;el._destroy&&el._destroy();const from=el.style.transform||'none';
   el.animate([{opacity:1,transform:from},{opacity:0,transform:from==='none'?'scale(.975)':from+' translateY(30px)'}],{duration:190,easing:'ease-in'}).onfinish=()=>el.remove()}
-addEventListener('popstate',e=>{if(!e.state&&/^#(movie|tv)\/\d+$/.test(location.hash))return;const L=e.state&&e.state.L||0;while(stack.length>L)popLayer()});
-addEventListener('keydown',e=>{if(e.key==='Escape'&&stack.length)history.back()});
-function swipeDismiss(el,sc){let y0=null,dy=0;el.addEventListener('touchstart',e=>{if(sc.scrollTop>0)return;y0=e.touches[0].clientY;dy=0},{passive:true});
-  el.addEventListener('touchmove',e=>{if(y0==null)return;dy=e.touches[0].clientY-y0;if(dy<0){y0=null;el.style.transform='';return}if(e.cancelable)e.preventDefault();el.style.transform=`translateY(${dy*.55}px) scale(${1-Math.min(dy/innerHeight,.3)*.25})`;el.style.borderRadius='26px'},{passive:false});
-  el.addEventListener('touchend',()=>{if(y0==null)return;y0=null;el.style.borderRadius='';if(dy>110)history.back();else{el.animate([{transform:el.style.transform},{transform:'none'}],{duration:220,easing:'cubic-bezier(.2,.8,.2,1)'});el.style.transform=''}})}
+addEventListener('keydown',e=>{if(e.key==='Escape'&&stack.length&&!$('.csheet'))closeLayer()});
 const layerShell=(title,cls='')=>h(`<div class="layer ${cls}"><div class="lbar"><button class="btn round" data-back aria-label="Back">${ic('chev-l')}</button><div class="ttl">${esc(title)}</div><span class="sp"></span></div><div class="lscroll"></div></div>`);
 
 /* ---------- grid page (See all / genre / service) ---------- */
 const segHTML=(f='all')=>`<div class="seg glass tseg"><button data-f="all" class="${f==='all'?'on':''}">All</button><button data-f="movie" class="${f==='movie'?'on':''}">Movies</button><button data-f="tv" class="${f==='tv'?'on':''}">Shows</button></div>`;
-function openGrid(r){const el=layerShell(r.label);el._thresh=40;const sc=$('.lscroll',el);const mixed=r.t==='all';
+function openGrid(r){if(!openGuard())return;const el=layerShell(r.label);el._thresh=40;const sc=$('.lscroll',el);const mixed=r.t==='all';
   sc.innerHTML=`<h1 class="gtitle">${esc(r.label)}</h1>${mixed?`<div class="pseg">${segHTML()}</div>`:''}<div class="grid"></div><div class="sentinel"></div>`;
   pushLayer(el);let cur='all';const inf=infinite($('.grid',sc),$('.sentinel',sc),sc,p=>fetchPage({...r,t:cur},p),{onEmpty:()=>$('.sentinel',sc).innerHTML='<div class="empty">No titles here yet.</div>'});el._destroy=inf.destroy;inf.more();
   if(mixed)$$('.tseg button',sc).forEach(b=>b.onclick=()=>{if(cur===b.dataset.f)return;cur=b.dataset.f;$$('.tseg button',sc).forEach(x=>x.classList.toggle('on',x===b));inf.reset()})}
@@ -571,7 +587,7 @@ function favBtn(it,cls='btn'){const b=h(`<button class="${cls}" data-fav></butto
 function playBtn(it,onPlay){const b=h(`<button class="btn primary">${ic('play')}Play</button>`);b.onclick=e=>{e.stopPropagation();if(onPlay)onPlay();else{const x=typeof it==='function'?it():it;openDetail({...x},{autoplay:true})}};return b}
 
 /* ---------- detail card ---------- */
-async function openDetail(it,opt={}){if(typeof exitEdit==='function')exitEdit();const t=it.media_type;const el=layerShell(it.title||it.name||'','detail');el._thresh=200;const sc=$('.lscroll',el);
+async function openDetail(it,opt={}){if(!it||!it.id||!openGuard())return;if(typeof exitEdit==='function')exitEdit();const t=it.media_type;const el=layerShell(it.title||it.name||'','detail');el._thresh=200;const sc=$('.lscroll',el);
   sc.innerHTML=`<div class="dhero"><img class="bd" alt=""><div class="shade"></div><img class="logo" alt=""><h2>${esc(it.title||it.name||'')}</h2></div>
   <div class="dbody"><div class="meta"></div><div class="dbtns"></div><div class="player"></div><p class="overview">${esc(it.overview||'')}</p><div class="crew"></div><div class="tags"></div><div class="more"></div></div>`;
   let dRes;const dP=new Promise(r=>dRes=r);$('.dbtns',sc).append(playBtn(it,()=>inlinePlayer(el,it,dP)),favBtn(it));const bd=$('.bd',sc),hero=$('.dhero',sc);
@@ -604,9 +620,9 @@ async function openDetail(it,opt={}){if(typeof exitEdit==='function')exitEdit();
   if(sim.length){const w=h('<div><h3>More like this</h3><div class="hs"></div></div>');sim.forEach(x=>$('.hs',w).append(posterEl({...x,media_type:x.media_type||t},true)));more.append(w)}}
 
 /* ---------- person page ---------- */
-async function openPerson(id,name){const el=layerShell(name||'');el._thresh=150;const sc=$('.lscroll',el);
+async function openPerson(id,name){if(!openGuard())return;const el=layerShell(name||'');el._thresh=150;const sc=$('.lscroll',el);
   sc.innerHTML=`<div class="phead"><div class="pp"></div><div><h2>${esc(name||'')}</h2><p class="pk"></p></div></div><div class="bio"></div><div class="pseg"><div class="seg glass"><button data-f="all" class="on">All</button><button data-f="movie">Movies</button><button data-f="tv">Shows</button></div></div><div class="grid">${skel(6)}</div>`;
-  pushLayer(el);let p;try{p=await tm(`/person/${id}`,{append_to_response:'combined_credits'})}catch(e){$('.grid',sc).innerHTML='<div class="empty" style="grid-column:1/-1">Couldn’t load this person.</div>';return}
+  pushLayer(el);let p;try{p=await tm(`/person/${id}`,{append_to_response:'combined_credits'});if(!el.isConnected)return}catch(e){$('.grid',sc).innerHTML='<div class="empty" style="grid-column:1/-1">Couldn’t load this person.</div>';return}
   $('.ttl',el).textContent=p.name;$('.phead h2',sc).textContent=p.name;if(p.profile_path){const im=new Image();$('.pp',sc).append(im);prog(im,p.profile_path,'w185','h632',{lazy:false})}
   const age=p.birthday?` · ${p.deathday?'':'Born '}${p.birthday.slice(0,4)}`:'';$('.pk',sc).textContent=(p.known_for_department||'')+age+(p.place_of_birth?` · ${p.place_of_birth}`:'');
   const bio=$('.bio',sc);bio.textContent=p.biography||'';bio.onclick=()=>bio.classList.toggle('open');
@@ -684,7 +700,7 @@ async function becauseRows(){const box=$('#bywBox');if(!box)return;const hist=ge
     if(box._gen!==gen)return;if(out.length<4){sec.remove();return}const st=$('.strip',sec);st.innerHTML='';out.forEach(it=>st.append(posterEl(it,true)))}catch(e){sec.remove()}}
 
 /* ---------- watch history (same localStorage key + shape as the original site) ---------- */
-const getHist=()=>LS.get('history',[]);
+const getHist=()=>{const v=LS.get('history',[]);return Array.isArray(v)?v.filter(x=>x&&x.id&&(x.media_type==='movie'||x.media_type==='tv')):[]};
 function saveToHistory(item,season,episode){const hs=getHist();const i=hs.findIndex(x=>x.id===item.id&&x.media_type===item.media_type);
   const e={id:item.id,media_type:item.media_type,title:item.title||item.name||'(untitled)',year:yearOf(item)||'',poster_path:item.poster_path||null,backdrop_path:item.backdrop_path||null,timestamp:Date.now(),
     last_season:item.media_type==='tv'?(+season||1):null,last_episode:item.media_type==='tv'?(+episode||1):null};
@@ -704,7 +720,7 @@ let bywT;function renderCW(){clearTimeout(bywT);bywT=setTimeout(()=>becauseRows(
 
 /* ---------- tabs ---------- */
 let curTab='home';
-function showTab(tab){if(stack.length){const n=stack.length;history.go(-n);setTimeout(()=>showTab(tab),60);return}
+function showTab(tab){while(stack.length)closeLayer();
   if(tab===curTab){const p=$('#pg-'+tab);p.scrollTo({top:0,behavior:'smooth'});if(tab==='search')$('#q').focus();return}
   curTab=tab;$$('.page').forEach(p=>p.classList.toggle('on',p.id==='pg-'+tab));$$('#tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
   if(tab==='home'&&homeDirty)renderHome();if(tab==='library')renderLibrary();if(tab==='settings')renderSettings();if(tab==='search')renderSearchIdle()}
@@ -770,7 +786,7 @@ function setEdit(v){libEdit=v;const pg=$('#pg-library');$('#libEditBtn').textCon
 function exitEdit(){if(libEdit)setEdit(false)}
 $('#libEditBtn').onclick=()=>setEdit(!libEdit);
 $('#clearHist').onclick=()=>{if(confirm('Clear all watch history? This also empties Continue Watching.')){LS.set('history',[]);renderCW();renderLibrary();toast('History cleared')}};
-addEventListener('popstate',()=>{if(curTab==='library'&&(libDirty||histDirty))renderLibrary()});
+addEventListener('layerclose',()=>{if(curTab==='library'&&(libDirty||histDirty))renderLibrary()});
 
 /* ---------- better posters (btttr.cc via IMDb id) ---------- */
 const IMDB=LS.get('imdbIds4',{});let imdbSave;const imdbQ=[];let imdbN=0;const imdbWait={};
@@ -791,7 +807,7 @@ async function inlinePlayer(el,it,dP,reload){const box=$('.player',el);if(box._o
   box.innerHTML=`${t==='tv'&&src?'<div class="epick"><select class="glass ssel"></select><select class="glass esel"></select></div>':''}<div class="pframe"><div class="spin"></div></div>${t==='tv'&&src?`<div class="epnav"><button class="btn eprev" disabled>${ic('chev-l')}Previous</button><button class="btn enext" disabled>Next${ic('chev-r')}</button></div>`:''}<div class="pnote"></div>`;
   if(!reload){box.style.height='0px';const to=box.scrollHeight;box.animate([{height:'0px',opacity:0},{height:to+'px',opacity:1}],{duration:360,easing:'cubic-bezier(.2,.8,.2,1)'}).onfinish=()=>{box.style.height='auto'};box.style.height=to+'px'}
   const ids={tmdb:id,imdb:''};if(src)try{ids.imdb=(await tm(`/${t}/${id}/external_ids`)).imdb_id||''}catch(e){}
-  const frame=$('.pframe',box),note=$('.pnote',box);const last=LS.get('lastEp4',{});let S_=1,E_=1;if(el._se)[S_,E_]=el._se;
+  const frame=$('.pframe',box),note=$('.pnote',box);const last=(v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{})(LS.get('lastEp4',{}));let S_=1,E_=1;if(el._se)[S_,E_]=el._se;
   const load=async()=>{saveToHistory(it,S_,E_);let url='';if(src){try{url=t==='movie'?src.movieUrl(id,ids):src.seriesUrl(id,S_,E_,ids)}catch(e){}note.textContent=`${src.name}${t==='tv'?` · S${S_} E${E_}`:''}`}
     else{const d=await dP;const v=(d?.videos?.results||[]).filter(v=>v.site==='YouTube');const tr=v.find(x=>x.type==='Trailer'&&x.official)||v.find(x=>x.type==='Trailer')||v.find(x=>x.type==='Teaser')||v[0];
       if(tr)url=`https://www.youtube-nocookie.com/embed/${tr.key}?playsinline=1&autoplay=1&rel=0&modestbranding=1`;note.textContent=tr?'Trailer':'No trailer available'}
@@ -825,17 +841,23 @@ function renderSettings(){const sb=$('#settingsBody');sb.innerHTML=`
   <div class="card glass"><ul class="rowl" id="rowList"></ul></div>
   <div class="slabel">Add a row</div><div class="seg glass" id="addSeg" style="margin-bottom:12px"><button data-t="movie">Movies</button><button data-t="tv">Shows</button></div><div id="addBody"></div>
   <button class="btn" id="reset" style="width:100%;margin-top:18px">Reset home rows</button>
-  <div class="slabel">App</div><button class="btn temp" id="hardRefresh">${ic('refresh')}Refresh app</button><p class="tnote" style="color:var(--mut)">Reloads the app.</p>`;
+  <div class="slabel">App</div><div class="card glass applist"><button class="srow" id="hardRefresh">${ic('refresh')}Refresh app</button><button class="srow" id="eraseAll">${ic('x')}Erase all data</button></div>`;
   const pc=$('#posterCard');pc.append(togRow('posterBorders','Poster borders','Subtle hairline edge on posters, photos and cards',LS.get('posterBorders',true)),togRow('posterTitles','Show titles under posters','Applies to every poster in the app',LS.get('posterTitles',false)),
-    selRow('gridCols','Poster size','Posters per row in Library and Search',[['3','Small · 3 per row'],['2','Large · 2 per row']],'3',applyLook),
+    selRow('gridCols','Poster size','Posters per row in Library and Search',[['2','Large · 2 per row'],['3','Small · 3 per row']],'2',applyLook),
     togRow('betterPosters','Better Posters','Higher-quality artwork from btttr.cc (via IMDb id)',LS.get('betterPosters',false)),bpDemo());
   const sc=$('#srcCard');for(const[k,l]of[['defSrcMovie','Default source · Movies'],['defSrcTv','Default source · Shows']]){const r=h(`<div class="srow"><div>${l}${sources.length?'':'<small>No sources added yet, so the trailer plays</small>'}</div><select class="glass ssel2"><option value="-1">Automatic</option>${sources.map((x,i)=>`<option value="${i}">${esc(x.name)}</option>`).join('')}</select></div>`);const se=$('select',r);se.value=String(LS.get(k,-1));se.onchange=()=>LS.set(k,+se.value);sc.append(r)}
   $('#lookCard').append(accentRow());
   $('#searchCard').append(togRow('showAI','Show AI search toggle','The AI search switch on the Search page',LS.get('showAI',true)));
   renderRowList();renderAdd();
   $$('#addSeg button').forEach(b=>{b.classList.toggle('on',b.dataset.t===S.addType);b.onclick=()=>{S.addType=b.dataset.t;$$('#addSeg button').forEach(x=>x.classList.toggle('on',x===b));renderAdd()}});
-  $('#reset').onclick=()=>{S.rows=DEFAULT_ROWS.slice();saveRows();renderRowList();renderAdd();toast('Home rows reset')};
-  $('#hardRefresh').onclick=()=>location.reload()}
+  $('#reset').onclick=async()=>{if(!await confirmSheet('Reset home rows?','Your Home rows go back to the default order and selection.','Reset rows',true))return;S.rows=DEFAULT_ROWS.slice();saveRows();renderRowList();renderAdd();toast('Home rows reset')};
+  $('#hardRefresh').onclick=()=>location.reload();
+  $('#eraseAll').onclick=async()=>{if(!await confirmSheet('Erase all data?','This permanently deletes your watch history, watchlist and all settings on this device. You’ll start again from the welcome screen.','Erase everything',true))return;
+    try{localStorage.clear()}catch(e){}try{sessionStorage.clear()}catch(e){}
+    try{const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}catch(e){}
+    try{const dbs=await indexedDB.databases?.();await Promise.all((dbs||[]).map(d=>d.name&&new Promise(r=>{const q=indexedDB.deleteDatabase(d.name);q.onsuccess=q.onerror=q.onblocked=r})))}catch(e){}
+    try{const rs=await navigator.serviceWorker?.getRegistrations();rs&&await Promise.all(rs.map(r=>r.unregister()))}catch(e){}
+    location.reload()}}
 function renderRowList(){const ul=$('#rowList');ul.innerHTML='';S.rows.forEach((id,i)=>{const r=rowInfo(id);if(!r)return;
   const li=h(`<li data-i="${i}"><button class="handle" aria-label="Reorder">${ic('grip')}</button>${r.logo?`<img src="${IMG}w92${r.logo}" alt="">`:`<i class="dot">${ic('film')}</i>`}<span>${esc(r.label)}</span>${r.prov?`<button class="btn sm sortb">${ic('sort')}${({'':'Popular',new:'New',top:'Top'})[r.sort]}</button>`:''}<button class="rm" aria-label="Remove">${ic('x')}</button></li>`);
   $('.rm',li).onclick=()=>{li.animate([{opacity:1,transform:'none'},{opacity:0,transform:'translateX(30px)'}],{duration:180}).onfinish=()=>{S.rows.splice(i,1);saveRows();renderRowList();renderAdd()}};
@@ -879,10 +901,10 @@ function renderAdd(){const t=S.addType,box=$('#addBody');if(!box)return;const ke
 
 /* ---------- boot ---------- */
 (Object.keys(PROV).length>20?Promise.resolve():loadProviders().catch(()=>{})).then(()=>{renderHome()});
-Promise.race([Promise.all(['movie','tv'].map(t=>tm(`/genre/${t}/list`))),new Promise(r=>setTimeout(r,1500))]).finally(renderHero);
+Promise.race([Promise.all(['movie','tv'].map(t=>tm(`/genre/${t}/list`))),new Promise(r=>setTimeout(r,1500))]).catch(()=>{}).finally(renderHero); // offline: still render (hero hides itself)
 const hm=BOOT_HASH.match(/^#(movie|tv)\/(\d+)$/);if(hm){openDetail({id:+hm[2],media_type:hm[1]})}
 if('serviceWorker'in navigator)navigator.serviceWorker.getRegistrations().then(r=>r.forEach(x=>x.unregister())).catch(()=>{});
-addEventListener('hashchange',()=>{const m=location.hash.match(/^#(movie|tv)\/(\d+)$/);if(m){window._noPush=1;openDetail({id:+m[2],media_type:m[1]})}});
+addEventListener('hashchange',()=>{const m=location.hash.match(/^#(movie|tv)\/(\d+)$/);history.replaceState(null,'',location.pathname+location.search);if(m)openDetail({id:+m[2],media_type:m[1]})});
 
 $$('#sSeg button').forEach(b=>b.onclick=()=>{if(sF===b.dataset.f)return;sF=b.dataset.f;$$('#sSeg button').forEach(x=>x.classList.toggle('on',x===b));runSearch()});
 
@@ -902,7 +924,7 @@ function bpDemo(){const w=h(`<div class="bpdemo"><figure><div class="bpi"><img a
 (()=>{const b=h(`<button id="toTop" class="glass" aria-label="Scroll to top">${ic('chev-u')}</button>`);document.body.append(b);
   const act=()=>stack.length?$('.lscroll',stack[stack.length-1]):$('.page.on');
   const upd=()=>{const a=act();const show=!!a&&a.scrollTop>700&&!(a.id==='pg-settings');b.classList.toggle('on',show)};
-  document.addEventListener('scroll',upd,{capture:true,passive:true});addEventListener('popstate',()=>setTimeout(upd,250));$$('#tabbar button').forEach(x=>x.addEventListener('click',()=>setTimeout(upd,50)));
+  document.addEventListener('scroll',upd,{capture:true,passive:true});addEventListener('layerclose',()=>setTimeout(upd,250));$$('#tabbar button').forEach(x=>x.addEventListener('click',()=>setTimeout(upd,50)));
   b.onclick=()=>{const a=act();a&&a.scrollTo({top:0,behavior:'smooth'})}})();
 
 /* ---------- Onboarding: shown once (localStorage 'onboarded'); "Get started" saves every choice to the real settings, Skip keeps defaults ---------- */
@@ -910,16 +932,17 @@ function openOnboarding(){if($('#onb'))return;const o=h(`<div id="onb"><img clas
   const pages=$('.onbpages',o);const sel=(el,multi)=>el.addEventListener('click',e=>{const t=e.target.closest('[data-pick]');if(!t)return;if(!multi)$$('[data-pick]',el).forEach(x=>x.classList.remove('on'));t.classList.toggle('on',multi?!t.classList.contains('on'):true)});
   const bp=!!LS.get('betterPosters',false),tg=(k,on,label,sub)=>`<div class="srow"><div>${label}<small>${sub}</small></div><button class="tog ${on?'on':''}" data-t data-k="${k}"></button></div>`;
   const P=[
-   `<div class="onbp center"><div class="onbicon">${ic('film')}</div><h1>Welcome</h1><p>Your movies and shows, beautifully organised. Let’s set things up. It takes about 30 seconds.</p></div>`,
+   `<div class="onbp center"><div class="onbicon">${ic('film')}</div><h1>Welcome</h1><p>Let’s set things up. It takes about 30 seconds.</p></div>`,
    `<div class="onbp"><h1>Poster style</h1><p>Pick the artwork you like best.</p><div class="onbposters" data-s="1"><button data-pick class="${bp?'':'on'}"><div class="bpi"><img data-tm alt="The Rookie, TMDB poster"></div><b>Regular</b></button>${bpArrow()}<button data-pick data-better class="${bp?'on':''}"><div class="bpi"><img src="https://btttr.cc/poster/imdb/poster-default/${ROOKIE.imdb}.jpg" alt="The Rookie, better poster"></div><b>Better posters</b></button></div></div>`,
    `<div class="onbp"><h1>Your services</h1><p>We’ll put them on your Home screen.</p><div class="onbsvc" data-m="1"></div></div>`,
    `<div class="onbp"><h1>Favourite genres</h1><p>Choose a few. We’ll add rows for them.</p><div class="onbg" data-m="1"></div></div>`,
-   `<div class="onbp"><h1>Layout</h1><p>Make it yours.</p><div class="card glass onbopts">${tg('posterTitles',LS.get('posterTitles',false),'Titles under posters','Show the name below every poster')}${tg('posterBorders',LS.get('posterBorders',true),'Poster borders','Subtle hairline edge')}${tg('largePosters',String(LS.get('gridCols','3'))==='2','Large posters','2 per row in Library and Search')}</div></div>`,
+   `<div class="onbp"><h1>Layout</h1><p>Make it yours.</p><div class="card glass onbopts">${tg('posterTitles',LS.get('posterTitles',false),'Titles under posters','Show the name below every poster')}${tg('posterBorders',LS.get('posterBorders',true),'Poster borders','Subtle hairline edge')}</div><div class="slabel" style="margin:18px 2px 8px">Poster size</div><div class="onbsz" data-s="1"><button class="btn ${String(LS.get('gridCols','2'))==='2'?'on':''}" data-pick data-cols="2">Large · 2 per row</button><button class="btn ${String(LS.get('gridCols','2'))==='3'?'on':''}" data-pick data-cols="3">Small · 3 per row</button></div></div>`,
+   `<div class="onbp"><h1>Accent colour</h1><p>Used for the Play button, switches and the active tab.</p><div class="card glass onbacc"></div><div class="hbtns" style="margin:22px auto 0;max-width:none"><button class="btn primary" tabindex="-1">${ic('play')}Play</button></div></div>`,
    `<div class="onbp"><h1>AI search</h1><p>Normal search by title always works. AI search is an optional extra: describe what you’re in the mood for in plain words and get matching titles.</p><div class="card glass onbopts">${tg('showAI',LS.get('showAI',true),'Show AI search','Adds an optional AI switch next to normal search')}</div></div>`,
    `<div class="onbp center"><div class="onbicon ok">${ic('check')}</div><h1>You’re all set</h1><p>You can change any of this later in Settings.</p></div>`];
   pages.innerHTML=P.join('');const ps=$$('.onbp',pages);$('.onbdots',o).innerHTML=ps.map(()=>'<i></i>').join('');const dots=$$('.onbdots i',o);
   $$('[data-s],[data-m]',pages).forEach(x=>sel(x,x.dataset.m));$$('[data-t]',pages).forEach(t=>t.onclick=()=>t.classList.toggle('on'));
-  rookieTm($('[data-tm]',pages));
+  rookieTm($('[data-tm]',pages));$('.onbacc',pages).append(accentRow());
   loadProviders().then(pl=>{const box=$('.onbsvc',pages);const btn=p=>`<button data-pick data-id="${p.id}"><img src="${IMG}w154${p.l}" alt="" loading="lazy"><span>${esc(p.n)}</span></button>`;box.innerHTML=pl.slice(0,12).map(btn).join('');
     const rest=pl.slice(12);if(rest.length){const d=h(`<details class="onbmore"><summary class="btn sm">Show all services${ic('chev-d')}</summary><div class="onbsvc" data-m="1">${rest.map(btn).join('')}</div></details>`);box.after(d);sel($('.onbsvc',d),true)}}).catch(()=>{});
   const fillG=()=>{$('.onbg',pages).innerHTML=Object.entries(GEN.movie||{}).slice(0,18).map(([id,n])=>`<button class="btn sm" data-pick data-g="${id}">${esc(n)}</button>`).join('')};
@@ -929,23 +952,23 @@ function openOnboarding(){if($('#onb'))return;const o=h(`<div id="onb"><img clas
     if(prev&&prev!==ps[i]){ps[i].animate([{opacity:0,transform:`translateX(${dir*40}px)`},{opacity:1,transform:'none'}],{duration:320,easing:'cubic-bezier(.2,.8,.2,1)'})}
     $('.onbback',o).style.visibility=i?'visible':'hidden';$('.onbnext',o).textContent=i===ps.length-1?'Get started':i?'Continue':'Let’s go'};
   const save=()=>{LS.set('betterPosters',!!$('[data-better]',pages).classList.contains('on'));
-    $$('[data-k]',pages).forEach(t=>{const on=t.classList.contains('on');if(t.dataset.k==='largePosters')LS.set('gridCols',on?'2':'3');else LS.set(t.dataset.k,on)});
+    $$('[data-k]',pages).forEach(t=>LS.set(t.dataset.k,t.classList.contains('on')));LS.set('gridCols',$('.onbsz .on',pages)?.dataset.cols||'2');
     const svc=$$('.onbsvc [data-pick].on',pages).map(b=>+b.dataset.id),gen=$$('.onbg [data-pick].on',pages).map(b=>+b.dataset.g);
     if(svc.length||gen.length){const base=svc.length?S.rows.filter(id=>!/^(movie|tv):p\d+/.test(id)):S.rows.slice();const add=[...svc.flatMap(p=>[`movie:p${p}`,`tv:p${p}`]),...gen.map(g=>`movie:g${g}`)];S.rows=[...base,...add.filter(x=>!base.includes(x))];saveRows()}
     const de=document.documentElement;de.classList.toggle('pborder',!!LS.get('posterBorders',true));de.classList.toggle('ptitles',!!LS.get('posterTitles',false));applyLook();syncAI();renderHome();if(curTab==='settings')renderSettings()};
-  const close=done=>{LS.set('onboarded',true);if(done)save();o.animate([{opacity:1},{opacity:0}],{duration:220}).onfinish=()=>o.remove()};
+  const close=done=>{if(o._closing)return;o._closing=true;LS.set('onboarded',true);if(!done&&LS.get('gridCols',null)==null)LS.set('gridCols','2');if(done)save();o.animate([{opacity:1},{opacity:0}],{duration:220}).onfinish=()=>o.remove()};
   $('.onbnext',o).onclick=()=>i<ps.length-1?show(i+1,1):close(true);$('.onbback',o).onclick=()=>i&&show(i-1,-1);$('.onbskip',o).onclick=()=>close(false);
   o.animate([{opacity:0},{opacity:1}],{duration:260});show(0,1)}
-if(!LS.get('onboarded',false))openOnboarding();
+
 
 /* ---------- accent, poster size, measured app height ---------- */
-const ACCENTS=[['','Classic (white + green)'],['#2f7bff','Blue'],['#7c5cff','Purple'],['#ff375f','Pink'],['#ff9f0a','Orange'],['#30d158','Green'],['#64d2ff','Sky']];
+const ACCENTS=[['','Classic'],['#2f7bff','Blue'],['#7c5cff','Purple'],['#ff375f','Pink'],['#ff9f0a','Orange'],['#30d158','Green'],['#64d2ff','Sky']];
 function accTxt(hex){const n=parseInt(hex.slice(1),16);const L=[n>>16&255,n>>8&255,n&255].map(v=>{v/=255;return v<=.03928?v/12.92:((v+.055)/1.055)**2.4}).reduce((a,v,i)=>a+v*[.2126,.7152,.0722][i],0);return (L+.05)/.05>=1.05/(L+.05)?'#000':'#fff'}
 function setAppH(){const de=document.documentElement;const sa=navigator.standalone===true||matchMedia('(display-mode: standalone)').matches;const port=innerHeight>=innerWidth;
   const sh=sa&&port?Math.max(screen.height,screen.width):0;de.style.setProperty('--scrH',Math.max(innerHeight,de.clientHeight,sh)+'px')}
 function applyLook(){const de=document.documentElement,a=LS.get('accent','');de.classList.toggle('acc',!!a);
   if(a){de.style.setProperty('--acc',a);de.style.setProperty('--accTxt',accTxt(a))}else{de.style.removeProperty('--acc');de.style.removeProperty('--accTxt')}
-  const cols=String(LS.get('gridCols','3'))==='2'?2:3;de.style.setProperty('--pcols',cols);de.style.setProperty('--pgap',cols===2?'14px':'10px');
+  const cols=String(LS.get('gridCols','2'))==='2'?2:3;de.style.setProperty('--pcols',cols);de.style.setProperty('--pgap',cols===2?'14px':'10px');
   setAppH()}
 applyLook();['resize','orientationchange','pageshow'].forEach(ev=>addEventListener(ev,()=>{setAppH();setTimeout(setAppH,300)}));
 /* Pinned top blur is only shown while the scroller is at (or pulled past) the top. */
@@ -957,6 +980,8 @@ document.addEventListener('touchmove',e=>{if(e.touches.length>1&&e.cancelable)e.
 
 /* ---------- tabbar height for the lvh-anchored nav (measured from the element, never from innerHeight) ---------- */
 (()=>{const tb=$('#tabbar');const m=()=>document.documentElement.style.setProperty('--tbh',tb.offsetHeight+'px');m();addEventListener('resize',m);addEventListener('pageshow',m)})();
+/* first launch: onboarding (after every const above is initialised) */
+if(!LS.get('onboarded',false))openOnboarding();
 </script>
 </body>
 </html>
