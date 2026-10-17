@@ -430,9 +430,35 @@ html.acc .tabbar button.on{color:var(--acc)}
 const API_KEY='79d7c854f26de5ac978215ce03ff0c87',API='https://api.themoviedb.org/3',IMG='https://image.tmdb.org/t/p/';
 
 const sources = [
-  { name: "STELLAR", movieUrl: id => `https://stellar.rip/en/watch/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://stellar.rip/en/watch/embed/tv/${id}-${s}-${e}` },
-  { name: "ATLANTIC", movieUrl: id => `https://atlantic.st/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://atlantic.st/embed/tv/${id}/${s}/${e}` },
-  { name: "HIVE", movieUrl: id => `https://vidhive.lol/embed/movie/${id}`, seriesUrl: (id,s,e)=>`https://vidhive.lol/embed/tv/${id}/${s}/${e}` },
+  { name: "STELLAR (4K)", movieUrl: id => `https://stellar.rip/en/watch/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://stellar.rip/en/watch/embed/tv/${id}-${s}-${e}` },
+  { name: "ATLANTIC", movieUrl: id => `https://atlantic.st/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://atlantic.st/embed/tv/${id}/${s}/${e}` },
+  { name: "CINEMAOS", movieUrl: id => `https://cinemaos.tech/player/${id}`, seriesUrl: (id, s, e) => `https://cinemaos.tech/player/${id}/${s}/${e}` },
+  { name: "CINEPRO", movieUrl: id => `https://kyahihoga-1.onrender.com/movie/${id}`, seriesUrl: (id, s, e) => `https://kyahihoga-1.onrender.com/tv/${id}/${s}/${e}` },
+  { name: "CINESRC", movieUrl: id => `https://cinesrc.st/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://cinesrc.st/embed/tv/${id}?s=${s}&e=${e}` },
+  { name: "EMBEDMASTER", movieUrl: id => `https://embedmaster.link/movie/${id}`, seriesUrl: (id, s, e) => `https://embedmaster.link/tv/${id}/${s}/${e}` },
+  { name: "HEXA", movieUrl: id => `https://hexa.su/watch/movie/${id}`, seriesUrl: (id, s, e) => `https://hexa.su/watch/tv/${id}/${s}/${e}` },
+  { name: "HIVE", movieUrl: id => `https://vidhive.lol/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://vidhive.lol/embed/tv/${id}/${s}/${e}` },
+  { name: "MAPPLE", movieUrl: id => `https://mapple.fun/watch/movie/${id}`, seriesUrl: (id, s, e) => `https://mapple.fun/watch/tv/${id}/${s}/${e}` },
+  { name: "NONTONGO", movieUrl: id => `https://www.NontonGo.win/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://www.NontonGo.win/embed/tv/?id=${id}&s=${s}&e=${e}` },
+  { name: "PEESTREAM", movieUrl: id => `https://peestream.in/embed/?tmdbId=${id}&type=movie`, seriesUrl: (id, s, e) => `https://peestream.in/embed/?tmdbId=${id}&type=tv&season=${s}&episode=${e}` },
+  { name: "PRIMESRC", movieUrl: id => `https://primesrc.me/embed/movie?tmdb=${id}`, seriesUrl: (id, s, e) => `https://primesrc.me/embed/tv?tmdb=${id}&season=${s}&episode=${e}` },
+  { name: "VIDCORE", movieUrl: id => `https://vidcore.io/movie/${id}`, seriesUrl: (id, s, e) => `https://vidcore.io/tv/${id}/${s}/${e}` },
+  { name: "VIDEASY", movieUrl: id => `https://player.videasy.net/movie/${id}`, seriesUrl: (id, s, e) => `https://player.videasy.net/tv/${id}/${s}/${e}` },
+  { name: "VIDFAST", movieUrl: id => `https://vidfast.vc/movie/${id}`, seriesUrl: (id, s, e) => `https://vidfast.vc/tv/${id}/${s}/${e}` },
+  { name: "VIDLINK", movieUrl: id => `https://vidlink.pro/movie/${id}`, seriesUrl: (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}` },
+  { name: "VIDNEST", movieUrl: id => `https://vidnest.fun/movie/${id}`, seriesUrl: (id, s, e) => `https://vidnest.fun/tv/${id}/${s}/${e}` },
+  { name: "VIDROCK", movieUrl: id => `https://vidrock.net/movie/${id}`, seriesUrl: (id, s, e) => `https://vidrock.net/tv/${id}/${s}/${e}` },
+  { name: "VIDSRC1", movieUrl: id => `https://vidsrc.sh/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://vidsrc.sh/embed/tv/${id}/${s}/${e}` },
+  { name: "VIDSRC2", movieUrl: id => `https://vidsrc.ru/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://vidsrc.ru/embed/tv/${id}/${s}/${e}` },
+  { name: "VIDSRC3", movieUrl: id => `https://vidsrc.ir/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://vidsrc.ir/embed/tv/${id}/${s}/${e}` },
+  { name: "VIDSRX", movieUrl: id => `https://vixsrc.to/movie/${id}/`, seriesUrl: (id, s, e) => `https://vixsrc.to/tv/${id}/${s}/${e}/` },
+  { name: "VIDSRCWTF 1", movieUrl: id => `https://vidsrc.wtf/api/1/movie/?id=${id}`, seriesUrl: (id, s, e) => `https://vidsrc.wtf/api/1/tv/?id=${id}&s=${s}&e=${e}` },
+  { name: "VIDSRCWTF 2", movieUrl: id => `https://vidsrc.wtf/api/2/movie/?id=${id}`, seriesUrl: (id, s, e) => `https://vidsrc.wtf/api/2/tv/?id=${id}&s=${s}&e=${e}` },
+  { name: "VIDSRCWTF 3", movieUrl: id => `https://vidsrc.wtf/api/3/movie/?id=${id}`, seriesUrl: (id, s, e) => `https://vidsrc.wtf/api/3/tv/?id=${id}&s=${s}&e=${e}` },
+  { name: "VIDSRCWTF 4", movieUrl: id => `https://vidsrc.wtf/api/4/movie/?id=${id}`, seriesUrl: (id, s, e) => `https://vidsrc.wtf/api/4/tv/?id=${id}&s=${s}&e=${e}` },
+  { name: "VIDSTUCK", movieUrl: id => `https://vidstuck.cc/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://vidstuck.cc/embed/tv/${id}/${s}/${e}` },
+  { name: "VIDZEE 1", movieUrl: id => `https://player.vidzee.wtf/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://player.vidzee.wtf/embed/tv/${id}/${s}/${e}` },
+  { name: "VIDZEE 2", movieUrl: id => `https://player.vidzee.wtf/v2/embed/movie/${id}`, seriesUrl: (id, s, e) => `https://player.vidzee.wtf/v2/embed/tv/${id}/${s}/${e}` },
 ];
 /* ===================================================================================== */
 
