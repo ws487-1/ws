@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Prosper
 // @namespace    https://wills.im/pson/prosper
-// @version      11.2.0
-// @description  Highlight a company, email, website, Companies House number or person to get an instant Companies House card, quick check, quick links and an optional AI brief. Built for HubSpot prospecting.
+// @version      11.3.0
+// @description  Highlight a company, email, website, Companies House number or person to get an instant Companies House card, quick check, quick links and an optional AI brief with follow-up questions. Built for HubSpot prospecting.
 // @author       Will
 // @match        *://*/*
 // @noframes
@@ -58,7 +58,7 @@
   /* Constants                                                          */
   /* ------------------------------------------------------------------ */
 
-  const VERSION = '11.2.0';
+  const VERSION = '11.3.0';
   const BUILD = 'public';
   // Built-in default keys. Empty in the public build; the private build fills these in.
   const BAKED = { ch: '', claude: '' };
@@ -88,6 +88,30 @@
   };
   const SEARCH_COST = 10 / 1000;
   const FHD_URL = 'https://raw.githubusercontent.com/companieshouse/api-enumerations/master/filing_history_descriptions.yml';
+  const IS_FF = /Firefox\//.test(navigator.userAgent || '');
+  /* Hotkeys. Ctrl+Shift based (Alt+letter types characters on macOS). Firefox reserves Ctrl+Shift+P (new private
+     window) so pages never receive it; there the panel toggle defaults to Ctrl+Shift+Space. */
+  const HOTKEYS = [
+    ['toggle', 'Open / close the panel', IS_FF ? 'Ctrl+Shift+Space' : 'Ctrl+Shift+P'],
+    ['linkedin', 'LinkedIn company search', 'Ctrl+Shift+L'],
+    ['google', 'Google search', 'Ctrl+Shift+G'],
+    ['ch', 'Companies House page', 'Ctrl+Shift+H'],
+    ['summary', 'Copy short company summary', 'Ctrl+Shift+C'],
+    ['help', 'Shortcut cheat sheet (panel focused)', '?'],
+  ];
+  // Common browser shortcuts these could shadow (shown as warnings in Settings).
+  const CLASHES = {
+    'Ctrl+Shift+P': 'Firefox: new private window (reserved, never reaches the page)', 'Ctrl+Shift+N': 'new incognito / private window (reserved)',
+    'Ctrl+Shift+T': 'reopen closed tab (reserved)', 'Ctrl+Shift+W': 'close window (reserved)', 'Ctrl+Shift+Q': 'quit (reserved)',
+    'Ctrl+Shift+G': 'find previous (Prosper takes it while the page has focus)', 'Ctrl+Shift+H': 'Firefox: history library (Prosper takes it on the page)',
+    'Ctrl+Shift+C': 'developer tools inspector (may still open DevTools in Chrome/Edge)', 'Ctrl+Shift+I': 'developer tools', 'Ctrl+Shift+J': 'developer console',
+    'Ctrl+Shift+K': 'Firefox web console', 'Ctrl+Shift+B': 'bookmarks bar / library', 'Ctrl+Shift+O': 'bookmark manager', 'Ctrl+Shift+Delete': 'clear browsing data',
+    'Ctrl+Shift+A': 'tab search / add-ons', 'Ctrl+Shift+M': 'profiles / responsive design mode', 'Ctrl+Shift+R': 'hard reload', 'Ctrl+Shift+S': 'Firefox screenshot',
+    'Ctrl+Shift+Y': 'Firefox downloads', 'Ctrl+Shift+E': 'Firefox network monitor', 'Ctrl+Shift+D': 'bookmark all tabs', 'Ctrl+Shift+V': 'paste as plain text',
+    'Ctrl+Shift+Z': 'redo', 'Ctrl+Shift+U': 'Linux: unicode input',
+  };
+  const PRESET_QS = ['Who makes the buying decisions?', 'Is this company financially healthy?', 'What do they likely need?', 'Any red flags?', 'Good opener for a cold call'];
+
   const DEFAULTS = {
     model: 'claude-haiku-5-5', autoBrief: false, background: true, inInputs: false, scope: 'all',
     // Interactive features (v11.2)
@@ -96,6 +120,9 @@
     otherRoles: true, parentLinks: true, similar: true, pinsMenu: true, clickCopy: true,
     // Appearance (v11.2)
     animations: true, rememberSections: true, collapseRecord: false,
+    // v11.3
+    quickRow: true, qlHover: true, personLinks: true, questions: true, hotkeysOn: true, numKeys: true,
+    hotkeys: Object.fromEntries(HOTKEYS.map((h) => [h[0], h[2]])),
   };
 
   const FREEMAIL = /^(gmail|googlemail|hotmail|outlook|live|yahoo|icloud|me|aol|proton|protonmail|btinternet|sky|talktalk|virginmedia|msn|ymail)\./i;
@@ -103,13 +130,13 @@
   const COMPANY_WORDS = /\b(ltd|limited|plc|llp|lp|inc|corp|co|company|group|holdings?|services|solutions|partners|associates|consulting|consultants|uk|international|global|trading|enterprises|ventures|capital|investments?|properties|property|estates?|electrical|engineering|construction|logistics|systems|technologies|technology|tech|digital|media|studio|labs?|foods?|retail|realisations|trust|foundation|council|university|school|college|club|bank|insurance|cic)\b|&/i;
   const FIRST_NAMES = new Set(('aaron abby abdul abigail adam adrian aidan aisha alan alastair albert alex alexander alexandra alfie ali alice alicia alison amanda amber amelia amy andrea andrew andy angela anna anne annie anthony antony archie arthur ashley barbara barry ben benjamin beth bethany bill billy bob bradley brian bruce callum cameron carl carlos carol caroline catherine charles charlie charlotte chloe chris christian christina christine christopher claire clare colin connor craig dan daniel danielle darren dave david dean debbie deborah declan denise dennis derek diana diane dominic donald douglas dylan eddie edward eileen elaine eleanor elizabeth ella ellie emily emma eric erin ethan evelyn evie fiona frances francesca frank fraser freddie frederick freya gail gareth gary gavin gemma geoff geoffrey george georgia gerald gillian gordon grace graham grant greg gregory hannah harriet harry harvey hayley heather helen henry holly hugh hugo iain ian imogen isaac isabel isabella isla jack jackie jacob jake james jamie jane janet jason jasmine jay jean jeff jeffrey jennifer jenny jeremy jessica jill jim jo joan joanna joanne joe joel john johnny jon jonathan jordan joseph josh joshua joy judith julia julian julie justin karen kate katherine kathryn katie kay keith kelly kenneth kerry kevin kieran kim kirsty laura lauren leah lee leo leon lewis liam lily linda lindsay lisa liz lloyd logan louis louise lucas lucy luke lydia lynn mandy marc marcus margaret maria marie mark martin mary matt matthew max maya megan melanie melissa mia michael michelle mike millie mohammed molly morgan nancy naomi natalie nathan neil nicholas nick nicola nigel noah oliver olivia oscar owen pamela patricia patrick paul paula pauline penny peter philip phillip phoebe poppy rachel ralph raymond rebecca richard rob robert robin roger rory ronald rosie ross ruby russell ruth ryan sally sam samantha samuel sandra sara sarah scarlett scott sean sebastian sharon shaun sheila simon sofia sophie spencer stacey stanley stephanie stephen steve steven stewart stuart sue susan suzanne swapnil tara teresa terry theo theodore thomas tim timo timothy tina toby tom tommy tony tracey tracy trevor victoria vincent wayne wendy will william yvonne zach zoe zara').split(' '));
 
+  // Quick-link providers (row order = number keys 1-5). No external AI sites: AI stays inside Prosper (Claude API).
   const PROVIDERS = [
-    { id: 'google', name: 'Google', fav: 'google.com', l: 'G', c: '#4285f4' },
-    { id: 'maps', name: 'Maps', fav: 'maps.google.com', l: 'M', c: '#34a853' },
-    { id: 'ch', name: 'Companies House', short: 'CH', fav: 'find-and-update.company-information.service.gov.uk', l: 'CH', c: '#1d70b8' },
     { id: 'linkedin', name: 'LinkedIn', fav: 'linkedin.com', l: 'in', c: '#0a66c2' },
+    { id: 'google', name: 'Google', fav: 'google.com', l: 'G', c: '#4285f4' },
+    { id: 'ch', name: 'Companies House', short: 'CH', fav: 'find-and-update.company-information.service.gov.uk', l: 'CH', c: '#1d70b8' },
+    { id: 'maps', name: 'Google Maps', short: 'Maps', fav: 'maps.google.com', l: 'M', c: '#34a853' },
     { id: 'endole', name: 'Endole', fav: 'open.endole.co.uk', l: 'E', c: '#e5541b' },
-    { id: 'chatgpt', name: 'ChatGPT', fav: 'chatgpt.com', l: 'AI', c: '#10a37f' },
   ];
 
   /* ------------------------------------------------------------------ */
@@ -152,7 +179,7 @@
   }
 
   let settings = Object.assign({}, DEFAULTS);
-  function loadSettings() { settings = Object.assign({}, DEFAULTS, readJSON(gv(K.settings, null)) || {}); }
+  function loadSettings() { settings = Object.assign({}, DEFAULTS, readJSON(gv(K.settings, null)) || {}); settings.hotkeys = Object.assign({}, DEFAULTS.hotkeys, settings.hotkeys || {}); }
   function readJSON(v) { if (!v) return null; if (typeof v === 'object') return v; try { return JSON.parse(v); } catch (e) { return null; } }
   function saveSettings() { sv(K.settings, JSON.stringify(settings)); }
 
@@ -721,7 +748,7 @@
     if (!force) { const hit = cacheGet(ck, TTL_BRIEF); if (hit) return Object.assign({}, hit.d, { cachedAt: hit.t }); }
     const key = claudeKey();
     if (!key) throw new PErr('cl-nokey');
-    const prompt = `You are helping a UK B2B salesperson prepare to contact a prospect. Companies House facts (authoritative, do not contradict):\n\n${factsText(f)}\n${domain ? 'Likely website: ' + domain + '\n' : ''}\nUse web search (at most 3 searches) to learn what this company actually does and find recent signals (news, hiring, funding, contracts, expansion, leadership changes; prefer the last 18 months). Make sure results are about THIS company, not a similarly named one.\n\nReply with ONLY a JSON object, no prose before or after:\n{"what":["3 short lines on what they do, who for, where"],"signals":[{"text":"one line","date":"YYYY-MM or empty","url":"source url from your search results"}],"talking_points":["3 specific, practical openers for a sales conversation"],"confidence":"high|medium|low"}\nRules: at most 4 signals; each line under 25 words; only use URLs that appeared in your search results; if nothing reliable is found, say so in "what" and leave signals empty.`;
+    const prompt = `You are helping a UK B2B salesperson prepare to contact a prospect. Companies House facts (authoritative, do not contradict):\n\n${factsText(f)}\n${domain ? 'Likely website: ' + domain + '\n' : ''}\nUse web search (at most 3 searches) to learn what this company actually does and find recent signals (news, hiring, funding, contracts, expansion, leadership changes; prefer the last 18 months). Make sure results are about THIS company, not a similarly named one.\n\nReply with ONLY a JSON object, no prose before or after:\n{"what":["3 short lines on what they do, who for, where"],"signals":[{"text":"one line","date":"YYYY-MM or empty","url":"source url from your search results"}],"talking_points":["3 specific, practical openers for a sales conversation"],"questions":["3 short follow-up questions (under 12 words each) a salesperson would want answered about THIS company specifically"],"confidence":"high|medium|low"}\nRules: at most 4 signals; each line under 25 words; only use URLs that appeared in your search results; if nothing reliable is found, say so in "what" and leave signals empty.`;
     const body = {
       model, max_tokens: 4000,
       tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3, user_location: { type: 'approximate', country: 'GB' } }],
@@ -761,6 +788,7 @@
     const cost = (inTok * price.inM + (u.output_tokens || 0) * price.outM) / 1e6 + searches * SEARCH_COST;
     const brief = {
       what: (data.what || []).slice(0, 3).map(String), signals, talking: (data.talking_points || []).slice(0, 3).map(String),
+      questions: (data.questions || []).map(String).filter((q) => q && q.length < 140).slice(0, 3),
       confidence: data.confidence || '', sources: Array.from(sources).slice(0, 6).map(([url, title]) => ({ url, title })),
       usage: { input: u.input_tokens || 0, output: u.output_tokens || 0, searches }, cost, model, at: Date.now(), estPrice: !!price.est,
     };
@@ -768,30 +796,60 @@
     return brief;
   }
 
+  /* Question chips: one Claude call per question (no web search), company facts + any brief as context, short output. */
+  async function askClaude(f, brief, q) {
+    const model = settings.model in MODELS ? settings.model : DEFAULTS.model;
+    const ck = `ask:${f.number}:${model}:${alphaKey(q).slice(0, 60)}`;
+    const hit = cacheGet(ck, TTL_BRIEF); if (hit) return Object.assign({}, hit.d, { cachedAt: hit.t });
+    const key = claudeKey();
+    if (!key) throw new PErr('cl-nokey');
+    const ctxBrief = brief ? `\nEarlier research brief (from web search; may be incomplete):\n- ${brief.what.join('\n- ')}${brief.signals.length ? '\nSignals: ' + brief.signals.map((x) => x.text).join('; ') : ''}\n` : '';
+    const prompt = `You help a UK B2B salesperson. Companies House facts (authoritative):\n\n${factsText(f)}\n${ctxBrief}\nQuestion: ${q}\n\nAnswer in 2-4 short sentences, at most 70 words, plain text (no markdown, no bullet lists, no preamble). Be practical and specific to this company. Base it on the facts above; say plainly when the data cannot answer something and what to check instead.`;
+    const r = await xhr({ method: 'POST', url: CLAUDE_URL, timeout: 60000, data: JSON.stringify({ model, max_tokens: 400, thinking: { type: 'disabled' }, messages: [{ role: 'user', content: prompt }] }), headers: claudeHeaders(key) });
+    if (r.status !== 200) { const er = claudeError(r.status, r.status <= 0 ? r.error : r.text); warn('Claude question failed:', er.message); throw er; }
+    let res; try { res = JSON.parse(r.text); } catch (e) { throw new PErr('cl-bad', 'Claude returned an unreadable response.'); }
+    const text = (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('').replace(/\*\*/g, '').trim();
+    if (!text) throw new PErr('cl-bad', 'Claude returned no answer. Try again.');
+    const u = res.usage || {}; const price = MODELS[model];
+    const cost = ((u.input_tokens || 0) * price.inM + (u.output_tokens || 0) * price.outM) / 1e6;
+    const a = { q, text, cost, usage: { input: u.input_tokens || 0, output: u.output_tokens || 0 }, model, at: Date.now() };
+    cacheSet(ck, a);
+    return a;
+  }
+  function shortSummary(f) {
+    const reasons = f.caution.concat(f.check);
+    return `${f.display} (${f.number}) · ${f.statusLabel} · ${f.type} · incorporated ${fmtDate(f.created)} · ${f.address || 'no address'} · Quick check: ${verdictLabel(f.verdict)}${reasons.length ? ' (' + reasons.join('; ') + ')' : ''} · ${f.url}`;
+  }
+
   /* ------------------------------------------------------------------ */
   /* Links, copy, note                                                  */
   /* ------------------------------------------------------------------ */
 
-  function linkFor(id, ctx) {
+  /* Quick-link menus: [key, label, url]. The first entry (or `def`) is what the main button opens. */
+  function qlItems(id, ctx) {
     const f = ctx.company;
+    const enc = encodeURIComponent;
     const nameQ = f ? f.display.replace(/\s+(Limited|Ltd|PLC|LLP)$/i, '') : ctx.query;
     const raw = ctx.raw || ctx.query;
-    const enc = encodeURIComponent;
+    const person = ctx.det && ctx.det.mode === 'person' && !f;
+    const li = (k) => 'https://www.linkedin.com/search/results/' + k + '/?keywords=' + enc(nameQ);
+    const gq = f ? f.display : (ctx.domain && !person ? ctx.domain : raw);
     switch (id) {
-      case 'google': return 'https://www.google.com/search?q=' + enc(f ? f.display : (ctx.domain && ctx.det && ctx.det.type !== 'person' ? ctx.domain : raw));
-      case 'maps': return 'https://www.google.com/maps/search/' + enc(f ? `${nameQ} ${f.postcode}`.trim() : raw);
+      case 'linkedin': return person
+        ? [['people', 'People', li('people')], ['all', 'All', li('all')], ['companies', 'Companies', li('companies')]]
+        : [['companies', 'Companies', li('companies')], ['people', 'People', li('people')], ['all', 'All', li('all')]];
+      case 'google': return [['web', 'Web', 'https://www.google.com/search?q=' + enc(gq)], ['news', 'News', 'https://www.google.com/search?tbm=nws&q=' + enc(gq)],
+        ['maps', 'Maps', 'https://www.google.com/maps/search/?api=1&query=' + enc(f ? `${nameQ} ${f.postcode}`.trim() : raw)]];
       case 'ch':
-        if (f) return f.url;
-        if (ctx.det && ctx.det.mode === 'person') return `${CH_WEB}/search/officers?q=${enc(ctx.query)}`;
-        return `${CH_WEB}/search/companies?q=${enc(ctx.query)}`;
-      case 'linkedin':
-        if (ctx.det && ctx.det.mode === 'person' && !f) return 'https://www.linkedin.com/search/results/people/?keywords=' + enc(ctx.query);
-        return 'https://www.linkedin.com/search/results/companies/?keywords=' + enc(nameQ);
-      case 'endole': return 'https://open.endole.co.uk/search/?q=' + enc(f ? nameQ : ctx.query).replace(/%20/g, '+');
-      case 'chatgpt': return 'https://chatgpt.com/?q=' + enc(f ? `Tell me about ${f.display} (UK company number ${f.number}${ctx.domain ? ', website ' + ctx.domain : ''}): what they do, size, recent news.` : `Tell me about ${raw}`);
+        if (f) return [['overview', 'Overview', f.url], ['officers', 'Officers', f.url + '/officers'], ['filings', 'Filings', f.url + '/filing-history'], ['psc', 'PSC', f.url + '/persons-with-significant-control']];
+        return person ? [['officers', 'Officer search', `${CH_WEB}/search/officers?q=${enc(ctx.query)}`], ['companies', 'Company search', `${CH_WEB}/search/companies?q=${enc(ctx.query)}`]]
+          : [['companies', 'Company search', `${CH_WEB}/search/companies?q=${enc(ctx.query)}`], ['officers', 'Officer search', `${CH_WEB}/search/officers?q=${enc(ctx.query)}`]];
+      case 'maps': return [['maps', 'Maps', 'https://www.google.com/maps/search/?api=1&query=' + enc(f ? (f.address || `${nameQ} ${f.postcode}`) : raw)]];
+      case 'endole': return [['endole', 'Endole', 'https://open.endole.co.uk/search/?q=' + enc(f ? nameQ : ctx.query).replace(/%20/g, '+')]];
     }
-    return '';
+    return [];
   }
+  function linkFor(id, ctx) { const it = qlItems(id, ctx)[0]; return it ? it[2] : ''; }
   function openTab(url, bg) {
     const background = bg == null ? !!settings.background : bg;
     const o = { active: !background, insert: true, setParent: true };
@@ -1110,6 +1168,59 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
 .diag .st { display: inline-block; text-align: center; padding: 1px 0; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
 .diag .st.pass { background: var(--good-soft); color: var(--good); } .diag .st.fail { background: var(--bad-soft); color: var(--bad); } .diag .st.info { background: var(--bg3); color: var(--fg2); }
 
+/* v11.3: quick-link row with menus (hover, click and keyboard) */
+.qrow { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.qb { position: relative; display: inline-flex; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); }
+.qb:hover, .qb.open { border-color: var(--line2); }
+.qm, .qc { border: 0; background: none; cursor: pointer; height: 28px; display: inline-grid; place-items: center; color: var(--fg2); padding: 0; }
+.qm { width: 34px; border-radius: 6px; } .qb.multi .qm { border-radius: 6px 0 0 6px; }
+.qc { width: 17px; border-left: 1px solid var(--line); border-radius: 0 6px 6px 0; }
+.qm:hover, .qc:hover, .qm:focus-visible, .qc:focus-visible, .qb.open .qc { background: var(--bg2); outline: none; color: var(--fg); }
+.qc svg { width: 10px; height: 10px; }
+.qm canvas, .qm .fb { width: 15px; height: 15px; border-radius: 3px; }
+.qm .fb { background: var(--fbc, var(--bg3)); display: grid; place-items: center; font-size: 7.5px; font-weight: 700; color: #fff; letter-spacing: -.02em; line-height: 1; }
+.qmenu, .shm { position: absolute; top: 100%; left: -1px; padding-top: 4px; z-index: 4; min-width: 160px; opacity: 0; visibility: hidden; transform: translateY(-3px); pointer-events: none; }
+.hov-menus .qb:hover > .qmenu, .qb.open > .qmenu, .shm.show { opacity: 1; visibility: visible; transform: none; pointer-events: auto; }
+.qin { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); padding: 4px; }
+.qin h6 { margin: 4px 8px 3px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--fg3); font-weight: 600; }
+.qi { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 8px; border: 0; background: none; border-radius: 5px; font-size: 12.5px; cursor: pointer; text-align: left; color: var(--fg); text-decoration: none; white-space: nowrap; }
+.qi:hover, .qi:focus-visible { background: var(--bg2); outline: none; text-decoration: none; }
+.qi svg { width: 10px; height: 10px; color: var(--fg3); }
+.shwrap { position: relative; display: inline-block; }
+.shm { left: auto; right: 0; }
+/* per-person link icons */
+.plk { display: inline-flex; gap: 3px; margin-left: 5px; vertical-align: -3px; opacity: .7; white-space: nowrap; }
+li:hover .plk, .pv .plk, .plk:focus-within { opacity: 1; }
+.plk a { min-width: 18px; height: 16px; padding: 0 3px; box-sizing: border-box; display: inline-grid; place-items: center; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); color: var(--fg2); font: 700 8.5px/1 'Prosper Inter', Inter, system-ui, sans-serif; text-decoration: none; letter-spacing: -.01em; }
+.mono .plk a { color: var(--fg2) !important; }
+.plk a.li { color: #0a66c2; } .plk a.g { color: #1a73e8; } .plk a.c { color: var(--c-ch); }
+.plk a:hover, .plk a:focus-visible { background: var(--bg2); border-color: var(--line2); text-decoration: none; outline: none; }
+/* question chips + answers */
+.qa { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+.qa h5 { margin: 0 0 6px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.qchip { border: 1px solid var(--line); background: var(--bg); border-radius: 14px; padding: 4px 10px; font-size: 12px; cursor: pointer; color: var(--fg); text-align: left; }
+.qchip:hover, .qchip:focus-visible { background: var(--bg2); border-color: var(--line2); outline: none; }
+.qchip.sug { border-style: dashed; } .qchip.on { background: var(--bg3); border-color: var(--line2); }
+.ans { margin-top: 8px; padding: 9px 11px; border-radius: 8px; background: var(--bg2); font-size: 12.5px; border: 1px solid var(--line); }
+.ans .aq { font-weight: 600; margin-bottom: 4px; } .ans .at { white-space: pre-wrap; }
+.ans .row { margin-top: 6px; } .ans .cost { margin: 0; }
+/* shortcut cheat sheet + hotkey settings */
+.sheet { position: absolute; left: 10px; right: 10px; top: 52px; z-index: 6; background: var(--bg); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); padding: 10px 14px 12px;
+  opacity: 0; visibility: hidden; transform: translateY(-4px); pointer-events: none; }
+.sheet.show { opacity: 1; visibility: visible; transform: none; pointer-events: auto; }
+.sheet h4 { margin: 0; font-size: 13px; font-weight: 600; }
+.sheet dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; margin: 10px 0 0; font-size: 12.5px; align-items: center; }
+.sheet dd { margin: 0; color: var(--fg2); }
+kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--bg2); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 2px 6px; color: var(--fg); white-space: nowrap; }
+.set .hk { display: flex; align-items: center; gap: 6px; padding: 7px 0; font-size: 12.5px; }
+.set .hk + .hk { border-top: 1px solid var(--line); }
+.set .hk > span { flex: 1; } .set .hk small { display: block; font-size: 11px; margin-top: 1px; }
+.set .hk .kbd { cursor: pointer; min-width: 92px; text-align: center; }
+.set .hk .kbd:hover { border-color: var(--line2); background: var(--bg3); }
+.set .hk .kbd.rec { background: var(--pri); color: var(--pri-fg); border-color: var(--pri); }
+.set .hk .kbd.off { color: var(--fg3); font-weight: 500; }
+
 /* motion (only with .anim; prefers-reduced-motion switches it all off) */
 .anim .panel { transition: opacity var(--d2) var(--eo), transform var(--d3) var(--eo), visibility 0s linear var(--d3); }
 .anim .panel.open { transition: opacity var(--d2) var(--eo), transform var(--d3) var(--eo), visibility 0s; }
@@ -1120,6 +1231,11 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
 .anim .blk.closed > .bb > .bi { transition: visibility 0s linear var(--d2); }
 .anim .chev { transition: transform var(--d2) var(--eo); }
 .anim .bh, .anim .btn, .anim .ib, .anim .lk, .anim .opt, .anim .chip, .anim .mi, .anim .list > li, .anim .cv, .anim .xi, .anim .crumb { transition: background-color var(--d1) var(--eo), border-color var(--d1) var(--eo), color var(--d1) var(--eo), box-shadow var(--d1) var(--eo); }
+.anim .qmenu, .anim .shm, .anim .sheet { transition: opacity var(--d1) var(--eo), transform var(--d1) var(--eo), visibility 0s linear var(--d1); }
+.anim .hov-menus .qb:hover > .qmenu { transition-delay: 80ms, 80ms, 80ms; }
+.anim .qb.open > .qmenu, .anim .shm.show, .anim .sheet.show { transition: opacity var(--d1) var(--eo), transform var(--d1) var(--eo), visibility 0s; }
+.anim .ans { animation: rise var(--d3) var(--eo) both; }
+.anim .qchip, .anim .qm, .anim .qc, .anim .qi, .anim .plk a, .anim .plk { transition: background-color var(--d1) var(--eo), border-color var(--d1) var(--eo), color var(--d1) var(--eo), opacity var(--d1) var(--eo); }
 .anim .menu { transition: opacity var(--d1) var(--eo), transform var(--d1) var(--eo), visibility 0s linear var(--d1); }
 .anim .menu.show { transition: opacity var(--d1) var(--eo), transform var(--d1) var(--eo), visibility 0s; }
 .anim .toast { transition: opacity var(--d1), transform var(--d1) var(--eo); }
@@ -1161,7 +1277,7 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
     doc: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L12.5 4.5v10h-8.5z"/><path d="M9.5 1.5v3h3"/></svg>',
   };
 
-  let host, sroot, root, $pill, $panel, $edge, $body, $input, $det, $mode, $toast, $menu;
+  let host, sroot, root, $pill, $panel, $edge, $body, $input, $det, $mode, $toast, $menu, $sheet;
   const st = { open: false, view: 'main', det: null, ctx: null, stack: [], req: 0, pillText: '', briefState: null, styleMode: 'none', fontStatus: '', diag: null, anchor: null, menu: false };
   let secState = {};
   function loadSecState() { secState = readJSON(gv(K.sections, null)) || {}; }
@@ -1169,6 +1285,7 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
   const reducedMotion = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
   function applyRootClasses() {
     if (!root) return;
+    root.classList.toggle('hov-menus', !!settings.qlHover);
     root.classList.toggle('anim', !!settings.animations && !reducedMotion());
     root.classList.toggle('mono', !settings.colorLinks);
   }
@@ -1228,14 +1345,15 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
     const sr = sroot = host.attachShadow({ mode: 'open' });
     sr.innerHTML = `<i class="probe"></i>
 <div class="root">
-  <div class="pill" part="pill" role="button" tabindex="-1" aria-label="Look up with Prosper (Alt+P)"><span class="p">P</span><span class="t"></span></div>
-  <button class="edge" aria-label="Open Prosper" title="Prosper (Alt+P)"><span>P</span></button>
+  <div class="pill" part="pill" role="button" tabindex="-1" aria-label="Look up with Prosper"><span class="p">P</span><span class="t"></span></div>
+  <button class="edge" aria-label="Open Prosper" title="Prosper${settings.hotkeys.toggle ? ' (' + settings.hotkeys.toggle + ')' : ''}"><span>P</span></button>
   <aside class="panel" role="dialog" aria-label="Prosper">
     <div class="hd"><div class="logo">P</div><div class="brand">Prosper<small>v${VERSION}</small></div>
       <button class="ib" data-act="menu" title="Pinned and recent">${ICON.clock}</button>
       <button class="ib" data-act="settings" title="Settings">${ICON.gear}</button>
       <button class="ib" data-act="close" title="Close (Esc)">${ICON.x}</button></div>
     <div class="menu" role="menu"></div>
+    <div class="sheet" role="dialog" aria-label="Keyboard shortcuts"></div>
     <div class="sb">
       <div class="det"></div>
       <form class="srow" data-form="search">
@@ -1251,7 +1369,7 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
     root = sr.querySelector('.root');
     $pill = sr.querySelector('.pill'); $edge = sr.querySelector('.edge'); $panel = sr.querySelector('.panel');
     $body = sr.querySelector('.body'); $input = sr.querySelector('.srow input'); $det = sr.querySelector('.det');
-    $mode = sr.querySelector('.srow select'); $toast = sr.querySelector('.toast'); $menu = sr.querySelector('.menu');
+    $mode = sr.querySelector('.srow select'); $toast = sr.querySelector('.toast'); $menu = sr.querySelector('.menu'); $sheet = sr.querySelector('.sheet');
     host.setAttribute('data-build', 'v' + VERSION + ' ' + BUILD);
     (document.documentElement || document.body).appendChild(host);
     applyStyles(sr);
@@ -1271,9 +1389,18 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
     });
     sr.addEventListener('click', onClick);
     sr.addEventListener('change', onChange);
+    // Esc is handled once, by the window-level key handler (escapeAction). This one: hotkey recording, headers, menus.
     sr.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { e.stopPropagation(); if (st.menu) return toggleMenu(false); close(); return; }
-      if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.classList && e.target.classList.contains('bh')) { e.preventDefault(); toggleBlock(e.target.closest('.blk')); }
+      if (st.recording) { recordKey(e); return; }
+      const t = e.target;
+      if ((e.key === 'Enter' || e.key === ' ') && t && t.classList && t.classList.contains('bh')) { e.preventDefault(); toggleBlock(t.closest('.blk')); return; }
+      if (t && t.classList && t.classList.contains('qc') && (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openQMenu(t.closest('.qb'), true); return; }
+      const menu = t && t.closest && t.closest('.qmenu, .shm');
+      if (menu && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+        e.preventDefault();
+        const items = [...menu.querySelectorAll('.qi')]; const i = items.indexOf(t);
+        const n = items[(i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length]; if (n) n.focus();
+      } else if (menu && e.key === 'Tab') closeQMenus();
     }, true);
     updateScope();
   }
@@ -1513,7 +1640,7 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
       <div class="card skc"><div class="skel w45"></div><div class="skel w90"></div><div class="skel w82"></div></div>`);
   }
   function renderEmpty() {
-    setBody(`<div class="card state"><b>Look someone up</b>Highlight a company name, work email, website, Companies House number or person on any page, then click the P pill or press Alt+P.<br><br>Or type above and press Enter.
+    setBody(`<div class="card state"><b>Look someone up</b>Highlight a company name, work email, website, Companies House number or person on any page, then click the P pill or press ${esc(settings.hotkeys.toggle || 'the shortcut')}.<br><br>Or type above and press Enter.
       ${!chKey() ? '<div><button class="btn pri" data-act="settings">Add Companies House key</button></div>' : ''}</div>`, true);
   }
   function renderNoKey() {
@@ -1596,19 +1723,52 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
   function personRef(p) {
     if (p.regNumber && settings.parentLinks) return companyRef(p.regNumber, p.name);
     const chUrl = p.link ? CH_WEB + p.link : `${CH_WEB}/search/officers?q=${encodeURIComponent(p.name)}`;
-    if (!settings.peopleInPanel) return extA(chUrl, esc(p.name), 'lk-person', 'Companies House officer page (new tab)');
+    const co = p.co != null ? p.co : curCoName();
+    if (!settings.peopleInPanel) return extA(chUrl, esc(p.name), 'lk-person', 'Companies House officer page (new tab)') + (settings.personLinks ? personLinks(p.name, co, '') : '');
     const inPanel = p.link
       ? `<button class="lk-person" data-act="person" data-link="${esc(p.link)}" data-name="${esc(p.name)}" title="Show ${esc(p.name)}'s appointments">${esc(p.name)}</button>`
       : `<button class="lk-person" data-act="person-search" data-name="${esc(p.name)}" title="Find ${esc(p.name)} on Companies House">${esc(p.name)}</button>`;
-    return inPanel + xi(chUrl, p.link ? 'Companies House officer page (new tab)' : 'Search Companies House officers (new tab)', 'p');
+    return inPanel + personLinks(p.name, co, chUrl);
   }
 
+  /* Quick links: compact icon row (main button = sensible default; chevron/hover = menu). */
+  function quickRow(ctx) {
+    if (!ctx) return '';
+    return `<div class="qrow" role="toolbar" aria-label="Quick links">${PROVIDERS.map((p, i) => {
+      const items = qlItems(p.id, ctx); if (!items.length) return '';
+      const multi = items.length > 1;
+      return `<div class="qb${multi ? ' multi' : ''}" data-q="${p.id}"><button class="qm" data-act="ql" data-id="${p.id}" title="${esc(p.name)}: ${esc(items[0][1])} (new tab)${settings.numKeys ? ' · key ' + (i + 1) : ''}" aria-label="${esc(p.name)} ${esc(items[0][1])}"><span class="fb" data-dom="${esc(p.fav)}" data-c="${p.c}">${esc(p.l)}</span></button>${multi
+        ? `<button class="qc" data-act="qmenu" aria-haspopup="menu" aria-expanded="false" title="More ${esc(p.name)} links">${ICON.chev}</button><div class="qmenu" role="menu"><div class="qin"><h6>${esc(p.name)}</h6>${items.map((it) => `<a class="qi" role="menuitem" tabindex="-1" href="${esc(it[2])}" data-act="ext" data-url="${esc(it[2])}" data-k="${it[0]}">${esc(it[1])}${ICON.ext}</a>`).join('')}</div></div>` : ''}</div>`;
+    }).join('')}</div>`;
+  }
+  function closeQMenus(except) { $body.querySelectorAll('.qb.open').forEach((b) => { if (b !== except) { b.classList.remove('open'); const c = b.querySelector('.qc'); if (c) c.setAttribute('aria-expanded', 'false'); } }); }
+  function openQMenu(qb, focus) {
+    if (!qb) return;
+    closeQMenus(qb);
+    const open = focus ? true : !qb.classList.contains('open');
+    qb.classList.toggle('open', open);
+    const c = qb.querySelector('.qc'); if (c) c.setAttribute('aria-expanded', String(open));
+    if (open && focus) { const it = qb.querySelector('.qi'); if (it) it.focus(); }
+  }
+  /* Used where there is no company header (errors, no match, person search). */
   function linksSection(ctx) {
     if (!ctx) return '';
-    const body = `<div class="links">${PROVIDERS.map((p, i) => `
-      <button class="lk" data-act="link" data-id="${p.id}" title="${esc(p.name)} (${i + 1}), new tab"><span class="fb" data-dom="${esc(p.fav)}" data-c="${p.c}">${esc(p.l)}</span><span class="nm">${esc(p.short || p.name)}</span><kbd>${i + 1}</kbd></button>`).join('')}
-    </div><div class="row mt6"><button class="btn sm" data-act="link-all">Open all (0)</button><span class="hint m0">${settings.background ? 'Opens in background tabs' : 'Opens in new tabs'} · keys 1-6</span></div>`;
-    return blk('links', 'Quick links', { def: true, count: PROVIDERS.length, body });
+    return `<div class="card"><div class="sub">Search elsewhere</div>${quickRow(ctx)}</div>`;
+  }
+  /* Per-person link icons: LinkedIn people search, Google, Companies House officer page. */
+  const shortCo = (n) => String(n || '').replace(/\s+(Limited|Ltd\.?|PLC|LLP)$/i, '');
+  function curCoName() { const c = st.ctx; return c && c.company && c.kind !== 'person' ? shortCo(c.company.display) : ''; }
+  function personLinks(name, co, chUrl, corporate) {
+    if (!settings.personLinks) return chUrl ? xi(chUrl, corporate ? 'Companies House page (new tab)' : 'Companies House officer page (new tab)', corporate ? '' : 'p') : '';
+    const enc = encodeURIComponent;
+    if (!corporate) { // "Mr John Michael Smith" -> "John Smith" (better LinkedIn/Google matches)
+      const w = String(name || '').replace(/^(Mr|Mrs|Ms|Miss|Mx|Dr|Sir|Dame|Lord|Lady|Prof)\.?\s+/i, '').split(/\s+/).filter(Boolean);
+      name = w.length > 2 ? w[0] + ' ' + w[w.length - 1] : w.join(' ');
+    }
+    const liUrl = corporate ? 'https://www.linkedin.com/search/results/companies/?keywords=' + enc(shortCo(name)) : 'https://www.linkedin.com/search/results/people/?keywords=' + enc(co ? `${name} ${co}` : name);
+    const gUrl = 'https://www.google.com/search?q=' + enc(corporate ? `"${shortCo(name)}"` : `"${name}"${co ? ' ' + co : ''}`);
+    const a = (cls, url, txt, title) => `<a class="${cls}" href="${esc(url)}" data-act="ext" data-url="${esc(url)}" title="${esc(title)}">${txt}</a>`;
+    return `<span class="plk">${a('li', liUrl, 'in', corporate ? `LinkedIn: ${shortCo(name)}` : `LinkedIn people: ${co ? name + ' ' + co : name}`)}${a('g', gUrl, 'G', `Google: ${corporate ? shortCo(name) : name + (co ? ' ' + co : '')}`)}${chUrl ? a('c', chUrl, 'CH', corporate ? 'Companies House page' : 'Companies House officer page') : ''}</span>`;
   }
 
   function pickerHtml(ctx) {
@@ -1641,6 +1801,7 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
     let html = backBar() + `<div class="card hcard">
       <div class="title">${nameHtml}</div>
       <div class="sub">${numHtml} · <span class="badge ${f.status === 'active' ? '' : 'r'}">${esc(f.statusLabel)}</span>${f.statusDetail ? ' <span class="badge r">' + esc(f.statusDetail) + '</span>' : ''}</div>
+      ${settings.quickRow ? quickRow(ctx) : ''}
       <div class="verdict ${vcls}"><div class="vl">${verdictLabel(f.verdict)}</div><div>${reasons.length ? `<ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : '<ul><li>Active, filings up to date, officers in place.</li></ul>'}
       ${also.length ? `<div class="also"><b>Also:</b> ${also.map(esc).join(' · ')}</div>` : ''}</div></div>
       <div class="hint">Quick check is based on Companies House data only.</div>
@@ -1694,7 +1855,7 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
       <div class="bh" data-act="tog" role="button" tabindex="0" aria-expanded="${recOpen}"><span class="bt">Companies House record</span><span class="sp"></span><span class="cnt">${secs.length} sections</span><span class="chev">${ICON.chev}</span></div>
       <div class="bb"><div class="bi"><div class="bc rc">${secs.join('')}</div></div></div></section>`;
     html += blk('brief', 'AI brief', { def: true, cls: 'brief', body: `<div data-sec-body="brief">${briefHtml(ctx)}</div>` });
-    html += linksSection(ctx);
+    if (!settings.quickRow) html += blk('links', 'Quick links', { def: true, count: PROVIDERS.length, body: quickRow(ctx) });
     setBody(html, fresh);
     if (fresh) $body.scrollTop = 0;
     wireFavicons();
@@ -1746,7 +1907,7 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
     if (!f.pscs.length) return `<div class="sub">${f.pscKnown ? 'None listed (may be exempt or a statement filed).' : 'Not available.'}</div>`;
     return `<ul class="list">${f.pscs.map((p) => {
       let nm;
-      if (p.kind === 'Company') nm = p.regNumber && settings.parentLinks ? companyRef(p.regNumber, p.name) : esc(p.name);
+      if (p.kind === 'Company') nm = (p.regNumber && settings.parentLinks ? companyRef(p.regNumber, p.name) : esc(p.name)) + (settings.personLinks ? personLinks(p.name, '', '', true) : '');
       else if (p.kind === 'Individual') nm = personRef({ name: p.name, link: p.officerLink });
       else nm = esc(p.name);
       const sub = [p.kind === 'Company' && p.regNumber ? 'Parent company' : p.kind, p.control].filter(Boolean).join(' · ');
@@ -1855,7 +2016,7 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
       <div class="pager mt8"><button class="btn sm" data-act="f-prev" ${ctx.idx <= 0 ? 'disabled' : ''} title="Previous">${ICON.back}</button><span class="pos">${ctx.idx + 1} of ${total}</span><button class="btn sm" data-act="f-next" ${ctx.idx >= total - 1 ? 'disabled' : ''} title="Next">${ICON.next}</button></div>
       ${x ? `<div class="title mt10">${esc(x.text)}</div><div class="sub"><span class="fl"><span class="ty">${esc(x.type)}</span></span>${cv(fmtDate(x.date))}${x.pages ? ' · ' + x.pages + ' page' + (x.pages === 1 ? '' : 's') : ''} · ${esc(x.category)}</div>
       <div class="row mt10">${x.meta ? `<a class="btn sm" href="${esc(docUrl(f.number, x.id))}" data-act="ext" data-url="${esc(docUrl(f.number, x.id))}">Open in new tab${ICON.ext}</a>
-        <button class="btn sm" data-act="f-dl">${ICON.dl}Download</button><button class="btn sm" data-act="f-share">${ICON.share}Share</button>` : extA(`${f.url}/filing-history`, 'Filing history', 'btn sm')}</div>
+        <button class="btn sm" data-act="f-dl">${ICON.dl}Download</button><span class="shwrap"><button class="btn sm" data-act="f-share" aria-haspopup="menu">${ICON.share}Share</button></span>` : extA(`${f.url}/filing-history`, 'Filing history', 'btn sm')}</div>
       <div class="pdf" data-pdf="${esc(x.id)}">${x.meta ? '<div class="mmsg"><span class="spin"></span>&nbsp; Loading document...</div>' : '<div class="mmsg">No document image is available for this filing.</div>'}</div>` : ''}
     </div>`;
     const more = f.filings.length < total ? `<div class="row mt6"><button class="btn sm" data-act="f-more">Load more (${f.filings.length} of ${total})</button></div>` : '';
@@ -1918,22 +2079,41 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
     st.lastDownload = d.name;
     confirmCopy(btn); if (btn) { btn.innerHTML = ICON.check + 'Saved'; }
   }
+  /* Share the permanent Companies House document URL (never the expiring signed S3 link). Native share sheet when the
+     browser has one; otherwise a small menu: Email, WhatsApp, Slack, Teams, Copy link. */
   async function docShare(btn) {
     const ctx = st.ctx; const x = ctx.company.filings[ctx.idx]; if (!x) return;
     const url = docUrl(ctx.company.number, x.id);
     const title = `${ctx.company.display}: ${x.text} (${fmtDate(x.date)})`;
-    const d = ctx.blobs[x.id];
-    try {
-      if (navigator.share) {
-        if (d && navigator.canShare && typeof File === 'function') {
-          const file = new File([d.blob], d.name, { type: 'application/pdf' });
-          if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title }); return; }
-        }
-        await navigator.share({ title, url }); return;
-      }
-    } catch (e) { if (e && e.name === 'AbortError') return; }
-    copyFrom(btn, url, 'Link copied');
+    const data = { title, text: title, url };
+    let can = typeof navigator.share === 'function';
+    try { if (can && typeof navigator.canShare === 'function') can = navigator.canShare(data); } catch (e) { can = false; }
+    if (can) {
+      try { await navigator.share(data); st.lastShare = { via: 'native', url }; return; }
+      catch (e) { if (e && e.name === 'AbortError') return; warn('navigator.share failed, showing share menu', e); }
+    }
+    toggleShareMenu(btn, title, url);
   }
+  function toggleShareMenu(btn, title, url, force) {
+    const wrap = btn && btn.closest('.shwrap'); if (!wrap) return;
+    let m = wrap.querySelector('.shm');
+    if (!m) {
+      const enc = encodeURIComponent;
+      const items = [
+        ['email', 'Email', `mailto:?subject=${enc(title)}&body=${enc(title + '\n' + url)}`, 'share-mail'],
+        ['whatsapp', 'WhatsApp', 'https://wa.me/?text=' + enc(title + ' ' + url), 'ext'],
+        ['slack', 'Slack (copies a message)', '', 'share-slack'],
+        ['teams', 'Microsoft Teams', `https://teams.microsoft.com/share?href=${enc(url)}&msgText=${enc(title)}&preview=true`, 'ext'],
+        ['copy', 'Copy link', '', 'cp'],
+      ];
+      wrap.insertAdjacentHTML('beforeend', `<div class="shm" role="menu"><div class="qin"><h6>Share</h6>${items.map(([k, l, u, act]) => `<a class="qi" role="menuitem" tabindex="-1" data-share="${k}" data-act="${act}"${u ? ` href="${esc(u)}" data-url="${esc(u)}"` : ' href="#"'}${act === 'cp' ? ` data-copy="${esc(url)}"` : ''}${act === 'share-slack' ? ` data-copy="${esc(title + ' ' + url)}"` : ''}>${esc(l)}${act === 'ext' ? ICON.ext : ''}</a>`).join('')}</div></div>`);
+      m = wrap.querySelector('.shm');
+    }
+    const show = force != null ? force : !m.classList.contains('show');
+    m.classList.toggle('show', show);
+    if (show) { const first = m.querySelector('.qi'); if (first) first.focus(); }
+  }
+  function closeShare() { $body.querySelectorAll('.shm.show').forEach((m) => m.classList.remove('show')); }
   async function loadMoreFilings() {
     const ctx = st.ctx; const f = ctx.company;
     try {
@@ -1956,8 +2136,9 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
 
   /* ---------- person view (officer appointments) ---------- */
   async function openPerson(link, name) {
+    const fromCo = curCoName();
     pushNav();
-    const ctx = st.ctx = { kind: 'person', link, name, data: null, det: { mode: 'person', type: 'person', raw: name, label: 'Person' }, query: name, raw: name };
+    const ctx = st.ctx = { kind: 'person', link, name, fromCo, data: null, det: { mode: 'person', type: 'person', raw: name, label: 'Person' }, query: name, raw: name };
     const req = ++st.req;
     renderPersonView(ctx, true);
     try { ctx.data = await loadAppointmentsFull(link); } catch (e) { ctx.error = e; }
@@ -1967,7 +2148,7 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
     const d = ctx.data;
     const chUrl = CH_WEB + ctx.link;
     let h = backBar() + `<div class="card pv"><h3>${esc((d && d.name) || ctx.name)}</h3>
-      <div class="sub">${d && d.dob ? 'Born ' + esc(d.dob) + ' · ' : ''}Companies House officer ${xi(chUrl, 'Companies House officer page (new tab)', 'p')}</div>`;
+      <div class="sub">${d && d.dob ? 'Born ' + esc(d.dob) + ' · ' : ''}Companies House officer ${personLinks((d && d.name) || ctx.name, ctx.fromCo || (d && d.items.find((a) => !a.resigned) ? shortCo(d.items.find((a) => !a.resigned).company) : ''), chUrl)}</div>`;
     if (!d && !ctx.error) return setBody(h + '<div class="skel w60 mt10"></div><div class="skel w85"></div></div><div class="card skc"><div class="skel w75"></div><div class="skel w90"></div><div class="skel w60"></div></div>', fresh);
     if (ctx.error) return setBody(h + `</div><div class="err">Could not load appointments (${esc(ctx.error.code || ctx.error.message)}).</div>`, fresh);
     const active = d.items.filter((a) => !a.resigned), past = d.items.filter((a) => a.resigned);
@@ -1981,7 +2162,32 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
   }
 
   /* ---------- AI brief ---------- */
-  function briefHtml(ctx) {
+  function briefHtml(ctx) { return briefCore(ctx) + questionsHtml(ctx); }
+  function questionsHtml(ctx) {
+    if (!settings.questions || !ctx.company) return '';
+    const asked = ctx.answers || {};
+    const sugg = ((ctx.brief && ctx.brief.questions) || []).filter((q) => !PRESET_QS.includes(q));
+    const chip = (q, sug) => `<button class="qchip${sug ? ' sug' : ''}${asked[q] ? ' on' : ''}" data-act="ask" data-q="${esc(q)}"${sug ? ' title="Suggested for this company"' : ''}>${esc(q)}</button>`;
+    const ans = (q) => {
+      const a = asked[q]; if (!a) return '';
+      let inner;
+      if (a.loading) inner = '<div class="skel w90"></div><div class="skel w75"></div>';
+      else if (a.error) inner = `<div class="sub">${esc(a.error.code === 'cl-nokey' ? 'Add an Anthropic API key in Settings to ask questions.' : a.error.message || String(a.error))}</div>${a.error.code === 'cl-nokey' ? '<div class="row"><button class="btn sm" data-act="settings">Open settings</button></div>' : ''}`;
+      else inner = `<div class="at">${esc(a.text)}</div><div class="row jsb"><span class="cost">$${a.cost.toFixed(4)}${a.cachedAt ? ' · cached' : ''} · based on Companies House data${ctx.brief ? ' + brief' : ''}</span><button class="btn sm" data-act="cp" data-copy="${esc(q + '\n' + a.text)}">${ICON.copy}Copy</button></div>`;
+      return `<div class="ans" data-ans="${esc(q)}"><div class="aq">${esc(q)}</div>${inner}</div>`;
+    };
+    return `<div class="qa"><h5>Ask Claude about ${esc(shortCo(ctx.company.display))}</h5><div class="chips">${PRESET_QS.map((q) => chip(q)).join('')}${sugg.map((q) => chip(q, true)).join('')}</div>
+      ${(ctx.askOrder || []).slice().reverse().map(ans).join('')}</div>`;
+  }
+  async function doAsk(q) {
+    const ctx = st.ctx; if (!ctx || !ctx.company || ctx.kind) return;
+    ctx.answers = ctx.answers || {}; ctx.askOrder = (ctx.askOrder || []).filter((x) => x !== q).concat(q);
+    if (ctx.answers[q] && ctx.answers[q].loading) return;
+    ctx.answers[q] = { loading: true }; rerenderBrief();
+    try { ctx.answers[q] = await askClaude(ctx.company, ctx.brief, q); } catch (e) { ctx.answers[q] = { error: e }; }
+    if (st.ctx === ctx) rerenderBrief();
+  }
+  function briefCore(ctx) {
     const b = ctx.brief, s = st.briefState;
     const model = MODELS[settings.model] ? settings.model : DEFAULTS.model;
     let h = `<div class="sub mb8">${esc(MODELS[model].label.replace(/\s*\(.*\)$/, ''))} + web search</div>`;
@@ -2069,7 +2275,7 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
     return p;
   }
   function wireFavicons() {
-    $body.querySelectorAll('.lk .fb[data-dom]').forEach((el) => {
+    $body.querySelectorAll('.fb[data-dom]').forEach((el) => {
       if (el.dataset.c) el.style.setProperty('--fbc', el.dataset.c);
       favBitmap(el.dataset.dom).then((bmp) => {
         if (!el.isConnected) return;
@@ -2079,6 +2285,92 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
       }, () => { /* keep letter badge */ });
     });
   }
+
+  /* ---------- keyboard shortcuts ---------- */
+  function comboOf(e) {
+    const k = e.key || '';
+    if (/^(Control|Shift|Alt|Meta|OS|AltGraph|Dead|Unidentified)$/.test(k)) return '';
+    if (k === '?' && !e.ctrlKey && !e.altKey && !e.metaKey) return '?';
+    let key;
+    if (/^Key[A-Z]$/.test(e.code || '')) key = e.code.slice(3);            // layout/Option-safe letters (macOS Alt types characters)
+    else if (/^Digit\d$/.test(e.code || '')) key = e.code.slice(5);
+    else if (e.code === 'Space' || k === ' ') key = 'Space';
+    else if (k.length === 1) key = k.toUpperCase();
+    else key = k;
+    return [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Meta'].filter(Boolean).concat(key).join('+');
+  }
+  function hotkeyOf(e) {
+    if (!settings.hotkeysOn) return '';
+    const c = comboOf(e); if (!c) return '';
+    const hk = settings.hotkeys || {};
+    for (const [id] of HOTKEYS) if (hk[id] && hk[id] === c) return id;
+    return '';
+  }
+  const hkLabel = (id) => (HOTKEYS.find((h) => h[0] === id) || [])[1] || id;
+  function runHotkey(id) {
+    const ctx = st.ctx;
+    if (id === 'summary') {
+      const f = ctx && ctx.company;
+      if (!f) { showToast('Look up a company first'); return; }
+      copyText(shortSummary(f)).then(() => showToast('Company summary copied'));
+      return;
+    }
+    if (!ctx) { if (!st.open) openEmpty(); showToast('Look up a company first'); return; }
+    openTab(linkFor(id, ctx));
+    if (st.open) showToast('Opened ' + (PROVIDERS.find((p) => p.id === id) || {}).name);
+  }
+  function sheetHtml() {
+    const hk = settings.hotkeys || {};
+    const rows = HOTKEYS.filter(([id]) => settings.hotkeysOn && hk[id]).map(([id, l]) => [hk[id], l]);
+    rows.push(['Esc', 'Close the menu, viewer or panel']);
+    if (settings.numKeys) rows.push(['1-5', 'Quick links (LinkedIn, Google, CH, Maps, Endole)'], ['0', 'Open all quick links'], ['C', 'Copy HubSpot note']);
+    rows.push(['Enter', 'Expand / collapse a focused section']);
+    return `<div class="row jsb"><h4>Keyboard shortcuts</h4><button class="ib" data-act="sheet-close" title="Close (Esc)">${ICON.x}</button></div>
+      <dl>${rows.map(([k, l]) => `<dt><kbd class="k">${esc(k)}</kbd></dt><dd>${esc(l)}</dd>`).join('')}</dl>
+      <div class="hint">Shortcuts other than open/close don't fire while you're typing. Change them in Settings.</div>`;
+  }
+  function toggleSheet(force) {
+    st.sheet = force != null ? force : !st.sheet;
+    if (st.sheet) $sheet.innerHTML = sheetHtml();
+    $sheet.classList.toggle('show', !!st.sheet);
+    if (st.sheet) { const b = $sheet.querySelector('[data-act=sheet-close]'); if (b) b.focus(); }
+  }
+  /* Esc peels one layer at a time: recording > cheat sheet > link/share menu > pins menu > filings viewer > panel. */
+  function escapeAction() {
+    if (st.sheet) { toggleSheet(false); return true; }
+    if ($body.querySelector('.qb.open')) { const qb = $body.querySelector('.qb.open'); closeQMenus(); const c = qb.querySelector('.qc'); if (c) c.focus(); return true; }
+    const ae = sroot && sroot.activeElement;
+    if (ae && ae.closest && ae.closest('.qmenu') && settings.qlHover) { ae.blur(); return true; }
+    if ($body.querySelector('.shm.show')) { closeShare(); return true; }
+    if (st.menu) { toggleMenu(false); return true; }
+    if (st.view === 'main' && st.ctx && st.ctx.kind === 'filings' && st.stack.length) { navBack(); return true; }
+    close(); return true;
+  }
+  function recordKey(e) {
+    e.preventDefault(); e.stopPropagation();
+    const id = st.recording;
+    if (e.key === 'Escape') { st.recording = null; rerenderHotkeys(); return; }
+    if (e.key === 'Backspace' || e.key === 'Delete') { settings.hotkeys[id] = ''; st.recording = null; saveSettings(); rerenderHotkeys(); showToast(hkLabel(id) + ': off'); return; }
+    const c = comboOf(e); if (!c) return;
+    if (id !== 'help' && !(e.ctrlKey || e.altKey || e.metaKey)) { showToast('Use Ctrl, Alt or Cmd with a key'); return; }
+    const other = HOTKEYS.find(([o]) => o !== id && settings.hotkeys[o] === c);
+    if (other) { showToast(`${c} is already used for ${other[1]}`); return; }
+    settings.hotkeys[id] = c; st.recording = null; saveSettings(); rerenderHotkeys(); applySettingsLive();
+    showToast(`${hkLabel(id)}: ${c}`);
+  }
+  function hotkeysHtml() {
+    const hk = settings.hotkeys || {};
+    return `${tgl([['hotkeysOn', 'Keyboard shortcuts', 'Turn all Prosper shortcuts on or off.'], ['numKeys', 'Number keys for quick links', '1-5 open quick links, 0 opens all, C copies the HubSpot note (panel open, not typing).']])}
+      ${HOTKEYS.map(([id, l]) => {
+        const v = hk[id] || '';
+        const clash = CLASHES[v] && (IS_FF || !/^Firefox:/.test(CLASHES[v])) ? CLASHES[v] : '';
+        const rec = st.recording === id;
+        return `<div class="hk" data-hk="${id}"><span>${esc(l)}${clash ? `<small class="warnk">Clashes with ${esc(clash)}</small>` : ''}</span><button class="kbd${rec ? ' rec' : ''}${v ? '' : ' off'}" data-act="hk-rec" data-id="${id}" title="Click, then press the new shortcut">${rec ? 'Press keys...' : esc(v || 'Off')}</button>${v ? `<button class="xi" data-act="hk-clear" data-id="${id}" title="Turn off">${ICON.x}</button>` : ''}</div>`;
+      }).join('')}
+      <div class="row mt6"><button class="btn sm" data-act="hk-reset">Reset to defaults</button><button class="btn sm" data-act="sheet">Show cheat sheet</button></div>
+      <div class="help">Click a shortcut and press the new keys (Esc cancels, Backspace turns it off). Shortcuts don't fire while you type in a field, except open/close. On a Mac, Ctrl is the Control key; Cmd (Meta) combinations also work.</div>`;
+  }
+  function rerenderHotkeys() { const g = $body.querySelector('.grp[data-grp=hotkeys] .hkb'); if (g) g.innerHTML = hotkeysHtml(); }
 
   /* ---------- pinned & recent (one small header menu; nothing persistent in the panel) ---------- */
   const listGet = (k) => { const v = readJSON(gv(k, null)); return Array.isArray(v) ? v : []; };
@@ -2121,12 +2413,16 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
   }
   /* Toggle rows. Each entry: [settings key, label, help]. Persisted immediately on change. */
   const TOGGLES = {
-    ai: [['autoBrief', 'Run AI brief automatically', 'Off: briefs only run when you click Generate (each costs a few cents).']],
+    ai: [['autoBrief', 'Run AI brief automatically', 'Off: briefs only run when you click Generate (each costs a few cents).'],
+      ['questions', 'Question chips', 'Ready-made and suggested questions under the brief. Each click is one short Claude call (well under a cent on Haiku).']],
     behaviour: [
       ['background', 'Open links in background tabs', 'Keeps you on the current page.'],
-      ['inInputs', 'Show the pill in text fields', 'Selections inside inputs and editors.'],
+      ['inInputs', 'Show the pill in text fields', 'Also show the Prosper pill when you highlight text inside input boxes and text areas (for example a HubSpot property field or an email you are writing). Off by default so selecting text while you type stays quiet.'],
     ],
     interactive: [
+      ['quickRow', 'Quick-link row under the company header', 'LinkedIn, Google, Companies House, Maps, Endole. Off: a Quick links card at the bottom instead.'],
+      ['qlHover', 'Open link menus on hover', 'Menus always open on click (chevron) and from the keyboard too.'],
+      ['personLinks', 'Link icons on each person', 'LinkedIn, Google and Companies House icons on officer and PSC rows and in the person view.'],
       ['chLinks', 'Companies House links', 'Company names, numbers and section titles open Companies House.'],
       ['peopleInPanel', 'People open in the panel', 'Off: names go straight to the Companies House officer page.'],
       ['addrMaps', 'Addresses open Google Maps', 'Registered office links to a Maps search.'],
@@ -2181,12 +2477,13 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
           <div class="sub">${ICON.ext} opens a new tab · no arrow opens here in Prosper</div></div>
       </div>
       <div class="grp" data-grp="extras"><div class="gh">Extras</div>${tgl(TOGGLES.extras)}</div>
+      <div class="grp" data-grp="hotkeys"><div class="gh">Keyboard shortcuts</div><div class="hkb">${hotkeysHtml()}</div></div>
       <div class="grp" data-grp="appearance"><div class="gh">Appearance</div>${tgl(TOGGLES.appearance)}
         <div class="row mt6"><button class="btn sm" data-act="reset-sections">Reset section state</button></div></div>
       <div class="grp" data-grp="data"><div class="gh">Diagnostics and data</div>
         <div class="row mt6"><button class="btn sm" data-act="diag">Run diagnostics</button><button class="btn sm" data-act="clear-cache">Clear cache</button></div>
         <div class="diagbox">${diagHtml()}</div>
-        <div class="help mt10">Shortcuts: Alt+P open, Esc close, 1-6 quick links, 0 open all, C copy HubSpot note. Companies House data cached 10 min, briefs 24 h. Prosper v${VERSION} (${BUILD}).</div>
+        <div class="help mt10">Press ? in the panel for keyboard shortcuts. Companies House data cached 10 min, briefs and answers 24 h. Prosper v${VERSION} (${BUILD}).</div>
       </div>
     </div>`);
     $body.scrollTop = 0;
@@ -2198,9 +2495,10 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
     else if (t.dataset.seg) settings[t.dataset.seg] = t.value;
     else return;
     saveSettings(); applySettingsLive();
+    if (t.dataset.set === 'hotkeysOn' || t.dataset.set === 'numKeys') rerenderHotkeys();
     showToast('Saved');
   }
-  function applySettingsLive() { applyRootClasses(); updateScope(); updateMenuBtn(); }
+  function applySettingsLive() { applyRootClasses(); updateScope(); updateMenuBtn(); if ($edge) $edge.title = 'Prosper' + (settings.hotkeys.toggle ? ' (' + settings.hotkeys.toggle + ')' : ''); }
 
   /* ---------- diagnostics ---------- */
 
@@ -2295,6 +2593,10 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
 
   function onClick(e) {
     if (st.menu && !e.target.closest('.menu') && !e.target.closest('[data-act=menu]')) toggleMenu(false);
+    if (!e.target.closest('.qb')) closeQMenus();
+    if (!e.target.closest('.shwrap')) closeShare();
+    if (st.sheet && !e.target.closest('.sheet') && !e.target.closest('[data-act=sheet]')) toggleSheet(false);
+    if (st.recording && !e.target.closest('[data-act=hk-rec]')) { st.recording = null; rerenderHotkeys(); }
     const el = e.target.closest('[data-act]');
     if (!el) return;
     const act = el.dataset.act, ctx = st.ctx;
@@ -2320,8 +2622,8 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
       case 'person-search': e.preventDefault(); setView('main'); lookup(el.dataset.name, 'person', true); break;
       case 'nav-back': navBack(); break;
       case 'tog': toggleBlock(el.closest('.blk')); break;
-      case 'ext': e.preventDefault(); e.stopPropagation(); openTab(el.dataset.url || el.getAttribute('href')); break;
-      case 'cp': e.preventDefault(); e.stopPropagation(); copyFrom(el, el.dataset.copy); break;
+      case 'ext': e.preventDefault(); e.stopPropagation(); openTab(el.dataset.url || el.getAttribute('href')); closeQMenus(); if (el.closest('.shm')) { st.lastShare = { via: el.dataset.share, url: el.dataset.url }; closeShare(); } break;
+      case 'cp': e.preventDefault(); e.stopPropagation(); copyFrom(el.closest('.shm') ? null : el, el.dataset.copy, el.closest('.shm') ? 'Link copied' : undefined); if (el.closest('.shm')) { st.lastShare = { via: 'copy' }; closeShare(); } break;
       case 'roles': if (ctx && ctx.rolesOpen) { const l = el.dataset.link; ctx.rolesOpen[l] = !ctx.rolesOpen[l]; const o = f.officers.find((x) => x.link === l); if (o) refreshRoles(ctx, o); } break;
       case 'map-toggle': if (ctx && f) { ctx.mapOpen = !(ctx.mapOpen != null ? ctx.mapOpen : settings.inlineMap); const sc = $body.scrollTop; renderCompany(ctx, false); $body.scrollTop = sc; } break;
       case 'filing': onFilingRow(+el.dataset.i); break;
@@ -2340,35 +2642,49 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
       case 'brief': doBrief(false); break;
       case 'brief-regen': doBrief(true); break;
       case 'menu': toggleMenu(); break;
+      case 'ql': if (ctx) openTab(linkFor(el.dataset.id, ctx)); break;
+      case 'qmenu': openQMenu(el.closest('.qb'), e.detail === 0); break;
+      case 'ask': doAsk(el.dataset.q); break;
+      case 'share-mail': closeShare(); st.lastShare = { via: 'email', url: el.dataset.url }; break; // default action opens the mail client
+      case 'share-slack': e.preventDefault(); copyFrom(null, el.dataset.copy, 'Copied for Slack: paste it into a message'); closeShare(); st.lastShare = { via: 'slack' }; break;
+      case 'sheet': toggleSheet(true); break;
+      case 'sheet-close': toggleSheet(false); break;
+      case 'hk-rec': st.recording = st.recording === el.dataset.id ? null : el.dataset.id; rerenderHotkeys(); { const b = $body.querySelector(`[data-act=hk-rec][data-id="${el.dataset.id}"]`); if (b) b.focus(); } break;
+      case 'hk-clear': settings.hotkeys[el.dataset.id] = ''; saveSettings(); rerenderHotkeys(); showToast(hkLabel(el.dataset.id) + ': off'); break;
+      case 'hk-reset': settings.hotkeys = Object.assign({}, DEFAULTS.hotkeys); st.recording = null; saveSettings(); rerenderHotkeys(); applySettingsLive(); showToast('Shortcuts reset'); break;
       case 'menu-open': toggleMenu(false); setView('main'); lookup(el.dataset.num, 'auto'); break;
       case 'pin': if (f && !ctx.kind) { togglePin(f); $menu.innerHTML = menuHtml(); showToast(listGet(K.pins).some((x) => x.n === f.number) ? 'Pinned' : 'Unpinned'); } break;
     }
   }
-  function openAll() { const ctx = st.ctx; if (!ctx) return; PROVIDERS.forEach((p) => openTab(linkFor(p.id, ctx), true)); showToast('Opened 6 tabs'); }
+  function openAll() { const ctx = st.ctx; if (!ctx) return; PROVIDERS.forEach((p) => openTab(linkFor(p.id, ctx), true)); showToast('Opened ' + PROVIDERS.length + ' tabs'); }
   function copyNote(el) { const ctx = st.ctx; if (!ctx || !ctx.company || ctx.kind) return; copyFrom(el, hubspotNote(ctx.company, ctx.brief), 'HubSpot note copied'); }
 
   function onKey(e) {
-    if (e.altKey && !e.ctrlKey && !e.metaKey && (e.code === 'KeyP' || (e.key || '').toLowerCase() === 'p')) {
+    if (st.recording) return; // the panel's own handler records the new shortcut
+    const path = e.composedPath ? e.composedPath() : [e.target];
+    const inOurPanel = path.includes(host);
+    const target = path[0];
+    const typing = isEditable(target) || (target && target.tagName === 'SELECT') || (!inOurPanel && isEditable(document.activeElement));
+    const hk = hotkeyOf(e);
+    if (hk === 'toggle') { // works even while typing
       if (!allowedHere()) return;
       e.preventDefault(); e.stopPropagation();
       const info = getSelectionInfo();
       const t = info ? info.text.replace(/\s+/g, ' ').trim() : '';
       hidePill();
-      if (t.length >= 2 && t.length <= 200) openWith(t);
-      else if (st.open && !(e.composedPath && e.composedPath().includes(host))) close();
+      if (t.length >= 2 && t.length <= 200 && !(st.open && t === st.consumed)) openWith(t);
+      else if (st.open) close();
       else openEmpty();
       return;
     }
-    if (!st.open) { if (e.key === 'Escape') hidePill(); return; }
-    if (e.key === 'Escape') { if (st.menu) toggleMenu(false); else close(); return; }
-    const path = e.composedPath ? e.composedPath() : [e.target];
-    const inOurPanel = path.includes(host);
-    const target = path[0];
-    if (isEditable(target) || (target && target.tagName === 'SELECT')) return;
-    if (!inOurPanel && isEditable(document.activeElement)) return;
+    if (e.key === 'Escape') { if (st.open) { e.stopPropagation(); escapeAction(); } else hidePill(); return; }
+    if (typing) return;
+    if (hk === 'help') { if (st.open && inOurPanel) { e.preventDefault(); toggleSheet(); } return; }
+    if (hk) { if (!allowedHere()) return; e.preventDefault(); e.stopPropagation(); runHotkey(hk); return; }
+    if (!st.open) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
-    if (st.view === 'settings' || !st.ctx) return;
-    if (/^[1-6]$/.test(e.key)) { e.preventDefault(); openTab(linkFor(PROVIDERS[+e.key - 1].id, st.ctx)); }
+    if (st.view === 'settings' || !st.ctx || !settings.numKeys) return;
+    if (/^[1-5]$/.test(e.key)) { const p = PROVIDERS[+e.key - 1]; if (p) { e.preventDefault(); openTab(linkFor(p.id, st.ctx)); } }
     else if (e.key === '0') { e.preventDefault(); openAll(); }
     else if ((e.key === 'c' || e.key === 'C') && st.ctx.company && !st.ctx.kind) { e.preventDefault(); copyNote(null); }
   }
@@ -2429,7 +2745,7 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
   window.__prosperTest = {
     detect, alphaKey, companyLabelFromDomain, hubspotNote: () => st.ctx && st.ctx.company ? hubspotNote(st.ctx.company, st.ctx.brief) : '', state: () => st, cleanKey,
     keyInfo: (k) => { const i = keyInfo(k); return { source: i.source, len: i.len, head: i.head }; },
-    settings: () => Object.assign({}, settings), sections: () => Object.assign({}, secState), ukRegNumber,
+    settings: () => Object.assign({}, settings), sections: () => Object.assign({}, secState), ukRegNumber, comboOf: (o) => comboOf(o), shortSummary: () => (st.ctx && st.ctx.company ? shortSummary(st.ctx.company) : ''),
   };
 
   boot().catch((e) => warn('failed to start:', e));
