@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prosper – UK company briefs</title>
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://rsms.me/">
+<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3E%3Crect width=%2716%27 height=%2716%27 rx=%273%27 fill=%27%230a6e4a%27/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="./">Prosper</a>
+    <div class="topbar-right">
+      <div class="cost-total" title="Estimated API spend in this browser">
+        <span class="label">Spend</span> <span id="costTotal">$0.000</span>
+      </div>
+      <a href="#recent" class="recent-link">Recent</a>
+      <button type="button" class="btn btn-secondary" id="openSettings">Settings</button>
+    </div>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="main-col">
+    <form id="searchForm" class="search" autocomplete="off">
+      <label for="q" class="search-label">Research a UK company</label>
+      <div class="search-row">
+        <input id="q" name="q" type="search" placeholder="Company name, website or Companies House number" required maxlength="200" enterkeyhint="search">
+        <button type="submit" class="btn btn-primary" id="searchBtn">Research</button>
+      </div>
+      <p class="search-hint">e.g. “Oxford Instruments”, “octopus.energy” or an 8-digit company number. Each brief uses up to <span id="hintSearches">4</span> web searches.</p>
+    </form>
+
+    <div id="keyNotice" class="notice" hidden>
+      Add your Anthropic API key in <button type="button" class="linklike" data-open-settings>Settings</button> to start researching. It is stored only in this browser.
+    </div>
+
+    <div id="status" class="status" hidden></div>
+
+    <article id="result" class="result" hidden></article>
+
+    <div id="empty" class="empty">
+      <h2>No brief open</h2>
+      <p>Search for a company above. Prosper researches it on the web and returns a structured prospect brief: what they do, size and location, recent signals, why they may be a fit, talking points and sources.</p>
+    </div>
+  </section>
+
+  <aside class="side-col" id="recent">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Recent searches</h2>
+        <button type="button" class="linklike small" id="clearHistory" hidden>Clear</button>
+      </div>
+      <ul id="history" class="history"></ul>
+      <p id="historyEmpty" class="muted small">Briefs you run are saved here in this browser. Reopening one costs nothing.</p>
+    </div>
+  </aside>
+</main>
+
+<dialog id="settings" class="dialog">
+  <form method="dialog" id="settingsForm">
+    <div class="dialog-head">
+      <h2>Settings</h2>
+      <button type="submit" value="cancel" class="icon-btn" aria-label="Close">×</button>
+    </div>
+    <label for="apiKey">Anthropic API key</label>
+    <div class="key-row">
+      <input id="apiKey" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+      <button type="button" class="btn btn-secondary" id="toggleKey">Show</button>
+    </div>
+    <p class="muted small">Stored in this browser’s localStorage only and sent directly to api.anthropic.com. Never shared with any other server. Use a key with a spend limit.</p>
+
+    <label for="model">Model</label>
+    <select id="model"></select>
+    <p class="muted small" id="modelNote"></p>
+
+    <div class="settings-cost">
+      <div><span class="muted small">Running total</span><br><strong id="settingsTotal">$0.000</strong> <span class="muted small" id="settingsCount"></span></div>
+      <button type="button" class="btn btn-secondary" id="resetTotal">Reset total</button>
+    </div>
+
+    <div class="dialog-actions">
+      <button type="button" class="btn btn-secondary" id="clearKey">Remove key</button>
+      <button type="submit" value="save" class="btn btn-primary" id="saveSettings">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
