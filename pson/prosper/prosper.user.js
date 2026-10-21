@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Prosper
 // @namespace    https://wills.im/pson/prosper
-// @version      11.3.0
-// @description  Highlight a company, email, website, Companies House number or person to get an instant Companies House card, quick check, quick links and an optional AI brief with follow-up questions. Built for HubSpot prospecting.
+// @version      11.4.0
+// @description  Highlight a company, email, website, Companies House number or person to get an instant Companies House card, quick check, quick links, a copyable quick note and an on-request AI summary with follow-up questions. Built for prospecting in any CRM.
 // @author       Will
 // @match        *://*/*
 // @noframes
@@ -58,7 +58,7 @@
   /* Constants                                                          */
   /* ------------------------------------------------------------------ */
 
-  const VERSION = '11.3.0';
+  const VERSION = '11.4.0';
   const BUILD = 'public';
   // Built-in default keys. Empty in the public build; the private build fills these in.
   const BAKED = { ch: '', claude: '' };
@@ -110,16 +110,26 @@
     'Ctrl+Shift+Y': 'Firefox downloads', 'Ctrl+Shift+E': 'Firefox network monitor', 'Ctrl+Shift+D': 'bookmark all tabs', 'Ctrl+Shift+V': 'paste as plain text',
     'Ctrl+Shift+Z': 'redo', 'Ctrl+Shift+U': 'Linux: unicode input',
   };
+  const NOTE_FORMATS = [
+    ['crm', 'CRM note', 'Full Companies House summary for a CRM record'],
+    ['email', 'Email intro', 'Short first email with a subject line'],
+    ['linkedin', 'LinkedIn message', 'Connection note, under 300 characters'],
+  ];
+  const SECTIONS = [
+    ['deadlines', 'Filing deadlines'], ['officers', 'Officers'], ['changes', 'Recent officer changes'], ['psc', 'People with significant control'],
+    ['charges', 'Charges & insolvency'], ['filings', 'Recent filings'], ['similar', 'Similar companies nearby'],
+  ];
   const PRESET_QS = ['Who makes the buying decisions?', 'Is this company financially healthy?', 'What do they likely need?', 'Any red flags?', 'Good opener for a cold call'];
 
   const DEFAULTS = {
-    model: 'claude-haiku-5-5', autoBrief: false, background: true, inInputs: false, scope: 'all',
+    model: 'claude-haiku-5-5', background: true, inInputs: false, scope: 'all',
     // Interactive features (v11.2)
     chLinks: true, peopleInPanel: true, addrMaps: true, inlineMap: false, colorLinks: true, filingOpen: 'viewer',
     // Extras (v11.2)
     otherRoles: true, parentLinks: true, similar: true, pinsMenu: true, clickCopy: true,
     // Appearance (v11.2)
-    animations: true, rememberSections: true, collapseRecord: false,
+    animations: true, rememberSections: false, autoOpenProblems: true, noteFormat: 'crm', sv: 114,
+    secOpen: { deadlines: false, officers: false, changes: false, psc: false, charges: false, filings: false, similar: false },
     // v11.3
     quickRow: true, qlHover: true, personLinks: true, questions: true, hotkeysOn: true, numKeys: true,
     hotkeys: Object.fromEntries(HOTKEYS.map((h) => [h[0], h[2]])),
@@ -179,7 +189,16 @@
   }
 
   let settings = Object.assign({}, DEFAULTS);
-  function loadSettings() { settings = Object.assign({}, DEFAULTS, readJSON(gv(K.settings, null)) || {}); settings.hotkeys = Object.assign({}, DEFAULTS.hotkeys, settings.hotkeys || {}); }
+  function loadSettings() {
+    const raw = readJSON(gv(K.settings, null));
+    settings = Object.assign({}, DEFAULTS, raw || {});
+    settings.hotkeys = Object.assign({}, DEFAULTS.hotkeys, settings.hotkeys || {});
+    settings.secOpen = Object.assign({}, DEFAULTS.secOpen, settings.secOpen || {});
+    if (!NOTE_FORMATS.some((x) => x[0] === settings.noteFormat)) settings.noteFormat = 'crm';
+    // v11.4 migration: AI never auto-runs; sections now start from per-section defaults (remembering is opt-in).
+    delete settings.autoBrief; delete settings.collapseRecord;
+    if (raw && raw.sv !== 114) { settings.rememberSections = false; settings.sv = 114; sv(K.sections, JSON.stringify({})); saveSettings(); }
+  }
   function readJSON(v) { if (!v) return null; if (typeof v === 'object') return v; try { return JSON.parse(v); } catch (e) { return null; } }
   function saveSettings() { sv(K.settings, JSON.stringify(settings)); }
 
@@ -312,9 +331,9 @@
     }
     const chn = t.replace(/\s+/g, '').toUpperCase();
     if (/^(?:\d{8}|[A-Z]{2}\d{6}|[A-Z]\d{7})$/.test(chn) && /^(\d{8}|SC|NI|OC|SO|NC|FC|SF|NF|IP|SP|RC|SR|LP|SL|NL|ZC|SZ|IC|SI|NR|NP|SE|GE|R\d|CE|CS|RS|AC|SA|NA|NO|IS)/.test(chn)) {
-      return { raw: t, type: 'chnum', label: 'CH number', query: chn, mode: 'number', number: chn };
+      return { raw: t, type: 'chnum', label: 'Company number', query: chn, mode: 'number', number: chn };
     }
-    if (/^\d{6,7}$/.test(chn)) return { raw: t, type: 'chnum', label: 'CH number', query: chn.padStart(8, '0'), mode: 'number', number: chn.padStart(8, '0') };
+    if (/^\d{6,7}$/.test(chn)) return { raw: t, type: 'chnum', label: 'Company number', query: chn.padStart(8, '0'), mode: 'number', number: chn.padStart(8, '0') };
     if (!/\s/.test(t) && /^(?:[a-z]+:\/\/)?(?:www\.)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:[:/?#].*)?$/i.test(t)) {
       const domain = cleanDomain(t);
       return { raw: t, type: 'domain', label: 'Website', query: companyLabelFromDomain(domain), mode: 'company', domain };
@@ -732,14 +751,14 @@
   function claudeHeaders(key) { return { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'anthropic-dangerous-direct-browser-access': 'true' }; }
   function claudeError(status, text) {
     let msg = ''; try { const j = JSON.parse(text); msg = (j.error && j.error.message) || ''; } catch (e) { /* ignore */ }
-    if (status === 401 || status === 403) return new PErr('cl-401', 'Claude API key was rejected. Check it in Settings.');
+    if (status === 401 || status === 403) return new PErr('cl-401', 'The AI key was rejected. Check it in Settings.');
     if (status === 402 || /credit balance|billing/i.test(msg)) return new PErr('cl-credit', 'Your Anthropic account is out of credit. Top up at console.anthropic.com, then try again.');
-    if (status === 429) return new PErr('cl-429', 'Claude rate limit hit. Wait a minute and try again.');
-    if (status === 529 || status === 503) return new PErr('cl-busy', 'Claude is overloaded right now. Try again shortly.');
+    if (status === 429) return new PErr('cl-429', 'AI rate limit hit. Wait a minute and try again.');
+    if (status === 529 || status === 503) return new PErr('cl-busy', 'The AI service is busy right now. Try again shortly.');
     if (status === 404 || /model/i.test(msg)) return new PErr('cl-model', 'Model not available: ' + (msg || status));
-    if (status === -1) return new PErr('cl-net', 'Claude did not answer in time (timeout). Try again.', -1);
+    if (status === -1) return new PErr('cl-net', 'The AI did not answer in time (timeout). Try again.', -1);
     if (status <= 0) return new PErr('cl-net', 'Could not reach api.anthropic.com' + (text ? ': ' + text : '.'), 0);
-    return new PErr('cl-http', 'Claude error ' + status + (msg ? ': ' + msg : ''), status);
+    return new PErr('cl-http', 'AI error ' + status + (msg ? ': ' + msg : ''), status);
   }
 
   async function runBrief(f, domain, force) {
@@ -759,7 +778,7 @@
       headers: claudeHeaders(key),
     });
     if (r.status !== 200) { const er = claudeError(r.status, r.status <= 0 ? r.error : r.text); warn('Claude brief failed:', er.message); throw er; }
-    let res; try { res = JSON.parse(r.text); } catch (e) { throw new PErr('cl-bad', 'Claude returned an unreadable response.'); }
+    let res; try { res = JSON.parse(r.text); } catch (e) { throw new PErr('cl-bad', 'The AI returned an unreadable response.'); }
     const blocks = res.content || [];
     const searchUrls = new Map();
     let lastTool = -1;
@@ -776,7 +795,7 @@
     const fence = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
     let js = fence ? fence[1] : text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
     let data = null; try { data = JSON.parse(js); } catch (e) { data = null; }
-    if (!data) data = { what: [text.replace(/\s+/g, ' ').trim().slice(0, 400) || 'No brief returned.'], signals: [], talking_points: [] };
+    if (!data) data = { what: [text.replace(/\s+/g, ' ').trim().slice(0, 400) || 'No summary returned.'], signals: [], talking_points: [] };
     const signals = (data.signals || []).slice(0, 4).map((s) => ({ text: String(s.text || ''), date: String(s.date || ''), url: s.url && searchUrls.has(s.url) ? s.url : '' }));
     const sources = new Map(cited);
     for (const s of signals) if (s.url) sources.set(s.url, searchUrls.get(s.url));
@@ -807,9 +826,9 @@
     const prompt = `You help a UK B2B salesperson. Companies House facts (authoritative):\n\n${factsText(f)}\n${ctxBrief}\nQuestion: ${q}\n\nAnswer in 2-4 short sentences, at most 70 words, plain text (no markdown, no bullet lists, no preamble). Be practical and specific to this company. Base it on the facts above; say plainly when the data cannot answer something and what to check instead.`;
     const r = await xhr({ method: 'POST', url: CLAUDE_URL, timeout: 60000, data: JSON.stringify({ model, max_tokens: 400, thinking: { type: 'disabled' }, messages: [{ role: 'user', content: prompt }] }), headers: claudeHeaders(key) });
     if (r.status !== 200) { const er = claudeError(r.status, r.status <= 0 ? r.error : r.text); warn('Claude question failed:', er.message); throw er; }
-    let res; try { res = JSON.parse(r.text); } catch (e) { throw new PErr('cl-bad', 'Claude returned an unreadable response.'); }
+    let res; try { res = JSON.parse(r.text); } catch (e) { throw new PErr('cl-bad', 'The AI returned an unreadable response.'); }
     const text = (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('').replace(/\*\*/g, '').trim();
-    if (!text) throw new PErr('cl-bad', 'Claude returned no answer. Try again.');
+    if (!text) throw new PErr('cl-bad', 'No answer returned. Try again.');
     const u = res.usage || {}; const price = MODELS[model];
     const cost = ((u.input_tokens || 0) * price.inM + (u.output_tokens || 0) * price.outM) / 1e6;
     const a = { q, text, cost, usage: { input: u.input_tokens || 0, output: u.output_tokens || 0 }, model, at: Date.now() };
@@ -873,7 +892,57 @@
   }
   function verdictLabel(v) { return v === 'caution' ? 'Caution' : v === 'check' ? 'Check' : 'Looks normal'; }
 
-  function hubspotNote(f, brief) {
+  /* Quick note: templated from Companies House data (no AI call). */
+  function noteBits(f) {
+    const short = shortCo(f.display);
+    let sector = ((f.sic[0] && f.sic[0].desc) || '').replace(/,?\s*n\.e\.c\.?/i, '').replace(/^Other\s+/i, '').replace(/\s+activities$/i, '').trim();
+    sector = sector ? sector.charAt(0).toLowerCase() + sector.slice(1) : '';
+    const town = f.locality ? titleCase(f.locality) : '';
+    const yrs = (() => { const d = pd(f.created); return d ? Math.floor((Date.now() - d.getTime()) / (365.25 * 864e5)) : 0; })();
+    const appt = f.recent.find((r) => / appointed /.test(r.text));
+    let hook = '';
+    if (appt) hook = `${appt.text.replace(/ appointed .*$/, '')} recently joined the board`;
+    else if (f.recent.some((r) => /^Changed name/.test(r.text))) hook = `you recently changed your name to ${short}`;
+    else if (yrs >= 10) hook = `you have been trading for over ${yrs} years`;
+    else if (yrs >= 1 && yrs < 3) hook = 'you are still in your first few years of trading';
+    return { short, sector, town, yrs, hook };
+  }
+  function emailIntro(f) {
+    const b = noteBits(f);
+    const what = [b.sector ? `${b.sector}` : '', b.town ? `based in ${b.town}` : ''].filter(Boolean).join(', ');
+    return [`Subject: ${b.short} - quick question`, '', 'Hi [Name],', '',
+      `I came across ${b.short}${what ? ` (${what})` : ''}${b.hook ? ` and saw that ${b.hook}` : ''}.`, '',
+      'We help companies like yours with [what you do]. Would you be open to a 15-minute call next week to see if it is relevant?', '',
+      'Best regards,', '[Your name]'].join('\n');
+  }
+  function linkedinMsg(f) {
+    const b = noteBits(f);
+    const hook = b.hook ? ` and saw that ${b.hook.replace(/^you /, 'you ')}` : '';
+    let m = `Hi [Name], I came across ${b.short}${b.sector ? ` (${b.sector}${b.town ? ', ' + b.town : ''})` : b.town ? ` in ${b.town}` : ''}${hook}. I work with similar businesses and would be glad to connect.`;
+    if (m.length > 300) m = `Hi [Name], I came across ${b.short}${b.town ? ' in ' + b.town : ''}. I work with similar businesses and would be glad to connect.`;
+    return m;
+  }
+  function quickNote(f, fmt, brief) { return fmt === 'email' ? emailIntro(f) : fmt === 'linkedin' ? linkedinMsg(f) : crmNote(f, brief); }
+  const fmtLabel = (fmt) => (NOTE_FORMATS.find((x) => x[0] === fmt) || NOTE_FORMATS[0])[1];
+  /* On request only: AI-polished version of the current quick note. */
+  async function polishNote(f, fmt, text) {
+    const model = settings.model in MODELS ? settings.model : DEFAULTS.model;
+    const ck = `polish:${f.number}:${fmt}:${model}:${alphaKey(text).slice(-40)}`;
+    const hit = cacheGet(ck, TTL_BRIEF); if (hit) return Object.assign({}, hit.d, { cachedAt: hit.t });
+    const key = claudeKey(); if (!key) throw new PErr('cl-nokey');
+    const rule = fmt === 'linkedin' ? 'Keep it under 300 characters, one short paragraph.' : fmt === 'email' ? 'Keep the "Subject:" line first; at most 110 words in the body.' : 'Keep it as short labelled lines a salesperson can scan; drop nothing important.';
+    const prompt = `Polish this ${fmtLabel(fmt)} so it reads naturally and professionally in British English. Keep every fact exactly as given and do not invent new facts. Keep placeholders in [square brackets] unchanged. ${rule} Return only the finished text, with no preamble.\n\n---\n${text}\n---`;
+    const r = await xhr({ method: 'POST', url: CLAUDE_URL, timeout: 60000, data: JSON.stringify({ model, max_tokens: 500, thinking: { type: 'disabled' }, messages: [{ role: 'user', content: prompt }] }), headers: claudeHeaders(key) });
+    if (r.status !== 200) { const er = claudeError(r.status, r.status <= 0 ? r.error : r.text); warn('note polish failed:', er.message); throw er; }
+    let res; try { res = JSON.parse(r.text); } catch (e) { throw new PErr('cl-bad', 'The AI returned an unreadable response.'); }
+    const out = (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('').replace(/\*\*/g, '').replace(/^-{3,}\s*|\s*-{3,}$/g, '').trim();
+    if (!out) throw new PErr('cl-bad', 'No text returned. Try again.');
+    const u = res.usage || {}; const price = MODELS[model];
+    const a = { fmt, text: out, cost: ((u.input_tokens || 0) * price.inM + (u.output_tokens || 0) * price.outM) / 1e6 };
+    cacheSet(ck, a);
+    return a;
+  }
+  function crmNote(f, brief) {
     const L = [];
     const d = new Date();
     L.push(`Prosper check - ${f.display} (${f.number}) - ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`);
@@ -894,7 +963,7 @@
     L.push(`Companies House: ${f.url}`);
     if (brief) {
       L.push('');
-      L.push('AI brief (check before relying on it):');
+      L.push('Summary (AI research, check before relying on it):');
       for (const w of brief.what) L.push(`- ${w}`);
       if (brief.signals.length) { L.push('Recent signals:'); for (const s of brief.signals) L.push(`- ${s.text}${s.date ? ' (' + s.date + ')' : ''}${s.url ? ' ' + s.url : ''}`); }
       if (brief.talking.length) { L.push('Talking points:'); for (const t of brief.talking) L.push(`- ${t}`); }
@@ -1180,7 +1249,7 @@ a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch);
 .qm canvas, .qm .fb { width: 15px; height: 15px; border-radius: 3px; }
 .qm .fb { background: var(--fbc, var(--bg3)); display: grid; place-items: center; font-size: 7.5px; font-weight: 700; color: #fff; letter-spacing: -.02em; line-height: 1; }
 .qmenu, .shm { position: absolute; top: 100%; left: -1px; padding-top: 4px; z-index: 4; min-width: 160px; opacity: 0; visibility: hidden; transform: translateY(-3px); pointer-events: none; }
-.hov-menus .qb:hover > .qmenu, .qb.open > .qmenu, .shm.show { opacity: 1; visibility: visible; transform: none; pointer-events: auto; }
+.hov-menus .qb:not(.qn):hover > .qmenu, .qb.open > .qmenu, .shm.show { opacity: 1; visibility: visible; transform: none; pointer-events: auto; }
 .qin { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); padding: 4px; }
 .qin h6 { margin: 4px 8px 3px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--fg3); font-weight: 600; }
 .qi { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 8px; border: 0; background: none; border-radius: 5px; font-size: 12.5px; cursor: pointer; text-align: left; color: var(--fg); text-decoration: none; white-space: nowrap; }
@@ -1221,6 +1290,48 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 .set .hk .kbd.rec { background: var(--pri); color: var(--pri-fg); border-color: var(--pri); }
 .set .hk .kbd.off { color: var(--fg3); font-weight: 500; }
 
+/* v11.4: AI accent (soft violet -> amber) on AI elements only */
+.root { --ai-v: #c7b6f7; --ai-a: #f2d29f; --ai-vs: #f6f2ff; --ai-as: #fff8ec; --ai-ink: #6d55c2; }
+.spark { width: 15px; height: 15px; flex: none; }
+.genbtn { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 10px; height: 42px; border-radius: 10px; border: 1px solid transparent; cursor: pointer;
+  font: 600 13px/1 'Prosper Inter', Inter, system-ui, sans-serif; color: var(--fg); padding: 0 14px;
+  background: linear-gradient(90deg, var(--ai-vs), var(--ai-as)) padding-box, linear-gradient(90deg, var(--ai-v), var(--ai-a)) border-box; }
+.genbtn:hover { background: linear-gradient(90deg, #efe8ff, #fff1d9) padding-box, linear-gradient(90deg, #b39cf5, #ecc07a) border-box; }
+.genbtn:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(167, 139, 250, .35); }
+.genbtn::after { content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 60%; background: linear-gradient(105deg, rgba(255,255,255,0) 0%, rgba(255,255,255,.8) 50%, rgba(255,255,255,0) 100%); transform: translateX(-120%); pointer-events: none; }
+.genbtn .gs { font-weight: 500; font-size: 11.5px; color: var(--fg3); }
+.blk.ai { border-color: #e6ddfb; background: linear-gradient(180deg, #fcfaff 0, var(--bg) 140px); }
+.blk.ai > .bh { position: relative; } .blk.ai > .bh .bt { display: inline-flex; align-items: center; gap: 6px; }
+.blk.ai > .bh::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; border-radius: 10px 10px 0 0; background: linear-gradient(90deg, var(--ai-v), var(--ai-a)); opacity: .8; }
+.blk.ai:not(.closed) > .bh { border-bottom-color: #eee8fc; }
+.ai .skel { background: linear-gradient(90deg, #efe9fd 0%, #fbf1df 50%, #efe9fd 100%); background-size: 200% 100%; }
+.ldg { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 500; color: var(--ai-ink); }
+.ldg .lt { background: linear-gradient(90deg, #8a6fdc, #c98f33, #8a6fdc); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; }
+.ai .qchip { border-color: #e4dafb; }
+.ai .qchip:hover, .ai .qchip:focus-visible { background: linear-gradient(90deg, var(--ai-vs), var(--ai-as)); border-color: #cbbaf7; }
+.ai .qchip.sug { border-color: #efd5a6; }
+.ai .qchip.on { background: linear-gradient(90deg, #f1ebff, #fff3df); border-color: #cbbaf7; }
+.ai .ans, .qnp { background: linear-gradient(135deg, #faf8ff, #fffbf3); border: 1px solid #ece4fc; }
+.qnp { margin-top: 10px; padding: 9px 11px; border-radius: 8px; font-size: 12.5px; }
+.qnp .qh { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 4px; }
+.qnp .qh .sp { flex: 1; } .qnp .at { white-space: pre-wrap; } .qnp .row { margin-top: 6px; }
+.qn { border: 0; background: none; }
+.qn .qnm { border-radius: 7px 0 0 7px; } .qn .qc2 { border-radius: 0 7px 7px 0; padding: 0 6px; margin-left: 1px; }
+.qn .qc2 svg { width: 10px; height: 10px; margin: 0; }
+.qn .qmenu { min-width: 230px; } .qmenu.alr { left: auto; right: -1px; }
+.qi.fmt { flex-wrap: wrap; row-gap: 1px; } .qi.fmt small { flex-basis: 100%; color: var(--fg3); font-size: 11px; }
+.qi.fmt .ck { width: 12px; height: 12px; color: var(--fg); visibility: hidden; } .qi.fmt[aria-checked=true] .ck { visibility: visible; }
+.qi.fmt[aria-checked=true] { font-weight: 600; }
+.qin hr { border: 0; border-top: 1px solid var(--line); margin: 4px 2px; }
+.qi.ai { justify-content: flex-start; gap: 7px; color: var(--ai-ink); }
+.qi.ai:hover, .qi.ai:focus-visible { background: linear-gradient(90deg, var(--ai-vs), var(--ai-as)); }
+/* sections: Overview fixed open; map edge to edge */
+.blk.fixed > .bh { cursor: default; } .blk.fixed > .bh:hover { background: none; }
+.map.wide { margin: 10px -14px -12px; border-radius: 0 0 9px 9px; border-left: 0; border-right: 0; border-bottom: 0; }
+.map.wide iframe { height: 200px; }
+.set .tg.cmp { padding: 6px 0; align-items: center; } .set .tg.cmp.dis { cursor: default; } .set .tg.cmp.dis input { opacity: .45; }
+.set .tg.cmp span small { display: inline; margin-left: 6px; }
+
 /* motion (only with .anim; prefers-reduced-motion switches it all off) */
 .anim .panel { transition: opacity var(--d2) var(--eo), transform var(--d3) var(--eo), visibility 0s linear var(--d3); }
 .anim .panel.open { transition: opacity var(--d2) var(--eo), transform var(--d3) var(--eo), visibility 0s; }
@@ -1232,10 +1343,19 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 .anim .chev { transition: transform var(--d2) var(--eo); }
 .anim .bh, .anim .btn, .anim .ib, .anim .lk, .anim .opt, .anim .chip, .anim .mi, .anim .list > li, .anim .cv, .anim .xi, .anim .crumb { transition: background-color var(--d1) var(--eo), border-color var(--d1) var(--eo), color var(--d1) var(--eo), box-shadow var(--d1) var(--eo); }
 .anim .qmenu, .anim .shm, .anim .sheet { transition: opacity var(--d1) var(--eo), transform var(--d1) var(--eo), visibility 0s linear var(--d1); }
-.anim .hov-menus .qb:hover > .qmenu { transition-delay: 80ms, 80ms, 80ms; }
+.anim .hov-menus .qb:not(.qn):hover > .qmenu { transition-delay: 80ms, 80ms, 80ms; }
 .anim .qb.open > .qmenu, .anim .shm.show, .anim .sheet.show { transition: opacity var(--d1) var(--eo), transform var(--d1) var(--eo), visibility 0s; }
 .anim .ans { animation: rise var(--d3) var(--eo) both; }
 .anim .qchip, .anim .qm, .anim .qc, .anim .qi, .anim .plk a, .anim .plk { transition: background-color var(--d1) var(--eo), border-color var(--d1) var(--eo), color var(--d1) var(--eo), opacity var(--d1) var(--eo); }
+.anim .genbtn:hover::after { animation: sheen 1.1s var(--eo); }
+.anim .genbtn.loading::after { animation: sheen 1.5s linear infinite; }
+.anim .ai .skel { background: linear-gradient(90deg, #efe9fd 0%, #fbf1df 50%, #efe9fd 100%); background-size: 200% 100%; animation: shimmer 1.6s linear infinite; }
+.anim .ldg .lt { animation: shimmer 2.2s linear infinite; }
+.anim .ldg .spark { animation: twinkle 1.6s ease-in-out infinite; }
+.anim .qnp, .anim .blk.ai .bc > div > p { animation: fade var(--d3) var(--eo) both; }
+@keyframes sheen { to { transform: translateX(260%); } }
+.anim .blk.ai.loading > .bh::before { background: linear-gradient(90deg, var(--ai-v), var(--ai-a), var(--ai-v)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; opacity: 1; }
+@keyframes twinkle { 50% { transform: scale(.82) rotate(12deg); opacity: .75; } }
 .anim .menu { transition: opacity var(--d1) var(--eo), transform var(--d1) var(--eo), visibility 0s linear var(--d1); }
 .anim .menu.show { transition: opacity var(--d1) var(--eo), transform var(--d1) var(--eo), visibility 0s; }
 .anim .toast { transition: opacity var(--d1), transform var(--d1) var(--eo); }
@@ -1260,6 +1380,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 `;
 
   const ICON = {
+    spark: '<svg class="spark" viewBox="0 0 16 16" aria-hidden="true"><path fill="#9b80e3" d="M7 1.5l1.3 3.7 3.7 1.3-3.7 1.3L7 11.5 5.7 7.8 2 6.5l3.7-1.3z"/><path fill="#e3a84f" d="M12.5 9.4l.65 1.95 1.95.65-1.95.65-.65 1.95-.65-1.95L9.9 12l1.95-.65z"/></svg>',
     x: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
     gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
     back: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>',
@@ -1357,7 +1478,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     <div class="sb">
       <div class="det"></div>
       <form class="srow" data-form="search">
-        <input type="text" placeholder="Company, email, website, CH number or person" spellcheck="false" autocomplete="off">
+        <input type="text" placeholder="Company, email, website, company number or person" spellcheck="false" autocomplete="off">
         <select title="Search as"><option value="auto">Auto</option><option value="company">Company</option><option value="person">Person</option></select>
         <button class="btn pri" type="submit">Go</button>
       </form>
@@ -1394,7 +1515,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       if (st.recording) { recordKey(e); return; }
       const t = e.target;
       if ((e.key === 'Enter' || e.key === ' ') && t && t.classList && t.classList.contains('bh')) { e.preventDefault(); toggleBlock(t.closest('.blk')); return; }
-      if (t && t.classList && t.classList.contains('qc') && (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openQMenu(t.closest('.qb'), true); return; }
+      if (t && t.classList && (t.classList.contains('qc') || t.classList.contains('qc2')) && (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openQMenu(t.closest('.qb'), true); return; }
       const menu = t && t.closest && t.closest('.qmenu, .shm');
       if (menu && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
         e.preventDefault();
@@ -1625,10 +1746,9 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     ctx.company = f; ctx.roles = {}; ctx.rolesOpen = {}; ctx.similar = null; ctx.mapOpen = null;
     const hit = cacheGet(`brief:${f.number}:${settings.model}`, TTL_BRIEF);
     ctx.brief = hit ? Object.assign({}, hit.d, { cachedAt: hit.t }) : null;
-    st.briefState = null;
+    st.briefState = null; ctx.summaryOn = false; ctx.notePolish = null;
     addRecent(f);
     renderCompany(ctx, true);
-    if (settings.autoBrief && !ctx.brief && claudeKey()) doBrief(false);
   }
 
   /* ---------- renderers ---------- */
@@ -1677,21 +1797,27 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 
   function secOpen(id, def, force) {
     if (force) return true;
+    if (id === 'overview') return true;
     if (settings.rememberSections && typeof secState[id] === 'boolean') return secState[id];
     return def;
   }
+  const secDef = (id) => !!(settings.secOpen && settings.secOpen[id]);
   function blk(id, title, o) {
-    const open = secOpen(id, o.def !== false, o.force);
+    const open = o.fixed || secOpen(id, o.def !== false, o.force);
     const t = o.href && settings.chLinks
       ? `<a class="bt" href="${esc(o.href)}" data-act="ext" data-url="${esc(o.href)}" title="${esc(title)} on Companies House (new tab)">${esc(title)}${ICON.ext}</a>`
       : `<span class="bt">${esc(title)}</span>`;
     const cnt = o.count != null && o.count !== '' ? `<span class="cnt ${o.countCls || ''}" data-cnt="${id}">${esc(o.count)}</span>` : '';
-    return `<section class="blk${open ? '' : ' closed'}${o.cls ? ' ' + o.cls : ''}" data-sec="${id}">
-      <div class="bh" data-act="tog" role="button" tabindex="0" aria-expanded="${open}">${t}${o.extra || ''}<span class="sp"></span>${cnt}<span class="chev">${ICON.chev}</span></div>
+    const tt = o.icon ? t.replace(/^(<(?:a|span) class="bt"[^>]*>)/, '$1' + o.icon) : t;
+    const head = o.fixed
+      ? `<div class="bh">${tt}${o.extra || ''}<span class="sp"></span>${cnt}</div>`
+      : `<div class="bh" data-act="tog" role="button" tabindex="0" aria-expanded="${open}">${tt}${o.extra || ''}<span class="sp"></span>${cnt}<span class="chev">${ICON.chev}</span></div>`;
+    return `<section class="blk${open ? '' : ' closed'}${o.fixed ? ' fixed' : ''}${o.cls ? ' ' + o.cls : ''}" data-sec="${id}">
+      ${head}
       <div class="bb"><div class="bi"><div class="bc${o.bcCls ? ' ' + o.bcCls : ''}">${o.body}</div></div></div></section>`;
   }
   function toggleBlock(sec, force) {
-    if (!sec) return;
+    if (!sec || sec.classList.contains('fixed')) return;
     const open = force != null ? force : sec.classList.contains('closed');
     sec.classList.toggle('closed', !open);
     const bh = sec.querySelector(':scope > .bh'); if (bh) bh.setAttribute('aria-expanded', String(open));
@@ -1731,6 +1857,35 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     return inPanel + personLinks(p.name, co, chUrl);
   }
 
+  function quickNoteBtn() {
+    const cur = settings.noteFormat;
+    return `<div class="qb qn" data-q="note"><button class="btn sm pri qnm" data-act="copy-note" title="Copies the ${esc(fmtLabel(cur))} (change the format with the arrow)">${ICON.copy}Copy quick note</button><button class="btn sm pri qc2" data-act="qmenu" aria-haspopup="menu" aria-expanded="false" title="Quick note format: ${esc(fmtLabel(cur))}">${ICON.chev}</button>
+      <div class="qmenu" role="menu"><div class="qin"><h6>Quick note format</h6>${NOTE_FORMATS.map(([k, l, d]) => `<button class="qi fmt" role="menuitemradio" aria-checked="${k === cur}" tabindex="-1" data-act="note-fmt" data-fmt="${k}"><span>${esc(l)}</span>${ICON.check.replace('<svg ', '<svg class="ck" ')}<small>${esc(d)}</small></button>`).join('')}
+      <hr><button class="qi ai" role="menuitem" tabindex="-1" data-act="note-ai">${ICON.spark}Polish with AI</button></div></div></div>`;
+  }
+  function notePolishHtml(ctx) {
+    const p = ctx.notePolish; if (!p) return '';
+    let inner;
+    if (p.loading) inner = '<div class="skel w90"></div><div class="skel w75"></div><div class="skel w60"></div>';
+    else if (p.error) inner = `<div class="sub">${esc(p.error.code === 'cl-nokey' ? 'Add an AI key in Settings to polish notes.' : p.error.message || String(p.error))}</div>${p.error.code === 'cl-nokey' ? '<div class="row"><button class="btn sm" data-act="settings">Open settings</button></div>' : ''}`;
+    else inner = `<div class="at">${esc(p.text)}</div><div class="row jsb"><span class="cost m0">$${p.cost.toFixed(4)}${p.cachedAt ? ' · saved' : ''}</span><button class="btn sm" data-act="cp" data-copy="${esc(p.text)}">${ICON.copy}Copy</button></div>`;
+    return `<div class="qnp ai" data-polish="${esc(p.fmt)}"><div class="qh">${ICON.spark}<span>${p.loading ? '<span class="ldg"><span class="lt">Polishing ' + esc(fmtLabel(p.fmt).toLowerCase()) + '...</span></span>' : 'Polished ' + esc(fmtLabel(p.fmt).toLowerCase())}</span><span class="sp"></span><button class="ib" data-act="note-ai-close" title="Close">${ICON.x}</button></div>${inner}</div>`;
+  }
+  async function doPolish() {
+    const ctx = st.ctx; if (!ctx || !ctx.company || ctx.kind) return;
+    const fmt = settings.noteFormat;
+    if (ctx.notePolish && ctx.notePolish.loading) return;
+    ctx.notePolish = { fmt, loading: true }; rerenderPolish();
+    try { ctx.notePolish = await polishNote(ctx.company, fmt, quickNote(ctx.company, fmt, ctx.summaryOn ? ctx.brief : null)); }
+    catch (e) { ctx.notePolish = { fmt, error: e }; }
+    if (st.ctx === ctx) rerenderPolish();
+  }
+  function rerenderPolish() {
+    const card = $body.querySelector('.hcard'); if (!card || !st.ctx) return;
+    const old = card.querySelector('.qnp'); const h = notePolishHtml(st.ctx);
+    if (old) old.outerHTML = h || ''; else if (h) card.insertAdjacentHTML('beforeend', h);
+  }
+
   /* Quick links: compact icon row (main button = sensible default; chevron/hover = menu). */
   function quickRow(ctx) {
     if (!ctx) return '';
@@ -1741,13 +1896,15 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
         ? `<button class="qc" data-act="qmenu" aria-haspopup="menu" aria-expanded="false" title="More ${esc(p.name)} links">${ICON.chev}</button><div class="qmenu" role="menu"><div class="qin"><h6>${esc(p.name)}</h6>${items.map((it) => `<a class="qi" role="menuitem" tabindex="-1" href="${esc(it[2])}" data-act="ext" data-url="${esc(it[2])}" data-k="${it[0]}">${esc(it[1])}${ICON.ext}</a>`).join('')}</div></div>` : ''}</div>`;
     }).join('')}</div>`;
   }
-  function closeQMenus(except) { $body.querySelectorAll('.qb.open').forEach((b) => { if (b !== except) { b.classList.remove('open'); const c = b.querySelector('.qc'); if (c) c.setAttribute('aria-expanded', 'false'); } }); }
+  function closeQMenus(except) { $body.querySelectorAll('.qb.open').forEach((b) => { if (b !== except) { b.classList.remove('open'); const c = b.querySelector('.qc, .qc2'); if (c) c.setAttribute('aria-expanded', 'false'); } }); }
   function openQMenu(qb, focus) {
     if (!qb) return;
     closeQMenus(qb);
     const open = focus ? true : !qb.classList.contains('open');
     qb.classList.toggle('open', open);
-    const c = qb.querySelector('.qc'); if (c) c.setAttribute('aria-expanded', String(open));
+    const c = qb.querySelector('.qc, .qc2'); if (c) c.setAttribute('aria-expanded', String(open));
+    const m = qb.querySelector('.qmenu');
+    if (open && m) { m.classList.remove('alr'); const pr = $panel.getBoundingClientRect(), r = m.getBoundingClientRect(); if (r.right > pr.right - 8 || r.left < pr.left + 8) m.classList.toggle('alr', r.right > pr.right - 8); }
     if (open && focus) { const it = qb.querySelector('.qi'); if (it) it.focus(); }
   }
   /* Used where there is no company header (errors, no match, person search). */
@@ -1807,10 +1964,10 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       <div class="hint">Quick check is based on Companies House data only.</div>
       ${pickerHtml(ctx)}
       <div class="row mt10">
-        <button class="btn sm" data-act="copy-num">${ICON.copy}Copy number</button>
-        <button class="btn sm" data-act="copy-addr">${ICON.copy}Copy address</button>
-        <button class="btn sm pri" data-act="copy-note">${ICON.copy}Copy HubSpot note</button>
-      </div></div>`;
+        <button class="btn sm" data-act="copy-num" title="Copy company number">${ICON.copy}Number</button>
+        <button class="btn sm" data-act="copy-addr" title="Copy registered office address">${ICON.copy}Address</button>
+        ${quickNoteBtn()}
+      </div>${notePolishHtml(ctx)}</div>`;
 
     const secs = [];
     // Overview
@@ -1818,9 +1975,8 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     const addr = f.address
       ? (settings.addrMaps ? extA(mapsUrl(f.address), esc(f.address), 'lk-place', 'Open in Google Maps (new tab)') : cv(f.address))
         + ` <button class="chip pl${mapOn ? ' on' : ''}" data-act="map-toggle" title="${mapOn ? 'Hide' : 'Show'} map here">${ICON.map}${mapOn ? 'Hide map' : 'Map'}</button>`
-        + (mapOn ? `<div class="map" data-map="${esc(f.address)}"></div>` : '')
       : 'Not available';
-    secs.push(blk('overview', 'Overview', { def: true, href: settings.chLinks ? f.url : '', body: `<dl class="kv">
+    secs.push(blk('overview', 'Overview', { fixed: true, href: settings.chLinks ? f.url : '', body: `<dl class="kv">
       <dt>Number</dt><dd>${cv(n)}</dd>
       <dt>Type</dt><dd>${cv(f.type)}</dd>
       <dt>Incorporated</dt><dd>${cv(fmtDate(f.created))} <span class="sub">(${esc(ageText(f.created))})</span></dd>
@@ -1828,34 +1984,34 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       <dt>Registered office</dt><dd>${addr}</dd>
       <dt>SIC</dt><dd>${f.sic.length ? f.sic.map((s) => `<div>${cv(s.code)}${s.desc ? ' <span class="sub">' + esc(s.desc) + '</span>' : ''}</div>`).join('') : 'None listed'}</dd>
       ${f.previousNames.length ? `<dt>Previous names</dt><dd>${f.previousNames.slice(0, 4).map((x) => `<div>${cv(x.name)} <span class="sub">until ${esc(fmtDate(x.to))}</span></div>`).join('')}${f.previousNames.length > 4 ? `<div class="sub">+${f.previousNames.length - 4} more</div>` : ''}</dd>` : ''}
-    </dl>` }));
+    </dl>${mapOn && f.address ? `<div class="map wide" data-map="${esc(f.address)}"></div>` : ''}` }));
     // Filing deadlines
     const overdue = (f.accounts.overdue ? 1 : 0) + (f.cs.overdue ? 1 : 0);
-    secs.push(blk('deadlines', 'Filing deadlines', { def: true, force: overdue > 0, count: overdue ? `${overdue} overdue` : 'On time', countCls: overdue ? 'bad' : '', body: `<dl class="kv">
+    secs.push(blk('deadlines', 'Filing deadlines', { def: secDef('deadlines'), force: settings.autoOpenProblems && overdue > 0, count: overdue ? `${overdue} overdue` : 'On time', countCls: overdue ? 'bad' : '', body: `<dl class="kv">
       <dt>Accounts</dt><dd>Last made up to ${cv(fmtDate(f.accounts.lastMadeUp) || 'none filed')}${f.accounts.lastType ? ' <span class="sub">(' + esc(f.accounts.lastType) + ')</span>' : ''}<br>Next due ${cv(fmtDate(f.accounts.nextDue) || 'n/a')}${f.accounts.overdue ? ov : ''}</dd>
       <dt>Confirmation</dt><dd>Last ${cv(fmtDate(f.cs.last) || 'n/a')}<br>Next due ${cv(fmtDate(f.cs.nextDue) || 'n/a')}${f.cs.overdue ? ov : ''}</dd>
     </dl>` }));
     // Officers
-    secs.push(blk('officers', 'Officers', { def: true, href: `${f.url}/officers`, count: f.officersKnown ? f.officers.length : '?', body: officersHtml(ctx) }));
+    secs.push(blk('officers', 'Officers', { def: secDef('officers'), href: `${f.url}/officers`, count: f.officersKnown ? f.officers.length : '?', body: officersHtml(ctx) }));
     // Recent officer changes
-    secs.push(blk('changes', 'Recent officer changes', { def: false, count: f.recent.length, body: f.recent.length ? `<ul class="list">${f.recent.slice(0, 10).map((r) => `<li><span class="n">${esc(r.text)}</span><span class="m">${esc(fmtDate(r.date))}</span></li>`).join('')}</ul><div class="hint">Last 12 months: appointments, resignations, name changes.</div>` : '<div class="sub">No officer or name changes in the last 12 months.</div>' }));
+    secs.push(blk('changes', 'Recent officer changes', { def: secDef('changes'), count: f.recent.length, body: f.recent.length ? `<ul class="list">${f.recent.slice(0, 10).map((r) => `<li><span class="n">${esc(r.text)}</span><span class="m">${esc(fmtDate(r.date))}</span></li>`).join('')}</ul><div class="hint">Last 12 months: appointments, resignations, name changes.</div>` : '<div class="sub">No officer or name changes in the last 12 months.</div>' }));
     // PSC
-    secs.push(blk('psc', 'People with significant control', { def: false, href: `${f.url}/persons-with-significant-control`, count: f.pscKnown ? f.pscs.length : '?', body: pscHtml(f) }));
+    secs.push(blk('psc', 'People with significant control', { def: secDef('psc'), href: `${f.url}/persons-with-significant-control`, count: f.pscKnown ? f.pscs.length : '?', body: pscHtml(f) }));
     // Charges & insolvency
     const insolv = f.insolvency.length || f.hasInsolvency;
     const ccount = [f.charges.total ? `${f.charges.outstanding} outstanding` : '', insolv ? 'insolvency' : ''].filter(Boolean).join(' · ') || 'None';
-    secs.push(blk('charges', 'Charges & insolvency', { def: false, force: f.charges.outstanding > 0 || !!insolv, href: `${f.url}/charges`, count: ccount, countCls: insolv ? 'bad' : f.charges.outstanding ? 'warn' : '', body: chargesHtml(f) }));
+    secs.push(blk('charges', 'Charges & insolvency', { def: secDef('charges'), force: settings.autoOpenProblems && (f.charges.outstanding > 0 || !!insolv), href: `${f.url}/charges`, count: ccount, countCls: insolv ? 'bad' : f.charges.outstanding ? 'warn' : '', body: chargesHtml(f) }));
     // Filings
-    secs.push(blk('filings', 'Recent filings', { def: false, href: `${f.url}/filing-history`, count: f.filingsKnown ? f.filingsTotal : '?', body: filingsListHtml(f, ctx) }));
+    secs.push(blk('filings', 'Recent filings', { def: secDef('filings'), href: `${f.url}/filing-history`, count: f.filingsKnown ? f.filingsTotal : '?', body: filingsListHtml(f, ctx) }));
     // Similar companies nearby (lazy)
-    if (settings.similar && f.sicCodes.length && f.postcode) secs.push(blk('similar', 'Similar companies nearby', { def: false, count: ctx.similar && ctx.similar.items ? ctx.similar.items.length : '', body: similarHtml(ctx) }));
+    if (settings.similar && f.sicCodes.length && f.postcode) secs.push(blk('similar', 'Similar companies nearby', { def: secDef('similar'), count: ctx.similar && ctx.similar.items ? ctx.similar.items.length : '', body: similarHtml(ctx) }));
 
-    const recOpen = secOpen('record', !settings.collapseRecord);
-    html += `<section class="rec blk${recOpen ? '' : ' closed'}" data-sec="record">
-      <div class="bh" data-act="tog" role="button" tabindex="0" aria-expanded="${recOpen}"><span class="bt">Companies House record</span><span class="sp"></span><span class="cnt">${secs.length} sections</span><span class="chev">${ICON.chev}</span></div>
-      <div class="bb"><div class="bi"><div class="bc rc">${secs.join('')}</div></div></div></section>`;
-    html += blk('brief', 'AI brief', { def: true, cls: 'brief', body: `<div data-sec-body="brief">${briefHtml(ctx)}</div>` });
+    html += secs.join('');
     if (!settings.quickRow) html += blk('links', 'Quick links', { def: true, count: PROVIDERS.length, body: quickRow(ctx) });
+    // AI: nothing runs until the button is pressed.
+    html += ctx.summaryOn
+      ? blk('summary', 'Summary', { force: true, cls: 'brief ai' + (st.briefState && st.briefState.loading ? ' loading' : ''), icon: ICON.spark, body: `<div data-sec-body="summary">${briefHtml(ctx)}</div>` })
+      : `<button class="genbtn" data-act="summary" title="${ctx.brief ? 'Show the saved summary (no new cost)' : 'Researches the company on the web. Runs only when you press it.'}">${ICON.spark}<span>${ctx.brief ? 'Show summary' : 'Generate summary'}</span></button>`;
     setBody(html, fresh);
     if (fresh) $body.scrollTop = 0;
     wireFavicons();
@@ -1990,13 +2146,13 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       box.setAttribute('data-mounted', '1');
       const q = box.dataset.map;
       const f = document.createElement('iframe');
-      f.title = 'Map of ' + q; f.loading = 'lazy'; f.referrerPolicy = 'no-referrer-when-downgrade';
+      f.title = 'Map of ' + q; f.referrerPolicy = 'no-referrer-when-downgrade';
       f.src = 'https://maps.google.com/maps?q=' + encodeURIComponent(q) + '&output=embed';
       box.appendChild(f);
       watchFrame(f, (u) => /google\./.test(u) || u === 'frame-src' || !u, (why) => {
         box.classList.add('fail'); box.setAttribute('data-state', 'fail');
         box.insertAdjacentHTML('beforeend', `<div class="mmsg">Map can't be shown here (${esc(why)}). ${extA(mapsUrl(q), 'Open in Google Maps', 'lk-place')}</div>`);
-      }, () => box.setAttribute('data-state', 'ok'));
+      }, () => box.setAttribute('data-state', 'ok'), 15000);
     });
   }
 
@@ -2161,7 +2317,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     setBody(h, fresh);
   }
 
-  /* ---------- AI brief ---------- */
+  /* ---------- AI summary (UI name; code still says brief) ---------- */
   function briefHtml(ctx) { return briefCore(ctx) + questionsHtml(ctx); }
   function questionsHtml(ctx) {
     if (!settings.questions || !ctx.company) return '';
@@ -2172,11 +2328,11 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       const a = asked[q]; if (!a) return '';
       let inner;
       if (a.loading) inner = '<div class="skel w90"></div><div class="skel w75"></div>';
-      else if (a.error) inner = `<div class="sub">${esc(a.error.code === 'cl-nokey' ? 'Add an Anthropic API key in Settings to ask questions.' : a.error.message || String(a.error))}</div>${a.error.code === 'cl-nokey' ? '<div class="row"><button class="btn sm" data-act="settings">Open settings</button></div>' : ''}`;
-      else inner = `<div class="at">${esc(a.text)}</div><div class="row jsb"><span class="cost">$${a.cost.toFixed(4)}${a.cachedAt ? ' · cached' : ''} · based on Companies House data${ctx.brief ? ' + brief' : ''}</span><button class="btn sm" data-act="cp" data-copy="${esc(q + '\n' + a.text)}">${ICON.copy}Copy</button></div>`;
+      else if (a.error) inner = `<div class="sub">${esc(a.error.code === 'cl-nokey' ? 'Add an AI key in Settings to ask questions.' : a.error.message || String(a.error))}</div>${a.error.code === 'cl-nokey' ? '<div class="row"><button class="btn sm" data-act="settings">Open settings</button></div>' : ''}`;
+      else inner = `<div class="at">${esc(a.text)}</div><div class="row jsb"><span class="cost">$${a.cost.toFixed(4)}${a.cachedAt ? ' · cached' : ''} · based on Companies House data${ctx.brief ? ' + summary' : ''}</span><button class="btn sm" data-act="cp" data-copy="${esc(q + '\n' + a.text)}">${ICON.copy}Copy</button></div>`;
       return `<div class="ans" data-ans="${esc(q)}"><div class="aq">${esc(q)}</div>${inner}</div>`;
     };
-    return `<div class="qa"><h5>Ask Claude about ${esc(shortCo(ctx.company.display))}</h5><div class="chips">${PRESET_QS.map((q) => chip(q)).join('')}${sugg.map((q) => chip(q, true)).join('')}</div>
+    return `<div class="qa"><h5>Ask about ${esc(shortCo(ctx.company.display))}</h5><div class="chips">${PRESET_QS.map((q) => chip(q)).join('')}${sugg.map((q) => chip(q, true)).join('')}</div>
       ${(ctx.askOrder || []).slice().reverse().map(ans).join('')}</div>`;
   }
   async function doAsk(q) {
@@ -2189,31 +2345,25 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   }
   function briefCore(ctx) {
     const b = ctx.brief, s = st.briefState;
-    const model = MODELS[settings.model] ? settings.model : DEFAULTS.model;
-    let h = `<div class="sub mb8">${esc(MODELS[model].label.replace(/\s*\(.*\)$/, ''))} + web search</div>`;
-    if (s && s.loading) return h + '<div class="sub"><span class="spin"></span>&nbsp; Researching (usually 10-30s)...</div><div class="skel w90"></div><div class="skel w75"></div><div class="skel w82"></div>';
+    let h = '';
+    if (s && s.loading) return `<div class="ldg" aria-live="polite">${ICON.spark}<span class="lt">Researching ${esc(shortCo(ctx.company.display))}... usually 10-30 seconds</span></div><div class="skel w90"></div><div class="skel w75"></div><div class="skel w82"></div><div class="skel w60"></div>`;
     if (s && s.error) {
       const needKey = s.error.code === 'cl-nokey' || s.error.code === 'cl-401';
-      h += `<div class="err tight"><b>${s.error.code === 'cl-nokey' ? 'Claude API key needed' : 'Brief failed'}</b><div>${esc(s.error.code === 'cl-nokey' ? 'Add an Anthropic API key in Settings to generate briefs.' : s.error.message)}</div></div>
+      h += `<div class="err tight"><b>${s.error.code === 'cl-nokey' ? 'AI key needed' : 'Summary failed'}</b><div>${esc(s.error.code === 'cl-nokey' ? 'Add an AI key in Settings to generate summaries.' : s.error.message)}</div></div>
         <div class="row">${needKey ? '<button class="btn sm pri" data-act="settings">Open settings</button>' : ''}<button class="btn sm" data-act="brief">Try again</button></div>`;
       return h;
     }
-    if (!b) {
-      const p = MODELS[model];
-      const est = (22000 * p.inM + 2300 * p.outM) / 1e6 + 2 * SEARCH_COST;
-      return h + `<div class="sub mb8">What they do, recent signals and talking points, grounded in the Companies House facts above.</div>
-        <div class="row"><button class="btn sm pri" data-act="brief">Generate brief</button><span class="hint m0">about $${est.toFixed(3)} per brief</span></div>`;
-    }
+    if (!b) return `<div class="ldg">${ICON.spark}<span class="lt">Preparing...</span></div><div class="skel w90"></div><div class="skel w75"></div>`;
     h += b.what.map((w) => `<p>${esc(w)}</p>`).join('');
     h += `<h5>Recent signals</h5>${b.signals.length ? `<ul>${b.signals.map((x) => `<li>${esc(x.text)}${x.date ? ' <span class="sub">' + esc(x.date) + '</span>' : ''}${x.url ? ' ' + extA(x.url, 'source', 'lk-ch') : ''}</li>`).join('')}</ul>` : '<div class="sub">Nothing reliable found.</div>'}`;
     h += `<h5>Talking points</h5><ul>${b.talking.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`;
     if (b.sources.length) h += `<h5>Sources</h5><div class="src">${b.sources.map((x) => `<a href="${esc(x.url)}" data-act="ext" data-url="${esc(x.url)}" title="${esc(x.title || x.url)}">${esc(x.title || x.url)}</a>`).join('')}</div>`;
-    const when = b.cachedAt ? `cached ${Math.max(1, Math.round((Date.now() - b.cachedAt) / 60000))} min ago` : 'just now';
-    h += `<div class="cost">${b.estPrice ? 'Estimated' : 'Cost'} $${b.cost.toFixed(4)} · ${b.usage.input.toLocaleString()} in / ${b.usage.output.toLocaleString()} out tokens · ${b.usage.searches} search${b.usage.searches === 1 ? '' : 'es'} · ${when}${b.confidence ? ' · confidence ' + esc(b.confidence) : ''}</div>
+    const when = b.cachedAt ? `saved ${Math.max(1, Math.round((Date.now() - b.cachedAt) / 60000))} min ago` : 'just now';
+    h += `<div class="cost">${b.estPrice ? 'Estimated cost' : 'Cost'} $${b.cost.toFixed(4)} · ${b.usage.searches} web search${b.usage.searches === 1 ? '' : 'es'} · ${when}${b.confidence ? ' · confidence ' + esc(b.confidence) : ''}</div>
       <div class="row mt6"><button class="btn sm" data-act="brief-regen">Regenerate</button></div>`;
     return h;
   }
-  function rerenderBrief() { const el = $body.querySelector('[data-sec-body=brief]'); if (el && st.ctx) el.innerHTML = briefHtml(st.ctx); }
+  function rerenderBrief() { const el = $body.querySelector('[data-sec-body=summary]'); if (el && st.ctx) { el.innerHTML = briefHtml(st.ctx); const sec = el.closest('.blk'); if (sec) sec.classList.toggle('loading', !!(st.briefState && st.briefState.loading)); } }
   async function doBrief(force) {
     const ctx = st.ctx; if (!ctx || !ctx.company || ctx.kind) return;
     if (st.briefState && st.briefState.loading) return;
@@ -2323,7 +2473,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     const hk = settings.hotkeys || {};
     const rows = HOTKEYS.filter(([id]) => settings.hotkeysOn && hk[id]).map(([id, l]) => [hk[id], l]);
     rows.push(['Esc', 'Close the menu, viewer or panel']);
-    if (settings.numKeys) rows.push(['1-5', 'Quick links (LinkedIn, Google, CH, Maps, Endole)'], ['0', 'Open all quick links'], ['C', 'Copy HubSpot note']);
+    if (settings.numKeys) rows.push(['1-5', 'Quick links (LinkedIn, Google, Companies House, Maps, Endole)'], ['0', 'Open all quick links'], ['C', 'Copy quick note']);
     rows.push(['Enter', 'Expand / collapse a focused section']);
     return `<div class="row jsb"><h4>Keyboard shortcuts</h4><button class="ib" data-act="sheet-close" title="Close (Esc)">${ICON.x}</button></div>
       <dl>${rows.map(([k, l]) => `<dt><kbd class="k">${esc(k)}</kbd></dt><dd>${esc(l)}</dd>`).join('')}</dl>
@@ -2338,7 +2488,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   /* Esc peels one layer at a time: recording > cheat sheet > link/share menu > pins menu > filings viewer > panel. */
   function escapeAction() {
     if (st.sheet) { toggleSheet(false); return true; }
-    if ($body.querySelector('.qb.open')) { const qb = $body.querySelector('.qb.open'); closeQMenus(); const c = qb.querySelector('.qc'); if (c) c.focus(); return true; }
+    if ($body.querySelector('.qb.open')) { const qb = $body.querySelector('.qb.open'); closeQMenus(); const c = qb.querySelector('.qc, .qc2'); if (c) c.focus(); return true; }
     const ae = sroot && sroot.activeElement;
     if (ae && ae.closest && ae.closest('.qmenu') && settings.qlHover) { ae.blur(); return true; }
     if ($body.querySelector('.shm.show')) { closeShare(); return true; }
@@ -2360,7 +2510,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   }
   function hotkeysHtml() {
     const hk = settings.hotkeys || {};
-    return `${tgl([['hotkeysOn', 'Keyboard shortcuts', 'Turn all Prosper shortcuts on or off.'], ['numKeys', 'Number keys for quick links', '1-5 open quick links, 0 opens all, C copies the HubSpot note (panel open, not typing).']])}
+    return `${tgl([['hotkeysOn', 'Keyboard shortcuts', 'Turn all Prosper shortcuts on or off.'], ['numKeys', 'Number keys for quick links', '1-5 open quick links, 0 opens all, C copies the quick note (panel open, not typing).']])}
       ${HOTKEYS.map(([id, l]) => {
         const v = hk[id] || '';
         const clash = CLASHES[v] && (IS_FF || !/^Firefox:/.test(CLASHES[v])) ? CLASHES[v] : '';
@@ -2413,11 +2563,10 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   }
   /* Toggle rows. Each entry: [settings key, label, help]. Persisted immediately on change. */
   const TOGGLES = {
-    ai: [['autoBrief', 'Run AI brief automatically', 'Off: briefs only run when you click Generate (each costs a few cents).'],
-      ['questions', 'Question chips', 'Ready-made and suggested questions under the brief. Each click is one short Claude call (well under a cent on Haiku).']],
+    ai: [['questions', 'Question chips', 'Ready-made and company-specific questions shown with the summary. Each click is one short AI call (well under a cent).']],
     behaviour: [
       ['background', 'Open links in background tabs', 'Keeps you on the current page.'],
-      ['inInputs', 'Show the pill in text fields', 'Also show the Prosper pill when you highlight text inside input boxes and text areas (for example a HubSpot property field or an email you are writing). Off by default so selecting text while you type stays quiet.'],
+      ['inInputs', 'Show the pill in text fields', 'Also show the Prosper pill when you highlight text inside input boxes and text areas (for example a CRM field or an email you are writing). Off by default so selecting text while you type stays quiet.'],
     ],
     interactive: [
       ['quickRow', 'Quick-link row under the company header', 'LinkedIn, Google, Companies House, Maps, Endole. Off: a Quick links card at the bottom instead.'],
@@ -2438,8 +2587,6 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     ],
     appearance: [
       ['animations', 'Animations', 'Subtle motion. Always off when your system asks for reduced motion.'],
-      ['rememberSections', 'Remember section state', 'Keeps sections open or collapsed between lookups.'],
-      ['collapseRecord', 'Collapse the whole Companies House record by default', 'Shows just the header and quick check.'],
     ],
   };
   const tgl = (rows) => rows.map(([k, l, help]) => `<label class="tg"><span>${esc(l)}<small>${esc(help)}</small></span><input type="checkbox" data-set="${k}" ${settings[k] ? 'checked' : ''}></label>`).join('');
@@ -2454,12 +2601,13 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
         <input id="p-ch" type="password" autocomplete="off" spellcheck="false" placeholder="${ci.key ? 'Key in use. Paste a new key to replace' : 'Paste your REST API key'}">
         <div class="help">${keyHelp('ch')} Stored in Tampermonkey storage.</div>
         <label class="f" for="p-cl">Anthropic (Claude) API key</label>
-        <input id="p-cl" type="password" autocomplete="off" spellcheck="false" placeholder="${li.key ? 'Key in use. Paste a new key to replace' : 'sk-ant-... (only needed for AI briefs)'}">
+        <input id="p-cl" type="password" autocomplete="off" spellcheck="false" placeholder="${li.key ? 'Key in use. Paste a new key to replace' : 'sk-ant-... (only needed for AI summaries)'}">
         <div class="help">${keyHelp('claude')}</div>
         <div class="row mt10"><button class="btn pri sm" data-act="save">Save keys</button>${hasChSaved ? '<button class="btn sm" data-act="forget-ch">Remove CH key</button>' : ''}${hasClSaved ? '<button class="btn sm" data-act="forget-cl">Remove Claude key</button>' : ''}<span class="saved" hidden>Saved</span></div>
       </div>
       <div class="grp" data-grp="ai"><div class="gh">AI</div>
-        <label class="f" for="p-model">AI brief model</label>
+        <div class="help">AI only runs when you press Generate summary, a question chip or Polish with AI.</div>
+        <label class="f" for="p-model">Summary model</label>
         <select id="p-model" data-set="model">${Object.keys(MODELS).map((m) => `<option value="${m}" ${settings.model === m ? 'selected' : ''}>${esc(MODELS[m].label)}</option>`).join('')}</select>
         ${tgl(TOGGLES.ai)}
       </div>
@@ -2477,13 +2625,19 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
           <div class="sub">${ICON.ext} opens a new tab · no arrow opens here in Prosper</div></div>
       </div>
       <div class="grp" data-grp="extras"><div class="gh">Extras</div>${tgl(TOGGLES.extras)}</div>
+      <div class="grp" data-grp="sections"><div class="gh">Sections open by default</div>
+        <label class="tg cmp dis"><span>Overview<small>always open</small></span><input type="checkbox" checked disabled></label>
+        ${SECTIONS.map(([id, l]) => `<label class="tg cmp"><span>${esc(l)}</span><input type="checkbox" data-secdef="${id}" ${settings.secOpen[id] ? 'checked' : ''}></label>`).join('')}
+        <div class="gh">When a lookup opens</div>
+        ${tgl([['autoOpenProblems', 'Open sections that need attention', 'Filing deadlines when something is overdue; Charges & insolvency when there are outstanding charges or insolvency.'],
+          ['rememberSections', 'Remember what I open and close', 'Off: every lookup starts from the defaults above. On: your last choice for each section wins.']])}
+        <div class="row mt6"><button class="btn sm" data-act="reset-sections">Forget remembered sections</button></div></div>
       <div class="grp" data-grp="hotkeys"><div class="gh">Keyboard shortcuts</div><div class="hkb">${hotkeysHtml()}</div></div>
-      <div class="grp" data-grp="appearance"><div class="gh">Appearance</div>${tgl(TOGGLES.appearance)}
-        <div class="row mt6"><button class="btn sm" data-act="reset-sections">Reset section state</button></div></div>
+      <div class="grp" data-grp="appearance"><div class="gh">Appearance</div>${tgl(TOGGLES.appearance)}</div>
       <div class="grp" data-grp="data"><div class="gh">Diagnostics and data</div>
         <div class="row mt6"><button class="btn sm" data-act="diag">Run diagnostics</button><button class="btn sm" data-act="clear-cache">Clear cache</button></div>
         <div class="diagbox">${diagHtml()}</div>
-        <div class="help mt10">Press ? in the panel for keyboard shortcuts. Companies House data cached 10 min, briefs and answers 24 h. Prosper v${VERSION} (${BUILD}).</div>
+        <div class="help mt10">Press ? in the panel for keyboard shortcuts. Companies House data cached 10 min, summaries and answers 24 h. Prosper v${VERSION} (${BUILD}).</div>
       </div>
     </div>`);
     $body.scrollTop = 0;
@@ -2491,7 +2645,8 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   function onChange(e) {
     if (st.view !== 'settings') return;
     const t = e.target; if (!t || !t.dataset) return;
-    if (t.dataset.set) settings[t.dataset.set] = t.type === 'checkbox' ? t.checked : t.value;
+    if (t.dataset.secdef) settings.secOpen = Object.assign({}, settings.secOpen, { [t.dataset.secdef]: t.checked });
+    else if (t.dataset.set) settings[t.dataset.set] = t.type === 'checkbox' ? t.checked : t.value;
     else if (t.dataset.seg) settings[t.dataset.seg] = t.value;
     else return;
     saveSettings(); applySettingsLive();
@@ -2543,7 +2698,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       add('Companies House API', okm ? 'pass' : 'fail', `${okm ? 'OK with ' + okm.method + '. ' : ''}Key ${ci.source}, ${ci.len} chars, starts "${ci.head}". ${tried}${hint}`);
     }
     const li = keyInfo('claude');
-    if (!li.key) add('Claude API', 'info', 'No key saved (only needed for AI briefs).');
+    if (!li.key) add('Claude API', 'info', 'No key saved (only needed for AI summaries).');
     else {
       const t0 = Date.now();
       const r = await xhr({ url: 'https://api.anthropic.com/v1/models?limit=5', headers: claudeHeaders(li.key), timeout: 15000, quiet: true });
@@ -2640,6 +2795,14 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       case 'copy-addr': if (f) copyFrom(el, f.address, 'Address copied'); break;
       case 'copy-note': copyNote(el); break;
       case 'brief': doBrief(false); break;
+      case 'summary': if (ctx && ctx.company && !ctx.kind) {
+        ctx.summaryOn = true; renderCompany(ctx, false);
+        if (!ctx.brief) doBrief(false);
+        const sec = $body.querySelector('.blk[data-sec=summary]'); if (sec) sec.scrollIntoView({ block: 'start', behavior: reducedMotion() || !settings.animations ? 'auto' : 'smooth' });
+      } break;
+      case 'note-fmt': settings.noteFormat = el.dataset.fmt; saveSettings(); closeQMenus(); { const q = $body.querySelector('.qn'); if (q) q.outerHTML = quickNoteBtn(); } copyNote(null, el.dataset.fmt); break;
+      case 'note-ai': closeQMenus(); doPolish(); break;
+      case 'note-ai-close': if (ctx) { ctx.notePolish = null; rerenderPolish(); } break;
       case 'brief-regen': doBrief(true); break;
       case 'menu': toggleMenu(); break;
       case 'ql': if (ctx) openTab(linkFor(el.dataset.id, ctx)); break;
@@ -2657,7 +2820,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     }
   }
   function openAll() { const ctx = st.ctx; if (!ctx) return; PROVIDERS.forEach((p) => openTab(linkFor(p.id, ctx), true)); showToast('Opened ' + PROVIDERS.length + ' tabs'); }
-  function copyNote(el) { const ctx = st.ctx; if (!ctx || !ctx.company || ctx.kind) return; copyFrom(el, hubspotNote(ctx.company, ctx.brief), 'HubSpot note copied'); }
+  function copyNote(el, fmt) { const ctx = st.ctx; if (!ctx || !ctx.company || ctx.kind) return; const f = fmt || settings.noteFormat; copyFrom(el, quickNote(ctx.company, f, ctx.summaryOn ? ctx.brief : null), fmtLabel(f) + ' copied'); }
 
   function onKey(e) {
     if (st.recording) return; // the panel's own handler records the new shortcut
@@ -2743,7 +2906,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 
   // Exposed for automated tests only (no secrets).
   window.__prosperTest = {
-    detect, alphaKey, companyLabelFromDomain, hubspotNote: () => st.ctx && st.ctx.company ? hubspotNote(st.ctx.company, st.ctx.brief) : '', state: () => st, cleanKey,
+    detect, alphaKey, companyLabelFromDomain, hubspotNote: () => st.ctx && st.ctx.company ? crmNote(st.ctx.company, st.ctx.summaryOn ? st.ctx.brief : null) : '', quickNote: (fmt) => st.ctx && st.ctx.company ? quickNote(st.ctx.company, fmt || settings.noteFormat, st.ctx.summaryOn ? st.ctx.brief : null) : '', state: () => st, cleanKey,
     keyInfo: (k) => { const i = keyInfo(k); return { source: i.source, len: i.len, head: i.head }; },
     settings: () => Object.assign({}, settings), sections: () => Object.assign({}, secState), ukRegNumber, comboOf: (o) => comboOf(o), shortSummary: () => (st.ctx && st.ctx.company ? shortSummary(st.ctx.company) : ''),
   };
