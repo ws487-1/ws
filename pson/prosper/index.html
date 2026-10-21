@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Prosper: one-click UK company briefs</title>
+<meta name="description" content="Click any company. Get Companies House facts, red flags and an AI brief in seconds, straight into HubSpot.">
+<link rel="preconnect" href="https://rsms.me/">
+<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+<style>
+:root{--ink:#0b0b0c;--muted:#6b6b72;--line:#ececef;--bg:#fff;--soft:#f7f7f8;--accent:#0a7a52;--accent-soft:#e8f5ef}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:Inter,system-ui,-apple-system,sans-serif;color:var(--ink);background:var(--bg);line-height:1.55;font-feature-settings:"cv11","ss01"}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1080px;margin:0 auto;padding:0 22px}
+nav{position:sticky;top:0;z-index:10;background:rgba(255,255,255,.85);backdrop-filter:saturate(1.8) blur(14px);-webkit-backdrop-filter:saturate(1.8) blur(14px);border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;justify-content:space-between;height:62px}
+.logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:19px;letter-spacing:-.03em}
+.logo i{width:24px;height:24px;border-radius:7px;background:var(--ink);display:grid;place-items:center}
+.logo i:after{content:"";width:9px;height:9px;border-radius:50%;background:#3ddc97}
+.navlinks{display:flex;gap:26px;align-items:center;font-size:14.5px;color:var(--muted);font-weight:500}
+.navlinks a:hover{color:var(--ink)}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--ink);color:#fff;font-weight:600;font-size:15px;padding:12px 20px;border-radius:12px;transition:transform .15s,opacity .15s}
+.btn:hover{opacity:.88}.btn:active{transform:scale(.97)}
+.btn.ghost{background:var(--soft);color:var(--ink)}
+.btn.sm{padding:9px 15px;font-size:14px;border-radius:10px;color:#fff}
+header{padding:84px 0 40px;text-align:center}
+.pill{display:inline-flex;gap:8px;align-items:center;font-size:13px;font-weight:600;color:var(--accent);background:var(--accent-soft);padding:6px 12px;border-radius:99px;margin-bottom:24px}
+h1{font-size:clamp(40px,7vw,72px);line-height:1.02;letter-spacing:-.045em;font-weight:800;max-width:860px;margin:0 auto}
+h1 span{color:var(--muted)}
+.sub{font-size:clamp(17px,2.2vw,20px);color:var(--muted);max-width:600px;margin:22px auto 32px}
+.ctas{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.note{font-size:13px;color:var(--muted);margin-top:16px}
+.demo{margin:56px auto 0;max-width:900px;border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 30px 80px -30px rgba(0,0,0,.25);text-align:left;background:#fff}
+.bar{display:flex;align-items:center;gap:7px;padding:12px 14px;border-bottom:1px solid var(--line);background:var(--soft)}
+.bar b{width:11px;height:11px;border-radius:50%;background:#dcdce0}
+.url{margin-left:12px;flex:1;background:#fff;border:1px solid var(--line);border-radius:8px;font-size:12.5px;color:var(--muted);padding:5px 10px}
+.stage{display:grid;grid-template-columns:1fr 360px;min-height:420px}
+.page{padding:34px;background:repeating-linear-gradient(#fafafa 0 14px,#fff 14px 30px);opacity:.7}
+.page h3{font-size:24px;letter-spacing:-.03em;margin-bottom:10px;background:#fff;display:inline-block}
+.panel{border-left:1px solid var(--line);padding:20px;font-size:13.5px;background:#fff}
+.ph{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.ph strong{font-size:16px;letter-spacing:-.02em}
+.tag{font-size:11.5px;font-weight:600;padding:3px 8px;border-radius:99px;background:var(--accent-soft);color:var(--accent)}
+.tag.warn{background:#fff4e5;color:#a35a00}
+.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)}
+.row span:first-child{color:var(--muted)}
+.brief{margin-top:14px;background:var(--soft);border-radius:12px;padding:13px;line-height:1.5}
+.brief em{font-style:normal;font-weight:700;display:block;margin-bottom:5px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.push{margin-top:14px;width:100%;justify-content:center;font-size:14px;color:#fff}
+section{padding:96px 0}
+.eyebrow{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:12px}
+h2{font-size:clamp(30px,4.5vw,46px);letter-spacing:-.04em;line-height:1.08;font-weight:800;max-width:700px}
+.lead{color:var(--muted);font-size:18px;max-width:580px;margin-top:14px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:44px}
+.card{border:1px solid var(--line);border-radius:18px;padding:26px;background:#fff}
+.card .n{width:34px;height:34px;border-radius:10px;background:var(--ink);color:#fff;display:grid;place-items:center;font-weight:700;font-size:14px;margin-bottom:18px}
+.card h4{font-size:18px;letter-spacing:-.02em;margin-bottom:6px}
+.card p{color:var(--muted);font-size:15px}
+.soft{background:var(--soft)}
+.compare{margin-top:40px;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:#fff}
+.compare div{display:flex;justify-content:space-between;padding:16px 22px;border-bottom:1px solid var(--line);font-size:15.5px}
+.compare div:last-child{border:0;background:var(--ink);color:#fff;font-weight:700}
+.compare s{color:var(--muted)}
+.price{max-width:420px;margin:44px auto 0;border:1px solid var(--line);border-radius:22px;padding:34px;text-align:left}
+.price .amt{font-size:56px;font-weight:800;letter-spacing:-.05em}
+.price .amt small{font-size:17px;color:var(--muted);font-weight:500;letter-spacing:0}
+.price ul{list-style:none;margin:22px 0 26px}
+.price li{padding:8px 0 8px 28px;position:relative;font-size:15.5px}
+.price li:before{content:"";position:absolute;left:0;top:13px;width:16px;height:16px;border-radius:50%;background:var(--accent-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8.2l2.2 2.2 4.8-4.8' fill='none' stroke='%230a7a52' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") center/16px}
+.price .btn{width:100%;justify-content:center}
+.center{text-align:center}.center h2,.center .lead{margin-left:auto;margin-right:auto}
+footer{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-size:14px}
+footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.fade{opacity:0;transform:translateY(14px);transition:opacity .7s ease,transform .7s ease}
+.fade.in{opacity:1;transform:none}
+@media(max-width:820px){.stage{grid-template-columns:1fr}.page{display:none}.panel{border:0}.grid{grid-template-columns:1fr}.navlinks a:not(.btn){display:none}header{padding-top:56px}section{padding:72px 0}}
+</style>
+</head>
+<body>
+<nav><div class="wrap">
+  <a href="#" class="logo"><i></i>Prosper</a>
+  <div class="navlinks"><a href="#how">How it works</a><a href="#why">Why</a><a href="#pricing">Pricing</a><a href="#pricing" class="btn sm">Join waitlist</a></div>
+</div></nav>
+
+<header class="wrap">
+  <div class="pill fade">● Built for UK sales teams on HubSpot</div>
+  <h1 class="fade">Know any UK company <span>in five seconds.</span></h1>
+  <p class="sub fade">Click once on any website or LinkedIn page. Prosper pulls Companies House facts, red flags and an AI brief, then drops it straight into HubSpot.</p>
+  <div class="ctas fade"><a href="#pricing" class="btn">Join the waitlist →</a><a href="#how" class="btn ghost">See how it works</a></div>
+  <p class="note fade">Chrome extension · Free while in beta</p>
+
+  <div class="demo fade">
+    <div class="bar"><b></b><b></b><b></b><div class="url">acmeplumbing.co.uk</div></div>
+    <div class="stage">
+      <div class="page"><h3>Acme Plumbing &amp; Heating</h3></div>
+      <div class="panel">
+        <div class="ph"><strong>Acme Plumbing Ltd</strong><span class="tag">Active</span></div>
+        <div class="row"><span>Company no.</span><span>08123456</span></div>
+        <div class="row"><span>Incorporated</span><span>Jun 2012</span></div>
+        <div class="row"><span>Directors</span><span>2 current</span></div>
+        <div class="row"><span>Last accounts</span><span>Mar 2026</span></div>
+        <div class="row"><span>Signals</span><span class="tag warn">Director change</span></div>
+        <div class="brief"><em>AI brief</em>Family-run heating firm in Oxford, 14 years trading. New director appointed in August suggests expansion. Hiring two engineers on Indeed. Good fit for your trade-services offer.</div>
+        <a class="btn push" href="#pricing">Push to HubSpot</a>
+      </div>
+    </div>
+  </div>
+  <p class="note">Example data for illustration.</p>
+</header>
+
+<section id="how" class="soft"><div class="wrap">
+  <div class="eyebrow">How it works</div>
+  <h2>Research a prospect without opening six tabs.</h2>
+  <div class="grid">
+    <div class="card fade"><div class="n">1</div><h4>Click</h4><p>Open Prosper on any company site, LinkedIn page or HubSpot record.</p></div>
+    <div class="card fade"><div class="n">2</div><h4>Read</h4><p>Get official Companies House data, red flags and a short AI brief with sources.</p></div>
+    <div class="card fade"><div class="n">3</div><h4>Save</h4><p>Push it to HubSpot in one tap, so your CRM stays accurate without copy-pasting.</p></div>
+  </div>
+</div></section>
+
+<section id="why"><div class="wrap">
+  <div class="eyebrow">Why Prosper</div>
+  <h2>One tool instead of three, at a fraction of the price.</h2>
+  <p class="lead">Small UK teams currently stitch together a company lookup, a HubSpot add-on and ChatGPT to do this job.</p>
+  <div class="compare">
+    <div><span>Companies House lookup extension</span><s>£8/mo</s></div>
+    <div><span>HubSpot Companies House add-on</span><s>£25/mo</s></div>
+    <div><span>ChatGPT Plus for summaries</span><s>£20/mo</s></div>
+    <div><span>Prosper, all of the above in one click</span><span>£12/mo</span></div>
+  </div>
+</div></section>
+
+<section id="pricing" class="soft center"><div class="wrap">
+  <div class="eyebrow">Pricing</div>
+  <h2>Simple, cheap, cancel any time.</h2>
+  <div class="price">
+    <div class="amt">£12<small> /month</small></div>
+    <ul>
+      <li>Unlimited Companies House lookups</li>
+      <li>100 AI briefs a month</li>
+      <li>One-click HubSpot write-back</li>
+      <li>Red-flag alerts on saved companies</li>
+    </ul>
+    <a class="btn" href="mailto:2006.willsimpson@gmail.com?subject=Prosper%20waitlist">Join the waitlist →</a>
+  </div>
+</div></section>
+
+<footer><div class="wrap"><span>© 2026 Prosper</span><span>Made in Oxfordshire</span></div></footer>
+
+<script>
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.12});
+document.querySelectorAll('.fade').forEach((el,i)=>{el.style.transitionDelay=(el.closest('header')?i*70:0)+'ms';io.observe(el)});
+</script>
+</body>
+</html>
