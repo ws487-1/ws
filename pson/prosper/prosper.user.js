@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         Prosper
 // @namespace    https://wills.im/pson/prosper
-// @version      11.1.0
+// @version      11.2.0
 // @description  Highlight a company, email, website, Companies House number or person to get an instant Companies House card, quick check, quick links and an optional AI brief. Built for HubSpot prospecting.
 // @author       Will
 // @match        *://*/*
 // @noframes
 // @run-at       document-idle
 // @sandbox      DOM
-// @icon         data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a7a52'/%3E%3Ctext x='32' y='45' font-family='Arial,Helvetica,sans-serif' font-size='38' font-weight='700' fill='%23fff' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E
+// @icon         data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2324292f'/%3E%3Ctext x='32' y='45' font-family='Arial,Helvetica,sans-serif' font-size='38' font-weight='700' fill='%23fff' text-anchor='middle'%3EP%3C/text%3E%3C/svg%3E
 // @downloadURL  https://wills.im/pson/prosper/prosper.user.js
 // @updateURL    https://wills.im/pson/prosper/prosper.user.js
 // @grant        GM_xmlhttpRequest
@@ -33,6 +33,8 @@
 // @grant        GM_info
 // @grant        GM.info
 // @connect      api.company-information.service.gov.uk
+// @connect      document-api.company-information.service.gov.uk
+// @connect      s3.eu-west-2.amazonaws.com
 // @connect      api.anthropic.com
 // @connect      raw.githubusercontent.com
 // @connect      www.google.com
@@ -56,7 +58,7 @@
   /* Constants                                                          */
   /* ------------------------------------------------------------------ */
 
-  const VERSION = '11.1.0';
+  const VERSION = '11.2.0';
   const BUILD = 'public';
   // Built-in default keys. Empty in the public build; the private build fills these in.
   const BAKED = { ch: '', claude: '' };
@@ -75,13 +77,26 @@
     chKey: 'prosper.key.ch',
     claudeKey: 'prosper.key.claude',
     enums: 'prosper.enums',
+    fhd: 'prosper.filingdesc',
+    sections: 'prosper.sections',
+    pins: 'prosper.pins',
+    recent: 'prosper.recent',
   };
   const MODELS = {
     'claude-haiku-5-5': { label: 'Claude Haiku 5.5 (fast, cheap)', inM: 0.10, outM: 0.50 },
     'claude-sonnet-5-5': { label: 'Claude Sonnet 5.5 (deeper)', inM: 3.00, outM: 15.00, est: true },
   };
   const SEARCH_COST = 10 / 1000;
-  const DEFAULTS = { model: 'claude-haiku-5-5', background: true, inInputs: false, scope: 'all' };
+  const FHD_URL = 'https://raw.githubusercontent.com/companieshouse/api-enumerations/master/filing_history_descriptions.yml';
+  const DEFAULTS = {
+    model: 'claude-haiku-5-5', autoBrief: false, background: true, inInputs: false, scope: 'all',
+    // Interactive features (v11.2)
+    chLinks: true, peopleInPanel: true, addrMaps: true, inlineMap: false, colorLinks: true, filingOpen: 'viewer',
+    // Extras (v11.2)
+    otherRoles: true, parentLinks: true, similar: true, pinsMenu: true, clickCopy: true,
+    // Appearance (v11.2)
+    animations: true, rememberSections: true, collapseRecord: false,
+  };
 
   const FREEMAIL = /^(gmail|googlemail|hotmail|outlook|live|yahoo|icloud|me|aol|proton|protonmail|btinternet|sky|talktalk|virginmedia|msn|ymail)\./i;
   const SLD = /^(co|org|gov|ac|ltd|plc|me|net|sch)$/i;
@@ -182,7 +197,7 @@
     } catch (e) { /* ignore */ }
   }
   function clearCache() {
-    try { for (const k of lv()) if (k.startsWith('prosper.c.') || k.startsWith('prosper.fav.') || k === K.enums) dv(k); } catch (e) { /* ignore */ }
+    try { for (const k of lv()) if (k.startsWith('prosper.c.') || k.startsWith('prosper.fav.') || k === K.enums || k === K.fhd) dv(k); } catch (e) { /* ignore */ }
     favMem.clear();
   }
 
@@ -346,13 +361,16 @@
     { id: 'header', label: 'Authorization header', mk: (k) => ({ headers: { Authorization: 'Basic ' + btoa(k + ':'), Accept: 'application/json' } }) },
   ];
   let chAuthOk = null;
-  async function chRequest(path, log) {
+  async function chRequest(path, log, extra) {
     const key = chKey();
+    const url = /^https?:/.test(path) ? path : CH_API + path;
     const order = chAuthOk ? [chAuthOk].concat(CH_AUTH.filter((a) => a !== chAuthOk)) : CH_AUTH;
     let last = null, saw403 = null;
     for (const a of order) {
       const t0 = Date.now();
-      const r = await xhr(Object.assign({ url: CH_API + path, quiet: true }, a.mk(key)));
+      const o = Object.assign({ url, quiet: true }, a.mk(key));
+      if (extra) { if (extra.accept) o.headers = Object.assign({}, o.headers, { Accept: extra.accept }); if (extra.responseType) o.responseType = extra.responseType; if (extra.timeout) o.timeout = extra.timeout; }
+      const r = await xhr(o);
       if (log) log.push({ method: a.label, status: r.status, ms: Date.now() - t0, error: r.error || '' });
       last = Object.assign(r, { method: a.label });
       if (r.status === 403) saw403 = last;
@@ -456,17 +474,82 @@
     const profile = await ch('/company/' + number);
     if (!profile) throw new PErr('ch-404', 'No company with number ' + number);
     const want = (l) => profile.links && profile.links[l];
-    const [officers, psc, charges, insolvency] = await Promise.all([
+    const [officers, psc, charges, insolvency, filings] = await Promise.all([
       ch(`/company/${number}/officers?items_per_page=100`).catch(() => null),
       want('persons_with_significant_control') ? ch(`/company/${number}/persons-with-significant-control?items_per_page=25`).catch(() => null) : null,
-      (profile.has_charges || want('charges')) ? ch(`/company/${number}/charges?items_per_page=1`).catch(() => null) : null,
+      (profile.has_charges || want('charges')) ? ch(`/company/${number}/charges?items_per_page=25`).catch(() => null) : null,
       (profile.has_insolvency_history || want('insolvency')) ? ch(`/company/${number}/insolvency`).catch(() => null) : null,
+      ch(`/company/${number}/filing-history?items_per_page=25`).catch(() => null),
       loadEnums().catch(() => null),
+      loadFilingDescs().catch(() => null),
     ]);
-    return buildFacts(profile, officers, psc, charges, insolvency);
+    return buildFacts(profile, officers, psc, charges, insolvency, filings);
   }
 
-  function buildFacts(p, officersRes, pscRes, chargesRes, insRes) {
+  /* UK registration number for corporate PSCs / officers (only when registered at Companies House / in the UK). */
+  function ukRegNumber(id) {
+    if (!id || !id.registration_number) return '';
+    const where = [id.place_registered, id.country_registered, id.legal_authority, id.identification_type].join(' ');
+    if (!/companies house|united kingdom|england|wales|scotland|northern ireland|uk-limited|\buk\b|great britain/i.test(where)) return '';
+    let n = String(id.registration_number).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (/^\d{1,8}$/.test(n)) n = n.padStart(8, '0');
+    return /^(?:\d{8}|[A-Z]{2}\d{6})$/.test(n) ? n : '';
+  }
+  function pscPersonName(x) {
+    const e = x.name_elements;
+    if (e && e.surname) return titleCase([e.forename, e.middle_name, e.surname].filter(Boolean).join(' '));
+    return titleCase(String(x.name || '').replace(/^(Mr|Mrs|Ms|Miss|Dr|Sir|Prof)\.?\s+/i, ''));
+  }
+  function matchOfficerLink(x, offs) {
+    const e = x.name_elements || {};
+    const sur = String(e.surname || '').toUpperCase(), fore = String(e.forename || '').toUpperCase();
+    if (!sur) return '';
+    const dob = x.date_of_birth || {};
+    const hit = offs.find((o) => {
+      const m = /^([^,]+),\s*(\S+)/.exec(o.name || '');
+      if (!m || m[1].trim().toUpperCase() !== sur || m[2].toUpperCase() !== fore) return false;
+      const od = o.date_of_birth || {};
+      return !dob.year || !od.year || (od.year === dob.year && od.month === dob.month);
+    });
+    return (hit && hit.links && hit.links.officer && hit.links.officer.appointments) || '';
+  }
+  /* Filing descriptions: Companies House's own templates (api-enumerations), cached 30 days; readable fallback otherwise. */
+  let FHD = null, fhdLoading = null;
+  function loadFilingDescs() {
+    if (!FHD) { const c = readJSON(gv(K.fhd, null)); if (c && c.t && Date.now() - c.t < TTL_ENUMS) FHD = c; }
+    if (FHD) return Promise.resolve(FHD);
+    if (fhdLoading) return fhdLoading;
+    fhdLoading = xhr({ url: FHD_URL, quiet: true }).then((r) => {
+      if (r.status === 200 && r.text.includes('description:')) {
+        const d = {}; let on = false;
+        for (const line of r.text.split(/\r?\n/)) {
+          if (/^[a-z_]+:\s*$/.test(line)) { on = line.startsWith('description:'); continue; }
+          if (!on) continue;
+          const m = /^\s+'([^']+)'\s*:\s*"(.*)"\s*$/.exec(line);
+          if (m) d[m[1]] = m[2];
+        }
+        FHD = { t: Date.now(), d }; sv(K.fhd, JSON.stringify(FHD));
+      }
+      return FHD;
+    }).finally(() => { fhdLoading = null; });
+    return fhdLoading;
+  }
+  function filingText(x) {
+    const vals = x.description_values || {};
+    const fmtV = (v) => (/^\d{4}-\d{2}-\d{2}/.test(String(v)) ? fmtDate(v) : String(v));
+    let t = FHD && FHD.d && FHD.d[x.description];
+    if (t) t = t.replace(/\*\*/g, '').replace(/\{([a-z_]+)\}/g, (m, k) => (vals[k] != null ? fmtV(vals[k]) : '')).replace(/\s+/g, ' ').trim();
+    if (!t && vals.description) t = String(vals.description);
+    if (!t) {
+      t = String(x.description || x.type || 'Filing').replace(/-/g, ' ');
+      t = t.charAt(0).toUpperCase() + t.slice(1);
+      const extra = Object.keys(vals).filter((k) => typeof vals[k] === 'string').map((k) => fmtV(vals[k])).join(', ');
+      if (extra) t += ': ' + extra;
+    }
+    return t;
+  }
+
+  function buildFacts(p, officersRes, pscRes, chargesRes, insRes, filRes) {
     const offs = (officersRes && officersRes.items) || [];
     const current = offs.filter((o) => !o.resigned_on);
     const recent = [];
@@ -483,16 +566,35 @@
     const outstanding = chargesRes ? Math.max(0, total - satisfied) : 0;
     const partSatisfied = chargesRes ? (chargesRes.part_satisfied_count || 0) : 0;
 
-    const pscs = ((pscRes && pscRes.items) || []).filter((x) => !x.ceased && !x.ceased_on).map((x) => ({
-      name: /individual/.test(x.kind || '') ? officerName(x.name) || titleCase(x.name) : titleCase(x.name),
-      kind: /corporate/.test(x.kind || '') ? 'Company' : /legal-person/.test(x.kind || '') ? 'Legal person' : 'Individual',
-      control: (x.natures_of_control || []).map((n) => n.replace(/-/g, ' ').replace(/ownership of shares (\d+) to (\d+) percent/, 'shares $1-$2%').replace(/voting rights (\d+) to (\d+) percent/, 'votes $1-$2%').replace(/ as (a )?(person|firm|trust)$/, '')).slice(0, 2).join(', '),
-      notified: x.notified_on,
-    }));
+    const pscs = ((pscRes && pscRes.items) || []).filter((x) => !x.ceased && !x.ceased_on).map((x) => {
+      const corporate = /corporate/.test(x.kind || '');
+      const individual = /individual/.test(x.kind || '');
+      const name = individual ? (pscPersonName(x) || titleCase(x.name)) : titleCase(x.name);
+      return {
+        name, rawName: x.name,
+        kind: corporate ? 'Company' : /legal-person/.test(x.kind || '') ? 'Legal person' : 'Individual',
+        control: (x.natures_of_control || []).map((n) => n.replace(/-/g, ' ').replace(/ownership of shares (\d+) to (\d+) percent/, 'shares $1-$2%').replace(/voting rights (\d+) to (\d+) percent/, 'votes $1-$2%').replace(/ as (a )?(person|firm|trust)$/, '')).slice(0, 2).join(', '),
+        notified: x.notified_on,
+        regNumber: corporate ? ukRegNumber(x.identification) : '',
+        regText: corporate && x.identification ? [x.identification.legal_form, x.identification.country_registered || x.identification.place_registered, x.identification.registration_number].filter(Boolean).join(' · ') : '',
+        // individual PSCs have no officer id; link to a matching officer of this company when there is one
+        officerLink: individual ? matchOfficerLink(x, offs) : '',
+      };
+    });
 
     const cases = ((insRes && insRes.cases) || []).map((c) => ({
       type: label('insolvency_case_type', c.type),
       dates: (c.dates || []).map((d) => `${label('insolvency_case_date_type', d.type)} ${fmtDate(d.date)}`).join('; '),
+      practitioners: (c.practitioners || []).filter((x) => !x.ceased_to_act_on).map((x) => titleCase(x.name)).slice(0, 4),
+    }));
+    const chargeList = ((chargesRes && chargesRes.items) || []).map((c) => ({
+      what: (c.classification && c.classification.description) || 'Charge', created: c.created_on, status: c.status || '',
+      satisfied: c.satisfied_on, entitled: (c.persons_entitled || []).map((x) => titleCase(x.name)).join(', '),
+      outstanding: c.status === 'outstanding' || c.status === 'part-satisfied',
+    }));
+    const filings = ((filRes && filRes.items) || []).map((x) => ({
+      id: x.transaction_id, date: x.date, type: x.type, category: x.category || '', pages: x.pages || 0,
+      text: filingText(x), meta: (x.links && x.links.document_metadata) || '',
     }));
 
     const acc = p.accounts || {};
@@ -533,10 +635,17 @@
         nextDue: (acc.next_accounts && acc.next_accounts.due_on) || acc.next_due, overdue: accountsOverdue,
       },
       cs: { last: cs.last_made_up_to, nextDue: cs.next_due, overdue: csOverdue },
-      officers: current.map((o) => ({ name: officerName(o.name), role: label('officer_role', o.officer_role), appointed: o.appointed_on, link: o.links && o.links.officer && o.links.officer.appointments })),
+      officers: current.map((o) => ({
+        name: officerName(o.name), role: label('officer_role', o.officer_role), appointed: o.appointed_on,
+        link: o.links && o.links.officer && o.links.officer.appointments,
+        corporate: /corporate/.test(o.officer_role || '') || !!o.identification,
+        regNumber: ukRegNumber(o.identification),
+      })),
       officersKnown: !!officersRes, recent, officerChanges, pscs, pscKnown: !!pscRes,
-      charges: { total, outstanding, partSatisfied, known: !!chargesRes || !p.has_charges },
+      charges: { total, outstanding, partSatisfied, known: !!chargesRes || !p.has_charges, list: chargeList },
       insolvency: cases, hasInsolvency: !!p.has_insolvency_history,
+      filings, filingsTotal: filRes ? (filRes.total_count || filings.length) : 0, filingsKnown: !!filRes,
+      sicCodes: p.sic_codes || [], locality: (p.registered_office_address || {}).locality || '',
       verdict, caution, check, also,
       url: `${CH_WEB}/company/${p.company_number}`,
     };
@@ -554,8 +663,18 @@
       address: o.address_snippet,
     }));
   }
-  async function loadAppointments(link) {
+  async function loadAppointmentsFull(link) {
     const r = await ch(`${link}?items_per_page=50`);
+    const items = await loadAppointments(link, r);
+    return {
+      name: r && r.name ? officerName(r.name.replace(/^(.*?)\s+([A-Z][A-Z'\-]+)$/, '$2, $1')) || titleCase(r.name) : '',
+      dob: r && r.date_of_birth ? `${MONTHS[r.date_of_birth.month - 1]} ${r.date_of_birth.year}` : '',
+      total: r ? (r.total_results || items.length) : 0, active: r ? r.active_count : null, resigned: r ? r.resigned_count : null,
+      corporate: !!(r && r.is_corporate_officer), items,
+    };
+  }
+  async function loadAppointments(link, pre) {
+    const r = pre || await ch(`${link}?items_per_page=50`);
     return ((r && r.items) || []).map((a) => ({
       company: titleCase((a.appointed_to && a.appointed_to.company_name) || ''), number: a.appointed_to && a.appointed_to.company_number,
       status: a.appointed_to && a.appointed_to.company_status, role: label('officer_role', a.officer_role), appointed: a.appointed_on, resigned: a.resigned_on,
@@ -730,94 +849,126 @@
   /* UI                                                                 */
   /* ------------------------------------------------------------------ */
 
+  /* Palette (v11.2): white + charcoal, light only. Green is reserved for the "good" verdict.
+     Link colours: --c-ch (Companies House), --c-person (people), --c-place (places). ↗ = opens a new tab. */
   const CSS = `
 :host { all: initial; color-scheme: light; }
 * { box-sizing: border-box; }
 .root {
-  --bg: #ffffff; --bg2: #f6f7f8; --bg3: #eef0f2; --fg: #1f2328; --fg2: #57606a; --fg3: #8b949e;
-  --line: #e1e4e8; --accent: #0a7a52; --accent-fg: #ffffff; --accent-soft: #e6f3ee;
-  --warn: #9a6700; --warn-soft: #fff5d6; --bad: #b42318; --bad-soft: #fdecea; --shadow: 0 12px 32px rgba(15, 23, 42, .16), 0 2px 6px rgba(15, 23, 42, .08);
+  --bg: #ffffff; --bg2: #f7f7f8; --bg3: #eeeff1; --bg4: #e4e6e9; --fg: #1f2328; --fg2: #57606a; --fg3: #6e7781;
+  --line: #e5e7eb; --line2: #d5d8dd; --pri: #24292f; --pri-h: #353b42; --pri-fg: #ffffff; --focus: rgba(36, 41, 47, .14);
+  --good: #1a7f37; --good-soft: #eaf6ed; --warn: #9a6700; --warn-soft: #fff6dc; --bad: #b42318; --bad-soft: #fdeceb;
+  --c-ch: #2f5f98; --c-ch-soft: #edf2f9; --c-person: #6f42c1; --c-person-soft: #f3effb; --c-place: #0f766e; --c-place-soft: #e7f4f2;
+  --shadow: 0 14px 36px rgba(17, 24, 39, .14), 0 2px 6px rgba(17, 24, 39, .06);
+  --eo: cubic-bezier(.2, .8, .2, 1); --d1: 150ms; --d2: 200ms; --d3: 240ms;
   font: 13px/1.45 'Prosper Inter', Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--fg);
-  font-feature-settings: 'cv11', 'ss01'; color-scheme: light;
-  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'cv11', 'ss01'; color-scheme: light; -webkit-font-smoothing: antialiased;
 }
+.root.mono { --c-ch: var(--fg); --c-person: var(--fg); --c-place: var(--fg); --c-ch-soft: var(--bg3); --c-person-soft: var(--bg3); --c-place-soft: var(--bg3); }
 button, input, select { font: inherit; color: inherit; }
-a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: underline; }
+a { color: var(--c-ch); text-decoration: none; } a:hover { text-decoration: underline; }
+svg { flex: none; }
 
-.pill { position: fixed; z-index: 3; display: flex; align-items: center; gap: 0; height: 26px; padding: 0; border-radius: 13px; border: 1px solid var(--line);
-  background: var(--bg); box-shadow: 0 4px 14px rgba(0,0,0,.14); cursor: pointer; opacity: 0; transform: translateY(4px) scale(.96); pointer-events: none;
-  transition: opacity 120ms ease, transform 120ms ease; overflow: hidden; }
+/* pill + edge */
+.pill { position: fixed; z-index: 3; display: flex; align-items: center; height: 26px; padding: 0; border-radius: 13px; border: 1px solid var(--line);
+  background: var(--bg); box-shadow: 0 4px 14px rgba(17,24,39,.14); cursor: pointer; opacity: 0; transform: translateY(4px) scale(.94); pointer-events: none; overflow: hidden; }
 .pill.show { opacity: 1; transform: none; pointer-events: auto; }
-.pill .p { width: 24px; height: 24px; display: grid; place-items: center; background: var(--accent); color: var(--accent-fg); font-weight: 700; font-size: 13px; border-radius: 12px; }
+.pill .p { width: 24px; height: 24px; display: grid; place-items: center; background: var(--pri); color: var(--pri-fg); font-weight: 700; font-size: 13px; border-radius: 12px; }
 .pill .t { padding: 0 9px 0 7px; font-size: 11.5px; color: var(--fg2); white-space: nowrap; }
-.pill:hover { border-color: var(--accent); }
-
-.edge { position: fixed; right: 0; top: 42%; z-index: 1; width: 7px; height: 56px; border-radius: 6px 0 0 6px; background: var(--accent); opacity: .55; cursor: pointer;
-  border: 0; padding: 0; transition: width 120ms ease, opacity 120ms ease; color: var(--accent-fg); font-weight: 700; font-size: 12px; overflow: hidden; }
+.pill:hover { border-color: var(--line2); background: var(--bg2); }
+.edge { position: fixed; right: 0; top: 42%; z-index: 1; width: 7px; height: 56px; border-radius: 6px 0 0 6px; background: var(--pri); opacity: .5; cursor: pointer;
+  border: 0; padding: 0; color: var(--pri-fg); font-weight: 700; font-size: 12px; overflow: hidden; }
 .edge:hover, .edge:focus-visible { width: 22px; opacity: 1; }
-.edge span { opacity: 0; transition: opacity 120ms; } .edge:hover span { opacity: 1; }
+.edge span { opacity: 0; } .edge:hover span { opacity: 1; }
 .edge.hide { display: none; }
 
+/* panel */
 .panel { position: fixed; right: 12px; top: 12px; bottom: 12px; width: 380px; max-width: calc(100vw - 24px); z-index: 2; display: flex; flex-direction: column;
   background: var(--bg); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden;
-  transform: translateX(calc(100% + 24px)); visibility: hidden; transition: transform 180ms cubic-bezier(.2,.8,.2,1), visibility 0s linear 180ms; }
-.panel.open { transform: none; visibility: visible; transition: transform 180ms cubic-bezier(.2,.8,.2,1), visibility 0s; }
-@media (prefers-reduced-motion: reduce) { .panel, .panel.open, .pill, .edge { transition: none !important; } }
-
-.hd { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 14px; border-bottom: 1px solid var(--line); flex: none; }
-.logo { width: 20px; height: 20px; border-radius: 5px; background: var(--accent); color: var(--accent-fg); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
-.brand { font-weight: 600; font-size: 13.5px; flex: 1; }
+  opacity: 0; transform: translateX(28px); visibility: hidden; pointer-events: none; }
+.panel.open { opacity: 1; transform: none; visibility: visible; pointer-events: auto; }
+.hd { display: flex; align-items: center; gap: 6px; padding: 10px 10px 10px 14px; border-bottom: 1px solid var(--line); flex: none; position: relative; }
+.logo { width: 20px; height: 20px; border-radius: 5px; background: var(--pri); color: var(--pri-fg); display: grid; place-items: center; font-weight: 700; font-size: 12px; }
+.brand { font-weight: 600; font-size: 13.5px; flex: 1; margin-left: 2px; }
 .brand small { color: var(--fg3); font-weight: 400; margin-left: 4px; }
 .ib { width: 28px; height: 28px; border: 0; background: transparent; border-radius: 6px; cursor: pointer; display: grid; place-items: center; color: var(--fg2); }
-.ib:hover { background: var(--bg3); color: var(--fg); } .ib.on { color: var(--accent); background: var(--accent-soft); }
+.ib:hover { background: var(--bg3); color: var(--fg); } .ib.on { color: var(--fg); background: var(--bg4); }
 .ib svg { width: 16px; height: 16px; }
-
 .sb { padding: 10px 14px; border-bottom: 1px solid var(--line); flex: none; background: var(--bg2); }
+.in-settings .sb { display: none; }
 .det { display: flex; align-items: center; gap: 6px; margin-bottom: 7px; min-height: 18px; color: var(--fg2); font-size: 12px; }
 .det q { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px; color: var(--fg); }
 .badge { display: inline-flex; align-items: center; height: 18px; padding: 0 6px; border-radius: 4px; font-size: 10.5px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase;
   background: var(--bg3); color: var(--fg2); white-space: nowrap; flex: none; }
-.badge.g { background: var(--accent-soft); color: var(--accent); } .badge.w { background: var(--warn-soft); color: var(--warn); } .badge.r { background: var(--bad-soft); color: var(--bad); }
+.badge.r { background: var(--bad-soft); color: var(--bad); } .badge.w { background: var(--warn-soft); color: var(--warn); } .badge.k { background: var(--pri); color: var(--pri-fg); }
 .srow { display: flex; gap: 6px; }
 .srow input { flex: 1; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); outline: none; }
-.srow input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.srow input:focus, .set input:focus, .set select:focus { border-color: var(--line2); box-shadow: 0 0 0 3px var(--focus); }
 .srow select { height: 32px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); padding: 0 6px; font-size: 12px; color: var(--fg2); }
-.btn { height: 30px; padding: 0 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); cursor: pointer; font-size: 12.5px; font-weight: 500; white-space: nowrap; }
-.btn:hover { background: var(--bg3); } .btn:disabled { opacity: .55; cursor: default; }
-.btn.pri { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); } .btn.pri:hover { filter: brightness(1.06); }
+.btn { height: 30px; padding: 0 11px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); cursor: pointer; font-size: 12.5px; font-weight: 500; white-space: nowrap;
+  display: inline-flex; align-items: center; gap: 5px; text-decoration: none; color: var(--fg); }
+.btn:hover { background: var(--bg2); border-color: var(--line2); text-decoration: none; } .btn:disabled { opacity: .55; cursor: default; }
+.btn.pri { background: var(--pri); border-color: var(--pri); color: var(--pri-fg); } .btn.pri:hover { background: var(--pri-h); border-color: var(--pri-h); }
 .btn.sm { height: 26px; padding: 0 9px; font-size: 12px; }
+.btn svg { width: 12px; height: 12px; }
+.btn.done { color: var(--good); border-color: var(--line2); } .btn.pri.done { color: var(--pri-fg); }
+.btn.done svg { animation: tick var(--d2) var(--eo) both; }
+.body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 10px 10px 14px; background: var(--bg2); }
+.body > * + * { margin-top: 8px; }
 
-.body { flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 0 0 14px; }
-.sec { padding: 12px 14px; border-bottom: 1px solid var(--line); }
-.sec:last-child { border-bottom: 0; }
-.sec h4 { margin: 0 0 7px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--fg3); display: flex; align-items: center; gap: 6px; }
-.sec h4 .ct { color: var(--fg3); font-weight: 500; text-transform: none; letter-spacing: 0; }
+/* cards & collapsible blocks */
+.card, .blk { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; }
+.card { padding: 12px 14px; }
+.blk + .blk { margin-top: 8px; }
+.bh { display: flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 10px 0 14px; cursor: pointer; user-select: none; border-radius: 10px; outline: none; }
+.bh:hover { background: var(--bg2); } .bh:focus-visible { box-shadow: inset 0 0 0 2px var(--focus); }
+.blk:not(.closed) > .bh { border-radius: 10px 10px 0 0; border-bottom: 1px solid var(--line); }
+.bt { font-size: 12.5px; font-weight: 600; color: var(--fg); display: inline-flex; align-items: center; gap: 4px; }
+a.bt { color: var(--fg); white-space: nowrap; } a.bt:hover { color: var(--c-ch); text-decoration: none; } a.bt svg { color: var(--c-ch); width: 10px; height: 10px; }
+[data-act=ext] > svg { width: 10px; height: 10px; flex: none; }
+.bh .xl { font-size: 11.5px; font-weight: 500; }
+.sp { flex: 1; }
+.cnt { min-width: 20px; height: 18px; padding: 0 6px; border-radius: 9px; background: var(--bg3); color: var(--fg2); font-size: 11px; font-weight: 600; display: inline-grid; place-items: center; white-space: nowrap; }
+.cnt.bad { background: var(--bad-soft); color: var(--bad); } .cnt.warn { background: var(--warn-soft); color: var(--warn); }
+.chev { width: 22px; height: 22px; display: grid; place-items: center; color: var(--fg3); }
+.chev svg { width: 14px; height: 14px; }
+.blk.closed > .bh .chev { transform: rotate(-90deg); }
+.bb { display: grid; grid-template-rows: 1fr; }
+.blk.closed > .bb { grid-template-rows: 0fr; }
+.bi { overflow: hidden; min-height: 0; }
+.blk.closed > .bb > .bi { visibility: hidden; }
+.bc { padding: 10px 14px 12px; }
+.rec { background: transparent; border: 0; }
+.rec > .bh { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; }
+.rec:not(.closed) > .bh { border-radius: 10px; border-bottom: 1px solid var(--line); }
+.rec > .bh .bt { text-transform: uppercase; font-size: 11px; letter-spacing: .05em; color: var(--fg2); }
+.rec > .bb > .bi > .bc { padding: 8px 0 0; }
+.crumb { display: inline-flex; align-items: center; gap: 4px; border: 0; background: none; color: var(--fg2); font-size: 12px; cursor: pointer; padding: 2px 4px; border-radius: 5px; max-width: 100%; }
+.crumb:hover { color: var(--fg); background: var(--bg3); } .crumb svg { width: 12px; height: 12px; }
+.crumb span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* content */
 .title { font-size: 15px; font-weight: 600; line-height: 1.3; margin: 0 0 3px; }
+.title a { color: var(--fg); } .title a:hover { color: var(--c-ch); }
+.title a svg { width: 12px; height: 12px; color: var(--c-ch); margin-left: 3px; vertical-align: 0; }
 .sub { color: var(--fg2); font-size: 12px; }
-.kv { display: grid; grid-template-columns: 104px 1fr; gap: 4px 10px; font-size: 12.5px; }
+.kv { display: grid; grid-template-columns: 100px 1fr; gap: 5px 10px; font-size: 12.5px; margin: 0; }
 .kv dt { color: var(--fg2); } .kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-.verdict { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 8px; background: var(--accent-soft); margin-top: 10px; }
+.verdict { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 8px; background: var(--good-soft); margin-top: 10px; }
 .verdict.check { background: var(--warn-soft); } .verdict.caution { background: var(--bad-soft); }
-.verdict .vl { font-weight: 700; font-size: 12.5px; color: var(--accent); white-space: nowrap; }
+.verdict .vl { font-weight: 700; font-size: 12.5px; color: var(--good); white-space: nowrap; }
 .verdict.check .vl { color: var(--warn); } .verdict.caution .vl { color: var(--bad); }
 .verdict ul { margin: 0; padding: 0; list-style: none; font-size: 12.5px; }
 .verdict li + li { margin-top: 2px; }
-.also { margin-top: 6px; font-size: 12px; color: var(--fg2); }
-.also b { color: var(--fg); font-weight: 600; }
+.also { margin-top: 6px; font-size: 12px; color: var(--fg2); } .also b { color: var(--fg); font-weight: 600; }
 .list { margin: 0; padding: 0; list-style: none; }
-.list li { padding: 5px 0; display: flex; gap: 8px; justify-content: space-between; align-items: baseline; font-size: 12.5px; }
-.list li + li { border-top: 1px solid var(--line); }
-.list .m { color: var(--fg2); font-size: 11.5px; white-space: nowrap; }
-.list .n { min-width: 0; }
+.list > li { padding: 6px 6px; margin: 0 -6px; display: flex; gap: 8px; justify-content: space-between; align-items: baseline; font-size: 12.5px; border-radius: 6px; }
+.list > li + li { border-top: 1px solid var(--line); border-radius: 0; }
+.list > li.hov:hover { background: var(--bg2); }
+.list .m { color: var(--fg2); font-size: 11.5px; white-space: nowrap; flex: none; }
+.list .n { min-width: 0; flex: 1; }
 .list .n small { display: block; color: var(--fg2); font-size: 11.5px; }
 .ovd { display: inline-block; margin-left: 6px; padding: 0 5px; border-radius: 3px; background: var(--bad); color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .04em; vertical-align: 1px; }
-.links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-.lk { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); cursor: pointer; font-size: 12px; min-width: 0; }
-.lk:hover { border-color: var(--accent); }
-.lk canvas, .lk .fb { width: 14px; height: 14px; flex: none; border-radius: 3px; }
-.lk .fb { background: var(--fbc, var(--bg3)); display: grid; place-items: center; font-size: 7.5px; font-weight: 700; color: #fff; letter-spacing: -.02em; line-height: 1; }
-.lk .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: left; }
-.lk kbd { font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--fg3); }
 .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .hint { font-size: 11.5px; color: var(--fg3); margin-top: 7px; }
 .picker { margin-top: 8px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
@@ -827,69 +978,200 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
 .picker .opts { max-height: 196px; overflow-y: auto; }
 .opt { display: flex; width: 100%; text-align: left; gap: 8px; justify-content: space-between; align-items: center; padding: 6px 10px; border: 0; background: var(--bg); cursor: pointer; font-size: 12.5px; }
 .opt + .opt { border-top: 1px solid var(--line); }
-.opt:hover { background: var(--bg2); } .opt.cur { background: var(--accent-soft); }
+.opt:hover { background: var(--bg2); } .opt.cur { background: var(--bg3); }
 .opt .n { min-width: 0; } .opt small { display: block; color: var(--fg2); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; }
-.state { padding: 26px 18px; text-align: center; color: var(--fg2); font-size: 12.5px; }
+.state { padding: 22px 16px; text-align: center; color: var(--fg2); font-size: 12.5px; }
 .state b { display: block; color: var(--fg); font-size: 13.5px; margin-bottom: 4px; }
 .state .btn { margin-top: 10px; }
-.err { margin: 12px 14px; padding: 10px 12px; border-radius: 8px; background: var(--bad-soft); color: var(--fg); font-size: 12.5px; }
+.err { padding: 10px 12px; border-radius: 8px; background: var(--bad-soft); color: var(--fg); font-size: 12.5px; border: 1px solid #f6d4d0; }
 .err b { color: var(--bad); }
-.err .btn { margin-top: 8px; }
-.skel { height: 12px; border-radius: 4px; background: var(--bg3); margin: 8px 0; animation: pulse 1.1s ease-in-out infinite; }
-@keyframes pulse { 50% { opacity: .45; } }
-@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
-.spin { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: sp .7s linear infinite; display: inline-block; vertical-align: -2px; }
+.err.tight { margin: 0 0 8px; }
+
+/* links: colour-coded by kind; .x = opens in new tab (arrow icon) */
+.lk-ch, .lk-person, .lk-place { border: 0; background: none; padding: 0; font: inherit; cursor: pointer; text-align: left; text-decoration: none; display: inline; }
+.lk-ch { color: var(--c-ch); } .lk-person { color: var(--c-person); font-weight: 500; } .lk-place { color: var(--c-place); }
+.lk-ch:hover, .lk-person:hover, .lk-place:hover { text-decoration: underline; text-underline-offset: 2px; }
+.lk-ch svg, .lk-person svg, .lk-place svg { width: 10px; height: 10px; margin-left: 2px; vertical-align: 0; opacity: .8; }
+.xi { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 4px; color: var(--fg3); vertical-align: -4px; margin-left: 2px; border: 0; background: none; cursor: pointer; padding: 0; }
+.xi:hover { background: var(--bg3); color: var(--c-ch); } .xi.p:hover { color: var(--c-person); } .xi.pl:hover { color: var(--c-place); }
+.xi svg { width: 11px; height: 11px; }
+.chip { border: 1px solid var(--line); background: var(--bg); border-radius: 10px; height: 20px; padding: 0 7px; font-size: 11px; color: var(--fg2); cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 3px; }
+.chip:hover { border-color: var(--line2); color: var(--fg); background: var(--bg2); }
+.chip.on { background: var(--c-person-soft); border-color: transparent; color: var(--c-person); }
+.chip.pl { color: var(--c-place); } .chip.pl:hover, .chip.pl.on { background: var(--c-place-soft); border-color: transparent; }
+.chip svg { width: 10px; height: 10px; }
+.roles { margin: 5px 0 1px; padding: 6px 8px; border-radius: 6px; background: var(--bg2); font-size: 12px; }
+.roles div + div { margin-top: 3px; }
+.roles .m { color: var(--fg2); font-size: 11px; }
+.cv { cursor: copy; border-radius: 3px; position: relative; }
+.cv:hover { background: var(--bg3); box-shadow: 0 0 0 2px var(--bg3); }
+.cv.copied::after { content: 'Copied'; position: absolute; left: 50%; bottom: calc(100% + 4px); transform: translateX(-50%); background: var(--pri); color: var(--pri-fg); font-size: 10.5px; font-weight: 600;
+  padding: 2px 6px; border-radius: 4px; white-space: nowrap; pointer-events: none; z-index: 2; }
+.map { margin-top: 8px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg2); }
+.map iframe { display: block; width: 100%; height: 180px; border: 0; }
+.map .mmsg { padding: 8px 10px; font-size: 11.5px; color: var(--fg2); }
+.map.fail iframe { display: none; }
+.legend { display: grid; gap: 5px; font-size: 12px; margin-top: 6px; padding: 8px 10px; border-radius: 8px; background: var(--bg2); }
+.legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 7px; vertical-align: -1px; }
+.legend svg, .sub > svg, .hint svg { width: 10px; height: 10px; vertical-align: 0; }
+.sw.ch { background: var(--c-ch); } .sw.person { background: var(--c-person); } .sw.place { background: var(--c-place); }
+
+/* quick links */
+.links { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.lk { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); cursor: pointer; font-size: 12px; min-width: 0; }
+.lk:hover { border-color: var(--line2); background: var(--bg2); }
+.lk canvas, .lk .fb { width: 14px; height: 14px; flex: none; border-radius: 3px; }
+.lk .fb { background: var(--fbc, var(--bg3)); display: grid; place-items: center; font-size: 7.5px; font-weight: 700; color: #fff; letter-spacing: -.02em; line-height: 1; }
+.lk .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: left; }
+.lk kbd { font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--fg3); }
+
+/* skeleton */
+.skel { height: 12px; border-radius: 4px; background: var(--bg3); margin: 8px 0; }
+.skel.w45 { width: 45%; } .skel.w60 { width: 60%; } .skel.w75 { width: 75%; } .skel.w82 { width: 82%; } .skel.w85 { width: 85%; } .skel.w90 { width: 90%; }
+.skel.h1 { width: 70%; height: 16px; margin-top: 2px; } .skel.blk2 { width: 100%; height: 46px; border-radius: 8px; }
+.skc { padding: 12px 14px; }
+.spin { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--pri); border-radius: 50%; animation: sp .7s linear infinite; display: inline-block; vertical-align: -2px; }
 @keyframes sp { to { transform: rotate(360deg); } }
+
+/* brief */
 .brief p { margin: 0 0 3px; font-size: 12.5px; }
 .brief h5 { margin: 10px 0 4px; font-size: 11.5px; font-weight: 600; color: var(--fg2); }
 .brief ul { margin: 0; padding-left: 16px; font-size: 12.5px; } .brief li { margin: 2px 0; }
 .brief .src a { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; }
 .cost { font-size: 11px; color: var(--fg3); margin-top: 8px; }
+
+/* person / officers search */
 .off { padding: 8px 0; } .off + .off { border-top: 1px solid var(--line); }
 .off .on { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
 .off .on b { font-weight: 600; font-size: 12.5px; }
 .appt { margin: 6px 0 0; padding: 0; list-style: none; }
 .appt li { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; font-size: 12px; align-items: baseline; }
-.appt button { border: 0; background: none; padding: 0; color: var(--accent); cursor: pointer; text-align: left; font-size: 12px; min-width: 0; }
-.appt button:hover { text-decoration: underline; }
 .appt .m { color: var(--fg2); font-size: 11px; white-space: nowrap; }
+.pv h3 { margin: 0; font-size: 15px; font-weight: 600; color: var(--c-person); }
+.stat { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+
+/* filings viewer */
+.fl > li { cursor: pointer; }
+.fl .ty { font: 600 10px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--fg2); background: var(--bg3); padding: 1px 4px; border-radius: 3px; margin-right: 5px; }
+.fl > li.cur { background: var(--c-ch-soft); }
+.pager { display: flex; align-items: center; gap: 8px; }
+.pager .pos { flex: 1; text-align: center; font-size: 12px; color: var(--fg2); }
+.pdf { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg2); min-height: 60px; }
+.pdf iframe { display: block; width: 100%; height: 430px; border: 0; background: #fff; }
+.pdf .mmsg { padding: 14px 12px; font-size: 12px; color: var(--fg2); text-align: center; }
+.vlist { max-height: 260px; overflow-y: auto; margin-top: 4px; }
+
+/* pins & recent menu */
+.menu { position: absolute; top: 46px; right: 10px; width: 280px; max-height: 360px; overflow-y: auto; z-index: 5; background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  box-shadow: var(--shadow); padding: 6px; opacity: 0; transform: translateY(-4px); visibility: hidden; pointer-events: none; }
+.menu.show { opacity: 1; transform: none; visibility: visible; pointer-events: auto; }
+.menu h6 { margin: 6px 8px 4px; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; color: var(--fg3); font-weight: 600; }
+.mi { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: none; padding: 6px 8px; border-radius: 6px; cursor: pointer; text-align: left; font-size: 12.5px; }
+.mi:hover { background: var(--bg2); }
+.mi .n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mi small { color: var(--fg3); font-size: 11px; }
+.mi svg { width: 13px; height: 13px; color: var(--fg3); }
+.menu .none { padding: 4px 8px 6px; font-size: 12px; color: var(--fg3); }
+
+/* settings */
+.set .grp { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 4px 14px 12px; }
+.set .grp + .grp { margin-top: 8px; }
+.set .gh { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--fg3); margin: 10px 0 4px; }
 .set label.f { display: block; font-size: 12px; color: var(--fg2); margin: 10px 0 4px; font-weight: 500; }
 .set input[type=password], .set input[type=text], .set select { width: 100%; height: 32px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); padding: 0 10px; outline: none; }
-.set input:focus, .set select:focus { border-color: var(--accent); }
-.set .ck { display: flex; gap: 8px; align-items: center; margin: 9px 0; font-size: 12.5px; cursor: pointer; }
-.set .ck input { accent-color: var(--accent); margin: 0; }
+.set .tg { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; padding: 8px 0; font-size: 12.5px; cursor: pointer; }
+.set .tg + .tg { border-top: 1px solid var(--line); }
+.set .tg span small { display: block; color: var(--fg3); font-size: 11.5px; margin-top: 1px; }
+.set .tg input { appearance: none; -webkit-appearance: none; flex: none; width: 30px; height: 18px; border-radius: 9px; background: var(--bg4); position: relative; margin: 1px 0 0; cursor: pointer; }
+.set .tg input::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+.set .tg input:checked { background: var(--pri); } .set .tg input:checked::after { transform: translateX(12px); }
+.set .tg input:focus-visible { box-shadow: 0 0 0 3px var(--focus); }
 .set .help { font-size: 11.5px; color: var(--fg3); margin-top: 3px; }
 .set .seg { display: flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
-.set .seg label { flex: 1; text-align: center; padding: 6px 0; font-size: 12px; cursor: pointer; }
+.set .seg label { flex: 1; text-align: center; padding: 6px 2px; font-size: 12px; cursor: pointer; }
+.set .seg label + label { border-left: 1px solid var(--line); }
 .set .seg input { display: none; }
-.set .seg label:has(input:checked) { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-.saved { color: var(--accent); font-size: 12px; margin-left: 8px; }
-.toast { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%) translateY(8px); background: var(--fg); color: var(--bg); padding: 6px 12px; border-radius: 6px; font-size: 12px;
-  opacity: 0; pointer-events: none; transition: opacity 120ms, transform 120ms; white-space: nowrap; }
+.set .seg label:has(input:checked) { background: var(--pri); color: var(--pri-fg); font-weight: 600; }
+.set .top { display: flex; align-items: center; justify-content: space-between; padding: 2px 2px 8px; }
+.set .top h4 { margin: 0; font-size: 14px; font-weight: 600; }
+.saved { color: var(--good); font-size: 12px; margin-left: 8px; }
+.toast { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%) translateY(8px); background: var(--pri); color: var(--pri-fg); padding: 6px 12px; border-radius: 6px; font-size: 12px;
+  opacity: 0; pointer-events: none; white-space: nowrap; z-index: 6; }
 .toast.show { opacity: 1; transform: translateX(-50%); }
 .probe { position: absolute; width: 3px; height: 0; overflow: hidden; visibility: hidden; }
-.mt4 { margin-top: 4px; } .mt5 { margin-top: 5px; } .mt6 { margin-top: 6px; } .mt10 { margin-top: 10px; } .mt14 { margin-top: 14px; } .m0 { margin: 0; } .mb8 { margin-bottom: 8px; }
-.pt0 { padding-top: 0; } .jsb { justify-content: space-between; } .ifc { display: inline-flex; align-items: center; } .err.tight { margin: 0 0 8px; }
-.sep { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
-.skel.w45 { width: 45%; } .skel.w60 { width: 60%; } .skel.w75 { width: 75%; } .skel.w82 { width: 82%; } .skel.w85 { width: 85%; } .skel.w90 { width: 90%; }
-.skel.h1 { width: 70%; height: 16px; margin-top: 14px; } .skel.blk { width: 100%; height: 46px; border-radius: 8px; }
+.mt4 { margin-top: 4px; } .mt5 { margin-top: 5px; } .mt6 { margin-top: 6px; } .mt8 { margin-top: 8px; } .mt10 { margin-top: 10px; } .mt14 { margin-top: 14px; } .m0 { margin: 0; } .mb8 { margin-bottom: 8px; }
+.pt0 { padding-top: 0; } .jsb { justify-content: space-between; } .ifc { display: inline-flex; align-items: center; }
+.sep { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
 .warnk { color: var(--warn); }
 .diag { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .diag .dr { display: grid; grid-template-columns: 46px 1fr; gap: 8px; padding: 7px 10px; font-size: 12px; align-items: start; }
 .diag .dr + .dr { border-top: 1px solid var(--line); }
 .diag .dr b { font-weight: 600; } .diag .dr .dd { color: var(--fg2); font-size: 11.5px; overflow-wrap: anywhere; }
 .diag .st { display: inline-block; text-align: center; padding: 1px 0; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
-.diag .st.pass { background: var(--accent-soft); color: var(--accent); } .diag .st.fail { background: var(--bad-soft); color: var(--bad); } .diag .st.info { background: var(--bg3); color: var(--fg2); }
+.diag .st.pass { background: var(--good-soft); color: var(--good); } .diag .st.fail { background: var(--bad-soft); color: var(--bad); } .diag .st.info { background: var(--bg3); color: var(--fg2); }
+
+/* motion (only with .anim; prefers-reduced-motion switches it all off) */
+.anim .panel { transition: opacity var(--d2) var(--eo), transform var(--d3) var(--eo), visibility 0s linear var(--d3); }
+.anim .panel.open { transition: opacity var(--d2) var(--eo), transform var(--d3) var(--eo), visibility 0s; }
+.anim .pill { transition: opacity var(--d1) var(--eo), transform var(--d2) var(--eo); }
+.anim .edge { transition: width var(--d1) var(--eo), opacity var(--d1) var(--eo); }
+.anim .edge span { transition: opacity var(--d1); }
+.anim .bb { transition: grid-template-rows var(--d2) var(--eo); }
+.anim .blk.closed > .bb > .bi { transition: visibility 0s linear var(--d2); }
+.anim .chev { transition: transform var(--d2) var(--eo); }
+.anim .bh, .anim .btn, .anim .ib, .anim .lk, .anim .opt, .anim .chip, .anim .mi, .anim .list > li, .anim .cv, .anim .xi, .anim .crumb { transition: background-color var(--d1) var(--eo), border-color var(--d1) var(--eo), color var(--d1) var(--eo), box-shadow var(--d1) var(--eo); }
+.anim .menu { transition: opacity var(--d1) var(--eo), transform var(--d1) var(--eo), visibility 0s linear var(--d1); }
+.anim .menu.show { transition: opacity var(--d1) var(--eo), transform var(--d1) var(--eo), visibility 0s; }
+.anim .toast { transition: opacity var(--d1), transform var(--d1) var(--eo); }
+.anim .set .tg input, .anim .set .tg input::after { transition: background-color var(--d1) var(--eo), transform var(--d1) var(--eo); }
+.anim .enter > *, .anim .enter .rc > .blk { animation: rise var(--d3) var(--eo) both; }
+.anim .enter > :nth-child(2), .anim .enter .rc > .blk:nth-child(1) { animation-delay: 30ms; }
+.anim .enter > :nth-child(3), .anim .enter .rc > .blk:nth-child(2) { animation-delay: 60ms; }
+.anim .enter > :nth-child(4), .anim .enter .rc > .blk:nth-child(3) { animation-delay: 90ms; }
+.anim .enter > :nth-child(5), .anim .enter .rc > .blk:nth-child(4) { animation-delay: 120ms; }
+.anim .enter > :nth-child(n+6), .anim .enter .rc > .blk:nth-child(n+5) { animation-delay: 150ms; }
+.anim .verdict { animation: fade var(--d3) var(--eo) both; animation-delay: 80ms; }
+.anim .skel { background: linear-gradient(90deg, var(--bg3) 0%, var(--bg3) 35%, #f7f8f9 50%, var(--bg3) 65%, var(--bg3) 100%); background-size: 300% 100%; animation: shimmer 1.3s linear infinite; }
+.anim .cv.copied::after, .anim .roles, .anim .map, .anim .pdf iframe { animation: fade var(--d2) var(--eo) both; }
+.anim .cnt.new { animation: fade var(--d2) var(--eo) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@keyframes tick { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .root *, .root *::before, .root *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: 0s !important; transition-delay: 0s !important; }
+}
 `;
 
   const ICON = {
     x: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
     gear: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
     back: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3L5 8l5 5"/></svg>',
+    next: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3l5 5-5 5"/></svg>',
+    chev: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"/></svg>',
+    ext: '<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-label="opens in new tab"><path d="M4.5 2.5h5v5M9.5 2.5L3 9"/></svg>',
+    check: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>',
+    pin: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5h8v11L8 10.5 4 13.5z"/></svg>',
+    pinf: '<svg viewBox="0 0 16 16" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 2.5h8v11L8 10.5 4 13.5z"/></svg>',
+    clock: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="8" cy="8" r="5.5"/><path d="M8 5v3.2l2 1.3"/></svg>',
+    map: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 14s4.5-4 4.5-7.5a4.5 4.5 0 0 0-9 0C3.5 10 8 14 8 14z"/><circle cx="8" cy="6.5" r="1.6"/></svg>',
+    copy: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>',
+    dl: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M4.5 7.5L8 11l3.5-3.5M3 13.5h10"/></svg>',
+    share: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 10V2.5M5 5.5l3-3 3 3M3.5 8.5v4.5h9V8.5"/></svg>',
+    doc: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 1.5h5.5L12.5 4.5v10h-8.5z"/><path d="M9.5 1.5v3h3"/></svg>',
   };
 
-  let host, root, $pill, $panel, $edge, $body, $input, $det, $mode, $toast;
-  const st = { open: false, view: 'main', det: null, ctx: null, req: 0, pillText: '', briefState: null, styleMode: 'none', fontStatus: '', diag: null, anchor: null };
+  let host, sroot, root, $pill, $panel, $edge, $body, $input, $det, $mode, $toast, $menu;
+  const st = { open: false, view: 'main', det: null, ctx: null, stack: [], req: 0, pillText: '', briefState: null, styleMode: 'none', fontStatus: '', diag: null, anchor: null, menu: false };
+  let secState = {};
+  function loadSecState() { secState = readJSON(gv(K.sections, null)) || {}; }
+  function saveSecState() { sv(K.sections, JSON.stringify(secState)); }
+  const reducedMotion = () => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+  function applyRootClasses() {
+    if (!root) return;
+    root.classList.toggle('anim', !!settings.animations && !reducedMotion());
+    root.classList.toggle('mono', !settings.colorLinks);
+  }
 
   /* Styles: constructable stylesheet (not subject to page CSP) -> <style> -> GM_addElement (manager bypasses CSP).
      Each step is verified with a probe element so a CSP-blocked style never fails silently. */
@@ -940,19 +1222,20 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
     } catch (e) { st.fontStatus = 'Inter failed (' + ((e && e.message) || e) + '), using system-ui'; warn(st.fontStatus); }
   }
 
-
   function mount() {
     host = document.createElement('prosper-root');
     host.style.cssText = 'all: initial; position: fixed; top: 0; left: 0; width: 0; height: 0; z-index: 2147483647; display: block;';
-    const sr = host.attachShadow({ mode: 'open' });
+    const sr = sroot = host.attachShadow({ mode: 'open' });
     sr.innerHTML = `<i class="probe"></i>
 <div class="root">
   <div class="pill" part="pill" role="button" tabindex="-1" aria-label="Look up with Prosper (Alt+P)"><span class="p">P</span><span class="t"></span></div>
   <button class="edge" aria-label="Open Prosper" title="Prosper (Alt+P)"><span>P</span></button>
   <aside class="panel" role="dialog" aria-label="Prosper">
     <div class="hd"><div class="logo">P</div><div class="brand">Prosper<small>v${VERSION}</small></div>
+      <button class="ib" data-act="menu" title="Pinned and recent">${ICON.clock}</button>
       <button class="ib" data-act="settings" title="Settings">${ICON.gear}</button>
       <button class="ib" data-act="close" title="Close (Esc)">${ICON.x}</button></div>
+    <div class="menu" role="menu"></div>
     <div class="sb">
       <div class="det"></div>
       <form class="srow" data-form="search">
@@ -968,25 +1251,30 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
     root = sr.querySelector('.root');
     $pill = sr.querySelector('.pill'); $edge = sr.querySelector('.edge'); $panel = sr.querySelector('.panel');
     $body = sr.querySelector('.body'); $input = sr.querySelector('.srow input'); $det = sr.querySelector('.det');
-    $mode = sr.querySelector('.srow select'); $toast = sr.querySelector('.toast');
+    $mode = sr.querySelector('.srow select'); $toast = sr.querySelector('.toast'); $menu = sr.querySelector('.menu');
     host.setAttribute('data-build', 'v' + VERSION + ' ' + BUILD);
     (document.documentElement || document.body).appendChild(host);
     applyStyles(sr);
+    applyRootClasses();
+    try { window.matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', applyRootClasses); } catch (e) { /* ignore */ }
     if (st.styleMode === 'none') {
       // Last resort when every style route is blocked: CSSOM inline styles are never blocked by CSP.
       Object.assign($panel.style, { position: 'fixed', right: '12px', top: '12px', bottom: '12px', width: '380px', background: '#fff', color: '#1f2328', border: '1px solid #ccc', overflow: 'auto', display: 'none', font: '13px system-ui, sans-serif', padding: '6px' });
-      Object.assign($pill.style, { position: 'fixed', display: 'none', background: '#0a7a52', color: '#fff', padding: '2px 8px', borderRadius: '10px', cursor: 'pointer', font: '12px system-ui, sans-serif' });
+      Object.assign($pill.style, { position: 'fixed', display: 'none', background: '#24292f', color: '#fff', padding: '2px 8px', borderRadius: '10px', cursor: 'pointer', font: '12px system-ui, sans-serif' });
       $edge.style.display = 'none';
     }
-
     $pill.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
     $pill.addEventListener('click', (e) => { e.stopPropagation(); const t = st.pillText; hidePill(); openWith(t); });
     $edge.addEventListener('click', () => openEmpty());
     sr.querySelector('[data-form=search]').addEventListener('submit', (e) => {
-      e.preventDefault(); const v = $input.value.trim(); if (!v) return; st.view = 'main'; lookup(v, $mode.value);
+      e.preventDefault(); const v = $input.value.trim(); if (!v) return; setView('main'); lookup(v, $mode.value);
     });
     sr.addEventListener('click', onClick);
-    sr.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } }, true);
+    sr.addEventListener('change', onChange);
+    sr.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.stopPropagation(); if (st.menu) return toggleMenu(false); close(); return; }
+      if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.classList && e.target.classList.contains('bh')) { e.preventDefault(); toggleBlock(e.target.closest('.blk')); }
+    }, true);
     updateScope();
   }
 
@@ -1022,25 +1310,42 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
     if (st.styleMode === 'none') $panel.style.display = 'block';
   }
   function close() {
-    st.open = false; $panel.classList.remove('open'); hidePill(); updateScope();
+    st.open = false; $panel.classList.remove('open'); hidePill(); toggleMenu(false); updateScope();
     if (st.styleMode === 'none') $panel.style.display = 'none';
   }
   function openEmpty() {
-    open(); st.view = 'main';
+    open(); setView('main');
     if (!st.ctx) { $input.value = ''; renderDet(null); renderEmpty(); }
     setTimeout(() => { $input.focus(); $input.select(); }, 30);
   }
-  function openWith(text) {
-    st.consumed = text;
-    open();
-    st.view = 'main';
-    lookup(text, 'auto');
+  function openWith(text) { st.consumed = text; open(); setView('main'); lookup(text, 'auto'); }
+  function setView(v) {
+    st.view = v;
+    $panel.classList.toggle('in-settings', v === 'settings');
+    root.querySelector('[data-act=settings]').classList.toggle('on', v === 'settings');
   }
 
   function showToast(t) {
     $toast.textContent = t; $toast.classList.add('show');
     clearTimeout(showToast.t); showToast.t = setTimeout(() => $toast.classList.remove('show'), 1600);
   }
+  /* Copy confirmation: buttons briefly show a tick + "Copied"; click-to-copy values show a small "Copied" bubble. */
+  function confirmCopy(el, msg) {
+    if (!el) return showToast(msg || 'Copied');
+    if (el.classList.contains('cv')) {
+      el.classList.remove('copied'); void el.offsetWidth; el.classList.add('copied');
+      clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('copied'), 1200);
+      return;
+    }
+    if (el.classList.contains('btn') || el.classList.contains('xi')) {
+      if (!el._orig) el._orig = el.innerHTML;
+      el.classList.add('done'); el.innerHTML = ICON.check + (el.classList.contains('xi') ? '' : 'Copied');
+      clearTimeout(el._t); el._t = setTimeout(() => { el.classList.remove('done'); el.innerHTML = el._orig; el._orig = null; }, 1300);
+      return;
+    }
+    showToast(msg || 'Copied');
+  }
+  function copyFrom(el, text, msg) { if (!text) return; copyText(text).then(() => confirmCopy(el, msg)); }
 
   /* ---------- selection & pill ---------- */
 
@@ -1113,19 +1418,49 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
     requestAnimationFrame(() => { rafPending = false; placePill(); });
   }
 
+  /* ---------- navigation ---------- */
+
+  function ctxTitle(c) { return !c ? '' : c.kind === 'person' ? (c.name || 'person') : c.kind === 'filings' ? 'Filings' : c.company ? c.company.display : (c.query || c.raw || ''); }
+  function pushNav() { if (st.ctx) { st.stack.push(st.ctx); if (st.stack.length > 20) st.stack.shift(); } }
+  function backBar() {
+    const prev = st.stack[st.stack.length - 1];
+    return prev ? `<div><button class="crumb" data-act="nav-back" title="Back">${ICON.back}<span>Back to ${esc(ctxTitle(prev))}</span></button></div>` : '';
+  }
+  function navBack() {
+    const prev = st.stack.pop(); if (!prev) return;
+    leaveCtx(st.ctx);
+    st.ctx = prev; st.req++;
+    if (prev.det) { renderDet(prev.det); $input.value = prev.company && !prev.kind ? prev.company.number : (prev.query || ''); }
+    renderCtx(prev);
+  }
+  function leaveCtx(c) { if (c && c.kind === 'filings' && c.blobs) { for (const u of Object.values(c.blobs)) { try { URL.revokeObjectURL(u.url); } catch (e) { /* ignore */ } } c.blobs = {}; } }
+  function renderCtx(c) {
+    if (!c) return renderEmpty();
+    if (c.kind === 'person') return renderPersonView(c);
+    if (c.kind === 'filings') return renderFilings(c);
+    if (c.company) { renderDet(c.det); return renderCompany(c, false); }
+    if (c.officers) return renderPerson(c);
+    lookup(c.det.raw, $mode.value);
+  }
+  function setBody(html, enter) {
+    $body.innerHTML = html;
+    if (enter) { $body.classList.add('enter'); clearTimeout(setBody.t); setBody.t = setTimeout(() => $body.classList.remove('enter'), 700); }
+  }
+
   /* ---------- lookup flow ---------- */
 
   function renderDet(det) {
     if (!det) { $det.innerHTML = '<span>Search Companies House, or highlight text on the page.</span>'; return; }
-    const cls = det.type === 'chnum' ? 'g' : det.type === 'person' ? '' : det.type === 'freemail' ? 'w' : 'g';
+    const cls = det.type === 'freemail' ? 'w' : '';
     $det.innerHTML = `<span class="badge ${cls}">${esc(det.label)}</span><q>${esc(det.raw)}</q>`;
   }
 
-  async function lookup(text, forceMode) {
+  async function lookup(text, forceMode, push) {
     const det = detect(text) || { raw: text, type: 'company', label: 'Company', query: text, mode: 'company' };
     let mode = det.mode;
     if (forceMode === 'company' && mode !== 'number') { mode = 'company'; det.label = det.type === 'person' ? 'Company' : det.label; }
     if (forceMode === 'person') { mode = 'person'; if (det.type !== 'freemail') det.query = text; }
+    if (push) pushNav(); else { leaveCtx(st.ctx); st.stack = []; }
     $mode.value = forceMode || 'auto';
     st.det = det;
     $input.value = det.type === 'chnum' ? det.number : (det.type === 'email' || det.type === 'domain' || det.type === 'freemail' ? det.raw : det.query);
@@ -1154,32 +1489,36 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
       }
     } catch (e) { if (req === st.req) renderError(e); }
   }
+  function openCompanyHere(num) { if (num) { setView('main'); lookup(num, 'auto', true); } }
 
   async function showCompany(ctx, number, req) {
     renderLoading('Loading company');
     const f = await loadCompany(number);
     if (req !== st.req) return;
-    ctx.company = f;
+    ctx.company = f; ctx.roles = {}; ctx.rolesOpen = {}; ctx.similar = null; ctx.mapOpen = null;
     const hit = cacheGet(`brief:${f.number}:${settings.model}`, TTL_BRIEF);
     ctx.brief = hit ? Object.assign({}, hit.d, { cachedAt: hit.t }) : null;
     st.briefState = null;
-    renderCompany(ctx);
+    addRecent(f);
+    renderCompany(ctx, true);
+    if (settings.autoBrief && !ctx.brief && claudeKey()) doBrief(false);
   }
 
   /* ---------- renderers ---------- */
 
   function renderLoading(msg) {
-    $body.innerHTML = `<div class="sec"><div class="sub"><span class="spin"></span>&nbsp; ${esc(msg)}...</div>
-      <div class="skel h1"></div><div class="skel w45"></div>
-      <div class="skel blk"></div><div class="skel w85"></div><div class="skel w60"></div></div>`;
+    setBody(`${backBar()}<div class="card skc" aria-busy="true"><div class="sub"><span class="spin"></span>&nbsp; ${esc(msg)}...</div>
+      <div class="skel h1 mt10"></div><div class="skel w45"></div><div class="skel blk2"></div></div>
+      <div class="card skc"><div class="skel w60"></div><div class="skel w85"></div><div class="skel w75"></div></div>
+      <div class="card skc"><div class="skel w45"></div><div class="skel w90"></div><div class="skel w82"></div></div>`);
   }
   function renderEmpty() {
-    $body.innerHTML = `<div class="state"><b>Look someone up</b>Highlight a company name, work email, website, Companies House number or person on any page, then click the P pill or press Alt+P.<br><br>Or type above and press Enter.</div>
-      ${!chKey() ? '<div class="state pt0"><button class="btn pri" data-act="settings">Add Companies House key</button></div>' : ''}`;
+    setBody(`<div class="card state"><b>Look someone up</b>Highlight a company name, work email, website, Companies House number or person on any page, then click the P pill or press Alt+P.<br><br>Or type above and press Enter.
+      ${!chKey() ? '<div><button class="btn pri" data-act="settings">Add Companies House key</button></div>' : ''}</div>`, true);
   }
   function renderNoKey() {
-    $body.innerHTML = `<div class="state"><b>Companies House API key needed</b>Prosper reads company data straight from Companies House. Get a free key at developer.company-information.service.gov.uk (create an application, then a REST key) and paste it in Settings.
-      <br><button class="btn pri" data-act="settings">Open settings</button></div>${linksSection(st.ctx)}`;
+    setBody(`<div class="card state"><b>Companies House API key needed</b>Prosper reads company data straight from Companies House. Get a free key at developer.company-information.service.gov.uk (create an application, then a REST key) and paste it in Settings.
+      <br><button class="btn pri" data-act="settings">Open settings</button></div>${linksSection(st.ctx)}`);
   }
   function renderError(e) {
     const code = e && e.code;
@@ -1194,22 +1533,82 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
     else if (code === 'ch-404') { t = 'Company not found'; m = e.message; }
     else if (code === 'ch-net' || code === 'ch-timeout') { t = code === 'ch-timeout' ? 'Companies House timed out' : 'Could not reach Companies House'; m = ((e && e.detail) || e.message || 'Network error') + '. If Tampermonkey asked to allow a cross-origin request, choose "Always allow domain".'; act = '<button class="btn" data-act="retry">Retry</button> ' + diagBtn; }
     else { t = 'Something went wrong'; m = ((e && e.message) || String(e)) + (e && e.status ? ' (HTTP ' + e.status + ')' : ''); act = '<button class="btn" data-act="retry">Retry</button> ' + diagBtn; }
-    $body.innerHTML = `<div class="err"><b>${esc(t)}</b><div>${esc(m)}</div><div class="row mt6">${act}</div></div>${linksSection(st.ctx)}`;
+    setBody(`${backBar()}<div class="err"><b>${esc(t)}</b><div>${esc(m)}</div><div class="row mt6">${act}</div></div>${linksSection(st.ctx)}`);
     wireFavicons();
   }
   function renderNoMatch(ctx) {
-    $body.innerHTML = `<div class="state"><b>No Companies House match</b>Nothing found for "${esc(ctx.query)}". Try the full registered name, or search as a person.
-      <br><button class="btn" data-act="as-person">Search as person</button></div>${linksSection(ctx)}`;
+    setBody(`${backBar()}<div class="card state"><b>No Companies House match</b>Nothing found for "${esc(ctx.query)}". Try the full registered name, or search as a person.
+      <br><button class="btn" data-act="as-person">Search as person</button></div>${linksSection(ctx)}`, true);
+    wireFavicons();
   }
   function renderNone(ctx) {
-    $body.innerHTML = `<div class="state"><b>Personal email address</b>${esc(ctx.raw)} is a free email provider, so there is no company domain to look up. Use the links below or type a company name above.</div>${linksSection(ctx)}`;
+    setBody(`<div class="card state"><b>Personal email address</b>${esc(ctx.raw)} is a free email provider, so there is no company domain to look up. Use the links below or type a company name above.</div>${linksSection(ctx)}`, true);
+    wireFavicons();
+  }
+
+  /* ---------- building blocks ---------- */
+
+  function secOpen(id, def, force) {
+    if (force) return true;
+    if (settings.rememberSections && typeof secState[id] === 'boolean') return secState[id];
+    return def;
+  }
+  function blk(id, title, o) {
+    const open = secOpen(id, o.def !== false, o.force);
+    const t = o.href && settings.chLinks
+      ? `<a class="bt" href="${esc(o.href)}" data-act="ext" data-url="${esc(o.href)}" title="${esc(title)} on Companies House (new tab)">${esc(title)}${ICON.ext}</a>`
+      : `<span class="bt">${esc(title)}</span>`;
+    const cnt = o.count != null && o.count !== '' ? `<span class="cnt ${o.countCls || ''}" data-cnt="${id}">${esc(o.count)}</span>` : '';
+    return `<section class="blk${open ? '' : ' closed'}${o.cls ? ' ' + o.cls : ''}" data-sec="${id}">
+      <div class="bh" data-act="tog" role="button" tabindex="0" aria-expanded="${open}">${t}${o.extra || ''}<span class="sp"></span>${cnt}<span class="chev">${ICON.chev}</span></div>
+      <div class="bb"><div class="bi"><div class="bc${o.bcCls ? ' ' + o.bcCls : ''}">${o.body}</div></div></div></section>`;
+  }
+  function toggleBlock(sec, force) {
+    if (!sec) return;
+    const open = force != null ? force : sec.classList.contains('closed');
+    sec.classList.toggle('closed', !open);
+    const bh = sec.querySelector(':scope > .bh'); if (bh) bh.setAttribute('aria-expanded', String(open));
+    const id = sec.dataset.sec;
+    if (settings.rememberSections && id) { secState[id] = open; saveSecState(); }
+    if (open) onSectionOpen(id);
+  }
+  /* Lazy loaders, run when a section is (or becomes) open. New per-section loaders plug in here. */
+  const SECTION_HOOKS = {
+    officers: (ctx) => loadRoles(ctx),
+    similar: (ctx) => loadSimilar(ctx),
+  };
+  function onSectionOpen(id) { const ctx = st.ctx; if (ctx && ctx.company && SECTION_HOOKS[id]) SECTION_HOOKS[id](ctx); }
+  function isSecOpenInDom(id) { const s = $body.querySelector(`.blk[data-sec="${id}"]`); return !!s && !s.classList.contains('closed') && !(s.closest('.rec') && s.closest('.rec').classList.contains('closed')); }
+
+  const extA = (url, text, cls, title) => `<a class="${cls}" href="${esc(url)}" data-act="ext" data-url="${esc(url)}"${title ? ` title="${esc(title)}"` : ''}>${text}${ICON.ext}</a>`;
+  const xi = (url, title, cls) => `<a class="xi ${cls || ''}" href="${esc(url)}" data-act="ext" data-url="${esc(url)}" title="${esc(title)}">${ICON.ext}</a>`;
+  const cv = (val, shown) => settings.clickCopy && val ? `<span class="cv" data-act="cp" data-copy="${esc(val)}" title="Click to copy">${shown != null ? shown : esc(val)}</span>` : (shown != null ? shown : esc(val));
+  const coUrl = (n) => `${CH_WEB}/company/${encodeURIComponent(n)}`;
+  const mapsUrl = (q) => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+  const docUrl = (n, id, dl) => `${CH_WEB}/company/${encodeURIComponent(n)}/filing-history/${encodeURIComponent(id)}/document?format=pdf&download=${dl ? 1 : 0}`;
+  /* A company reference: opens in the panel (blue, no arrow) plus ↗ to its CH page. */
+  function companyRef(num, name) {
+    if (!num) return esc(name);
+    if (!settings.chLinks) return esc(name);
+    return `<button class="lk-ch" data-act="open-co" data-num="${esc(num)}" title="Open ${esc(name)} in Prosper">${esc(name)}</button>${xi(coUrl(num), 'Companies House page (new tab)')}`;
+  }
+  /* A person reference: opens the person view in the panel (purple), ↗ to their CH officer page. */
+  function personRef(p) {
+    if (p.regNumber && settings.parentLinks) return companyRef(p.regNumber, p.name);
+    const chUrl = p.link ? CH_WEB + p.link : `${CH_WEB}/search/officers?q=${encodeURIComponent(p.name)}`;
+    if (!settings.peopleInPanel) return extA(chUrl, esc(p.name), 'lk-person', 'Companies House officer page (new tab)');
+    const inPanel = p.link
+      ? `<button class="lk-person" data-act="person" data-link="${esc(p.link)}" data-name="${esc(p.name)}" title="Show ${esc(p.name)}'s appointments">${esc(p.name)}</button>`
+      : `<button class="lk-person" data-act="person-search" data-name="${esc(p.name)}" title="Find ${esc(p.name)} on Companies House">${esc(p.name)}</button>`;
+    return inPanel + xi(chUrl, p.link ? 'Companies House officer page (new tab)' : 'Search Companies House officers (new tab)', 'p');
   }
 
   function linksSection(ctx) {
     if (!ctx) return '';
-    return `<div class="sec"><h4>Quick links <span class="ct">1-6, 0 opens all</span></h4><div class="links">${PROVIDERS.map((p, i) => `
-      <button class="lk" data-act="link" data-id="${p.id}" title="${esc(p.name)} (${i + 1})"><span class="fb" data-dom="${esc(p.fav)}" data-c="${p.c}">${esc(p.l)}</span><span class="nm">${esc(p.short || p.name)}</span><kbd>${i + 1}</kbd></button>`).join('')}
-    </div><div class="row mt6"><button class="btn sm" data-act="link-all">Open all (0)</button><span class="hint m0">${settings.background ? 'Opens in background tabs' : 'Opens in new tabs'}</span></div></div>`;
+    const body = `<div class="links">${PROVIDERS.map((p, i) => `
+      <button class="lk" data-act="link" data-id="${p.id}" title="${esc(p.name)} (${i + 1}), new tab"><span class="fb" data-dom="${esc(p.fav)}" data-c="${p.c}">${esc(p.l)}</span><span class="nm">${esc(p.short || p.name)}</span><kbd>${i + 1}</kbd></button>`).join('')}
+    </div><div class="row mt6"><button class="btn sm" data-act="link-all">Open all (0)</button><span class="hint m0">${settings.background ? 'Opens in background tabs' : 'Opens in new tabs'} · keys 1-6</span></div>`;
+    return blk('links', 'Quick links', { def: true, count: PROVIDERS.length, body });
   }
 
   function pickerHtml(ctx) {
@@ -1217,15 +1616,18 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
     if (!c || c.items.length < 2 || (!c.ambiguous && c.matched)) return '';
     const cur = ctx.company && ctx.company.number;
     const others = c.items.length - 1;
-    const stBadge = (s) => s === 'active' ? '<span class="badge g">Active</span>' : `<span class="badge r">${esc(label('company_status', s) || s || 'Unknown')}</span>`;
+    const stBadge = (s) => s === 'active' ? '<span class="badge">Active</span>' : `<span class="badge r">${esc(label('company_status', s) || s || 'Unknown')}</span>`;
     return `<details class="picker" ${c.ambiguous ? 'open' : ''}><summary><span>${c.ambiguous ? 'Not the right one? ' : ''}Other matches (${others})</span><span>${c.matched ? '' : 'best guess'}</span></summary>
       <div class="opts">${c.items.map((it) => `<button class="opt ${it.number === cur ? 'cur' : ''}" data-act="pick" data-num="${esc(it.number)}"><span class="n">${esc(titleCase(it.name))}
         <small>${esc(it.number)}${it.formerExact ? ' · formerly ' + esc(titleCase(it.formerly.find((f) => alphaKey(f) === c.qk) || '')) : ''}${it.address ? ' · ' + esc(it.address) : ''}</small></span>${stBadge(it.status)}</button>`).join('')}</div>
     </details>`;
   }
 
-  function renderCompany(ctx) {
+  /* ---------- company card ---------- */
+
+  function renderCompany(ctx, fresh) {
     const f = ctx.company;
+    const n = f.number;
     const vcls = f.verdict === 'ok' ? '' : f.verdict;
     const reasons = f.caution.concat(f.check);
     const also = f.also.slice();
@@ -1233,51 +1635,356 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
       const sibling = ctx.candidates.items.find((it) => it.number !== f.number && (it.exact || it.formerExact) && it.status !== 'active' && it.status !== 'dissolved');
       if (sibling) also.push(`${titleCase(sibling.name)} (${sibling.number}) also matches "${ctx.query}" and is ${label('company_status', sibling.status).toLowerCase()}: check you have the right company`);
     }
-    const statusBadge = f.status === 'active' ? 'g' : 'r';
     const ov = '<span class="ovd">OVERDUE</span>';
-    let html = `<div class="sec">
-      <div class="title">${esc(f.display)}</div>
-      <div class="sub">${esc(f.number)} · <span class="badge ${statusBadge}">${esc(f.statusLabel)}</span>${f.statusDetail ? ' <span class="badge r">' + esc(f.statusDetail) + '</span>' : ''}</div>
+    const nameHtml = settings.chLinks ? extA(f.url, esc(f.display), '', 'Companies House page (new tab)') : esc(f.display);
+    const numHtml = settings.chLinks ? extA(f.url, esc(n), 'lk-ch', 'Companies House page (new tab)') : cv(n);
+    let html = backBar() + `<div class="card hcard">
+      <div class="title">${nameHtml}</div>
+      <div class="sub">${numHtml} · <span class="badge ${f.status === 'active' ? '' : 'r'}">${esc(f.statusLabel)}</span>${f.statusDetail ? ' <span class="badge r">' + esc(f.statusDetail) + '</span>' : ''}</div>
       <div class="verdict ${vcls}"><div class="vl">${verdictLabel(f.verdict)}</div><div>${reasons.length ? `<ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : '<ul><li>Active, filings up to date, officers in place.</li></ul>'}
       ${also.length ? `<div class="also"><b>Also:</b> ${also.map(esc).join(' · ')}</div>` : ''}</div></div>
       <div class="hint">Quick check is based on Companies House data only.</div>
       ${pickerHtml(ctx)}
-    </div>
-    <div class="sec"><dl class="kv">
-      <dt>Type</dt><dd>${esc(f.type)}</dd>
-      <dt>Incorporated</dt><dd>${esc(fmtDate(f.created))} <span class="sub">(${esc(ageText(f.created))})</span></dd>
-      ${f.ceased ? `<dt>Ceased</dt><dd>${esc(fmtDate(f.ceased))}</dd>` : ''}
-      <dt>Registered office</dt><dd>${esc(f.address || 'Not available')}</dd>
-      <dt>SIC</dt><dd>${f.sic.length ? f.sic.map((s) => `<div>${esc(s.code)}${s.desc ? ' <span class="sub">' + esc(s.desc) + '</span>' : ''}</div>`).join('') : 'None listed'}</dd>
-      ${f.previousNames.length ? `<dt>Previous names</dt><dd>${f.previousNames.slice(0, 4).map((n) => `<div>${esc(n.name)} <span class="sub">until ${esc(fmtDate(n.to))}</span></div>`).join('')}${f.previousNames.length > 4 ? `<div class="sub">+${f.previousNames.length - 4} more</div>` : ''}</dd>` : ''}
-      <dt>Accounts</dt><dd>Last made up to ${esc(fmtDate(f.accounts.lastMadeUp) || 'none filed')}${f.accounts.lastType ? ' <span class="sub">(' + esc(f.accounts.lastType) + ')</span>' : ''}<br>Next due ${esc(fmtDate(f.accounts.nextDue) || 'n/a')}${f.accounts.overdue ? ov : ''}</dd>
-      <dt>Confirmation</dt><dd>Last ${esc(fmtDate(f.cs.last) || 'n/a')}<br>Next due ${esc(fmtDate(f.cs.nextDue) || 'n/a')}${f.cs.overdue ? ov : ''}</dd>
-      <dt>Charges</dt><dd>${f.charges.known ? (f.charges.total ? `${f.charges.outstanding} outstanding of ${f.charges.total}` : 'None registered') : 'Unknown'}</dd>
-    </dl>
-    <div class="row mt10">
-      <button class="btn sm" data-act="copy-num">Copy number</button>
-      <button class="btn sm" data-act="copy-addr">Copy address</button>
-      <button class="btn sm pri" data-act="copy-note">Copy HubSpot note</button>
-      <a class="btn sm ifc" href="${esc(f.url)}" data-act="ch-page" target="_blank" rel="noopener">CH page</a>
-    </div></div>`;
+      <div class="row mt10">
+        <button class="btn sm" data-act="copy-num">${ICON.copy}Copy number</button>
+        <button class="btn sm" data-act="copy-addr">${ICON.copy}Copy address</button>
+        <button class="btn sm pri" data-act="copy-note">${ICON.copy}Copy HubSpot note</button>
+      </div></div>`;
 
-    if (f.insolvency.length) {
-      html += `<div class="sec"><h4>Insolvency <span class="ct">${f.insolvency.length} case${f.insolvency.length === 1 ? '' : 's'}</span></h4><ul class="list">${f.insolvency.map((c) => `<li><span class="n">${esc(c.type)}<small>${esc(c.dates)}</small></span></li>`).join('')}</ul></div>`;
-    }
-    html += `<div class="sec"><h4>Current officers <span class="ct">${f.officersKnown ? f.officers.length : '?'}</span></h4>${f.officers.length ? `<ul class="list">${f.officers.slice(0, 12).map((o) => `<li><span class="n">${esc(o.name)}<small>${esc(o.role)}</small></span><span class="m">since ${esc(fmtDate(o.appointed))}</span></li>`).join('')}</ul>${f.officers.length > 12 ? `<div class="hint">+${f.officers.length - 12} more on Companies House</div>` : ''}` : `<div class="sub">${f.officersKnown ? 'No current officers listed.' : 'Officer list unavailable.'}</div>`}</div>`;
-    html += `<div class="sec"><h4>Last 12 months <span class="ct">${f.recent.length} change${f.recent.length === 1 ? '' : 's'}</span></h4>${f.recent.length ? `<ul class="list">${f.recent.slice(0, 10).map((r) => `<li><span class="n">${esc(r.text)}</span><span class="m">${esc(fmtDate(r.date))}</span></li>`).join('')}</ul>` : '<div class="sub">No officer or name changes.</div>'}</div>`;
-    html += `<div class="sec"><h4>People with significant control <span class="ct">${f.pscs.length}</span></h4>${f.pscs.length ? `<ul class="list">${f.pscs.map((p) => `<li><span class="n">${esc(p.name)}<small>${esc(p.kind)}${p.control ? ' · ' + esc(p.control) : ''}</small></span></li>`).join('')}</ul>` : `<div class="sub">${f.pscKnown ? 'None listed (may be exempt or a statement filed).' : 'Not available.'}</div>`}</div>`;
-    html += `<div class="sec brief" data-sec="brief">${briefHtml(ctx)}</div>`;
+    const secs = [];
+    // Overview
+    const mapOn = ctx.mapOpen != null ? ctx.mapOpen : !!settings.inlineMap;
+    const addr = f.address
+      ? (settings.addrMaps ? extA(mapsUrl(f.address), esc(f.address), 'lk-place', 'Open in Google Maps (new tab)') : cv(f.address))
+        + ` <button class="chip pl${mapOn ? ' on' : ''}" data-act="map-toggle" title="${mapOn ? 'Hide' : 'Show'} map here">${ICON.map}${mapOn ? 'Hide map' : 'Map'}</button>`
+        + (mapOn ? `<div class="map" data-map="${esc(f.address)}"></div>` : '')
+      : 'Not available';
+    secs.push(blk('overview', 'Overview', { def: true, href: settings.chLinks ? f.url : '', body: `<dl class="kv">
+      <dt>Number</dt><dd>${cv(n)}</dd>
+      <dt>Type</dt><dd>${cv(f.type)}</dd>
+      <dt>Incorporated</dt><dd>${cv(fmtDate(f.created))} <span class="sub">(${esc(ageText(f.created))})</span></dd>
+      ${f.ceased ? `<dt>Ceased</dt><dd>${cv(fmtDate(f.ceased))}</dd>` : ''}
+      <dt>Registered office</dt><dd>${addr}</dd>
+      <dt>SIC</dt><dd>${f.sic.length ? f.sic.map((s) => `<div>${cv(s.code)}${s.desc ? ' <span class="sub">' + esc(s.desc) + '</span>' : ''}</div>`).join('') : 'None listed'}</dd>
+      ${f.previousNames.length ? `<dt>Previous names</dt><dd>${f.previousNames.slice(0, 4).map((x) => `<div>${cv(x.name)} <span class="sub">until ${esc(fmtDate(x.to))}</span></div>`).join('')}${f.previousNames.length > 4 ? `<div class="sub">+${f.previousNames.length - 4} more</div>` : ''}</dd>` : ''}
+    </dl>` }));
+    // Filing deadlines
+    const overdue = (f.accounts.overdue ? 1 : 0) + (f.cs.overdue ? 1 : 0);
+    secs.push(blk('deadlines', 'Filing deadlines', { def: true, force: overdue > 0, count: overdue ? `${overdue} overdue` : 'On time', countCls: overdue ? 'bad' : '', body: `<dl class="kv">
+      <dt>Accounts</dt><dd>Last made up to ${cv(fmtDate(f.accounts.lastMadeUp) || 'none filed')}${f.accounts.lastType ? ' <span class="sub">(' + esc(f.accounts.lastType) + ')</span>' : ''}<br>Next due ${cv(fmtDate(f.accounts.nextDue) || 'n/a')}${f.accounts.overdue ? ov : ''}</dd>
+      <dt>Confirmation</dt><dd>Last ${cv(fmtDate(f.cs.last) || 'n/a')}<br>Next due ${cv(fmtDate(f.cs.nextDue) || 'n/a')}${f.cs.overdue ? ov : ''}</dd>
+    </dl>` }));
+    // Officers
+    secs.push(blk('officers', 'Officers', { def: true, href: `${f.url}/officers`, count: f.officersKnown ? f.officers.length : '?', body: officersHtml(ctx) }));
+    // Recent officer changes
+    secs.push(blk('changes', 'Recent officer changes', { def: false, count: f.recent.length, body: f.recent.length ? `<ul class="list">${f.recent.slice(0, 10).map((r) => `<li><span class="n">${esc(r.text)}</span><span class="m">${esc(fmtDate(r.date))}</span></li>`).join('')}</ul><div class="hint">Last 12 months: appointments, resignations, name changes.</div>` : '<div class="sub">No officer or name changes in the last 12 months.</div>' }));
+    // PSC
+    secs.push(blk('psc', 'People with significant control', { def: false, href: `${f.url}/persons-with-significant-control`, count: f.pscKnown ? f.pscs.length : '?', body: pscHtml(f) }));
+    // Charges & insolvency
+    const insolv = f.insolvency.length || f.hasInsolvency;
+    const ccount = [f.charges.total ? `${f.charges.outstanding} outstanding` : '', insolv ? 'insolvency' : ''].filter(Boolean).join(' · ') || 'None';
+    secs.push(blk('charges', 'Charges & insolvency', { def: false, force: f.charges.outstanding > 0 || !!insolv, href: `${f.url}/charges`, count: ccount, countCls: insolv ? 'bad' : f.charges.outstanding ? 'warn' : '', body: chargesHtml(f) }));
+    // Filings
+    secs.push(blk('filings', 'Recent filings', { def: false, href: `${f.url}/filing-history`, count: f.filingsKnown ? f.filingsTotal : '?', body: filingsListHtml(f, ctx) }));
+    // Similar companies nearby (lazy)
+    if (settings.similar && f.sicCodes.length && f.postcode) secs.push(blk('similar', 'Similar companies nearby', { def: false, count: ctx.similar && ctx.similar.items ? ctx.similar.items.length : '', body: similarHtml(ctx) }));
+
+    const recOpen = secOpen('record', !settings.collapseRecord);
+    html += `<section class="rec blk${recOpen ? '' : ' closed'}" data-sec="record">
+      <div class="bh" data-act="tog" role="button" tabindex="0" aria-expanded="${recOpen}"><span class="bt">Companies House record</span><span class="sp"></span><span class="cnt">${secs.length} sections</span><span class="chev">${ICON.chev}</span></div>
+      <div class="bb"><div class="bi"><div class="bc rc">${secs.join('')}</div></div></div></section>`;
+    html += blk('brief', 'AI brief', { def: true, cls: 'brief', body: `<div data-sec-body="brief">${briefHtml(ctx)}</div>` });
     html += linksSection(ctx);
-    $body.innerHTML = html;
-    $body.scrollTop = 0;
+    setBody(html, fresh);
+    if (fresh) $body.scrollTop = 0;
     wireFavicons();
+    mountMaps();
+    for (const id of Object.keys(SECTION_HOOKS)) if (isSecOpenInDom(id)) onSectionOpen(id);
   }
 
+  function officersHtml(ctx) {
+    const f = ctx.company;
+    if (!f.officers.length) return `<div class="sub">${f.officersKnown ? 'No current officers listed.' : 'Officer list unavailable.'}</div>`;
+    return `<ul class="list">${f.officers.slice(0, 12).map((o) => `<li class="hov"><span class="n">${personRef(o)}<small>${esc(o.role)}</small>${rolesSlot(ctx, o)}</span><span class="m">since ${cv(fmtDate(o.appointed))}</span></li>`).join('')}</ul>
+      ${f.officers.length > 12 ? `<div class="hint">+${f.officers.length - 12} more on Companies House</div>` : ''}`;
+  }
+  /* Other directorships at a glance: count chip per officer (loaded lazily when Officers is open), click for the list. */
+  function rolesSlot(ctx, o) {
+    if (!settings.otherRoles || !o.link || o.regNumber) return '';
+    const r = ctx.roles && ctx.roles[o.link];
+    let chip;
+    if (!r) chip = '<span class="chip" aria-busy="true"><span class="spin"></span></span>';
+    else if (r.error) chip = '<span class="chip" title="Could not load appointments">roles ?</span>';
+    else if (!r.others.length) chip = '<span class="chip">No other active roles</span>';
+    else chip = `<button class="chip${ctx.rolesOpen[o.link] ? ' on' : ''}" data-act="roles" data-link="${esc(o.link)}">+${r.others.length} other active role${r.others.length === 1 ? '' : 's'}</button>`;
+    const list = r && !r.error && r.others.length && ctx.rolesOpen[o.link]
+      ? `<div class="roles">${r.others.slice(0, 10).map((a) => `<div>${companyRef(a.number, a.company)} <span class="m">${esc(a.role)}</span></div>`).join('')}${r.others.length > 10 ? `<div class="m">+${r.others.length - 10} more</div>` : ''}</div>` : '';
+    return `<div class="mt4" data-roles="${esc(o.link)}">${chip}${list}</div>`;
+  }
+  async function loadRoles(ctx) {
+    if (!settings.otherRoles || !ctx.company || ctx.rolesBusy) return;
+    const f = ctx.company;
+    const todo = f.officers.slice(0, 12).filter((o) => o.link && !o.regNumber && !ctx.roles[o.link]);
+    if (!todo.length) return;
+    ctx.rolesBusy = true;
+    const one = async (o) => {
+      try {
+        const items = await loadAppointments(o.link);
+        ctx.roles[o.link] = { others: items.filter((a) => a.number !== f.number && !a.resigned && (!a.status || a.status === 'active')) };
+      } catch (e) { ctx.roles[o.link] = { error: e.code || e.message }; }
+      if (st.ctx === ctx) refreshRoles(ctx, o);
+    };
+    const queue = todo.slice();
+    await Promise.all([0, 1, 2].map(async () => { while (queue.length) await one(queue.shift()); }));
+    ctx.rolesBusy = false;
+  }
+  function refreshRoles(ctx, o) {
+    $body.querySelectorAll('[data-roles]').forEach((el) => { if (el.dataset.roles === o.link) el.outerHTML = rolesSlot(ctx, o); });
+  }
+
+  function pscHtml(f) {
+    if (!f.pscs.length) return `<div class="sub">${f.pscKnown ? 'None listed (may be exempt or a statement filed).' : 'Not available.'}</div>`;
+    return `<ul class="list">${f.pscs.map((p) => {
+      let nm;
+      if (p.kind === 'Company') nm = p.regNumber && settings.parentLinks ? companyRef(p.regNumber, p.name) : esc(p.name);
+      else if (p.kind === 'Individual') nm = personRef({ name: p.name, link: p.officerLink });
+      else nm = esc(p.name);
+      const sub = [p.kind === 'Company' && p.regNumber ? 'Parent company' : p.kind, p.control].filter(Boolean).join(' · ');
+      return `<li class="hov"><span class="n">${nm}<small>${esc(sub)}${p.regText ? '<br>' + esc(p.regText) : ''}</small></span><span class="m">${p.notified ? 'since ' + esc(fmtDate(p.notified)) : ''}</span></li>`;
+    }).join('')}</ul>`;
+  }
+  function chargesHtml(f) {
+    let h = '';
+    const insLink = settings.chLinks ? ' · ' + extA(`${f.url}/insolvency`, 'Insolvency on Companies House', 'lk-ch" data-ins="1', 'Insolvency on Companies House (new tab)') : '';
+    if (f.insolvency.length) h += `<div class="sub mb8"><b>Insolvency</b> · ${f.insolvency.length} case${f.insolvency.length === 1 ? '' : 's'}${insLink}</div><ul class="list">${f.insolvency.map((c) => `<li><span class="n">${esc(c.type)}<small>${esc(c.dates)}${c.practitioners.length ? '<br>Practitioners: ' + esc(c.practitioners.join(', ')) : ''}</small></span></li>`).join('')}</ul>`;
+    else if (f.hasInsolvency) h += `<div class="sub mb8">Has insolvency history (details unavailable)${insLink}.</div>`;
+    const cl = f.charges.list || [];
+    if (f.charges.total) {
+      const sorted = cl.slice().sort((a, b) => (b.outstanding - a.outstanding) || (a.created < b.created ? 1 : -1));
+      h += `<div class="sub ${h ? 'mt10 ' : ''}mb8"><b>Charges</b> · ${f.charges.outstanding} outstanding of ${f.charges.total}${f.charges.partSatisfied ? ', ' + f.charges.partSatisfied + ' part satisfied' : ''}</div>
+        <ul class="list">${sorted.slice(0, 10).map((c) => `<li><span class="n">${esc(c.entitled || c.what)}<small>${esc(c.what)} · created ${esc(fmtDate(c.created))}</small></span><span class="m"><span class="badge ${c.outstanding ? 'w' : ''}">${esc(c.status.replace(/-/g, ' ') || 'unknown')}</span></span></li>`).join('')}</ul>
+        ${cl.length > 10 || f.charges.total > cl.length ? `<div class="hint">Showing ${Math.min(10, cl.length)} of ${f.charges.total}.</div>` : ''}`;
+    } else if (!h) h = `<div class="sub">${f.charges.known ? 'No charges registered.' : 'Charges unknown.'}</div>`;
+    return h;
+  }
+  function filingsListHtml(f, ctx, cur) {
+    if (!f.filings.length) return `<div class="sub">${f.filingsKnown ? 'No filings.' : 'Filing history unavailable.'}</div>`;
+    const list = ctx && ctx.kind === 'filings' ? f.filings : f.filings.slice(0, 10);
+    const rows = list.map((x, i) => `<li class="hov${cur === i ? ' cur' : ''}" data-act="filing" data-i="${i}" title="${x.meta ? 'Open document' : 'No document image; opens filing history'}"><span class="n"><span class="ty">${esc(x.type)}</span>${esc(x.text)}<small>${esc(fmtDate(x.date))}${x.pages ? ' · ' + x.pages + ' page' + (x.pages === 1 ? '' : 's') : ''}${x.meta ? '' : ' · no document'}</small></span>${x.meta ? xi(docUrl(f.number, x.id), 'Open PDF (new tab)') : ''}</li>`).join('');
+    const more = ctx && ctx.kind !== 'filings' && f.filings.length > 10 ? `<div class="row mt6"><button class="btn sm" data-act="filings-all">${ICON.doc}View all ${f.filingsTotal} filings</button></div>` : '';
+    return `<ul class="list fl">${rows}</ul>${more}`;
+  }
+
+  /* ---------- similar companies nearby (CH advanced search; lazy, cached) ---------- */
+  function similarHtml(ctx) {
+    const s = ctx.similar;
+    if (!s || s.loading) return '<div class="skel w75"></div><div class="skel w60"></div><div class="skel w82"></div>';
+    if (s.error) return `<div class="sub">Could not load (${esc(s.error)}).</div>`;
+    if (!s.items.length) return '<div class="sub">No other active companies with the same SIC code nearby.</div>';
+    return `<ul class="list">${s.items.map((c) => `<li class="hov"><span class="n">${companyRef(c.number, c.name)}<small>${esc(c.postcode)}${c.created ? ' · since ' + esc(fmtDate(c.created).replace(/^\d+ /, '')) : ''}</small></span></li>`).join('')}</ul>
+      <div class="hint">Active companies with SIC ${esc(s.sic)} registered in ${esc(s.area)}.</div>`;
+  }
+  async function loadSimilar(ctx) {
+    if (!settings.similar || ctx.similar) return;
+    const f = ctx.company;
+    ctx.similar = { loading: true };
+    const sic = f.sicCodes.filter((c) => c !== '99999').slice(0, 2).join(',');
+    const outward = String(f.postcode || '').toUpperCase().split(' ')[0];
+    try {
+      if (!sic) throw new PErr('nosic', 'no SIC code');
+      const q = (loc) => ch(`/advanced-search/companies?sic_codes=${encodeURIComponent(sic)}&location=${encodeURIComponent(loc)}&company_status=active&size=15`);
+      let area = outward, r = outward ? await q(outward) : null;
+      let items = ((r && r.items) || []).filter((c) => c.company_number !== f.number);
+      if (items.length < 3 && f.locality) { const r2 = await q(f.locality); const more = ((r2 && r2.items) || []).filter((c) => c.company_number !== f.number && !items.some((x) => x.company_number === c.company_number)); items = items.concat(more); area = outward ? outward + ' / ' + f.locality : f.locality; }
+      ctx.similar = { sic, area, items: items.slice(0, 10).map((c) => ({ number: c.company_number, name: titleCase(c.company_name), postcode: (c.registered_office_address || {}).postal_code || '', created: c.date_of_creation })) };
+    } catch (e) { ctx.similar = { error: e.code || e.message }; }
+    if (st.ctx !== ctx) return;
+    const sec = $body.querySelector('.blk[data-sec="similar"]');
+    if (sec) {
+      sec.querySelector('.bc').innerHTML = similarHtml(ctx);
+      const c = sec.querySelector('[data-cnt]'); const n = ctx.similar.items ? String(ctx.similar.items.length) : '';
+      if (c) c.textContent = n; else if (n) sec.querySelector('.sp').insertAdjacentHTML('afterend', `<span class="cnt new" data-cnt="similar">${n}</span>`);
+    }
+  }
+
+  /* ---------- inline map (Google Maps embed; falls back to a link when the page CSP blocks frames) ---------- */
+  const frameWatch = new Set();
+  function onCspViolation(e) {
+    try {
+      const u = String(e.blockedURI || '');
+      if (!/frame|child|default/.test(e.violatedDirective || e.effectiveDirective || '')) return;
+      for (const w of Array.from(frameWatch)) if (w.match(u)) w.fail('blocked by this page\'s security policy');
+    } catch (err) { /* ignore */ }
+  }
+  function watchFrame(iframe, matchFn, onFail, onOk, ms) {
+    const w = { done: false, match: matchFn, fail: (why) => { if (w.done === 'fail') return; w.done = 'fail'; clearTimeout(w.t); frameWatch.delete(w); onFail(why); } };
+    frameWatch.add(w);
+    w.t = setTimeout(() => { if (!w.done) w.fail('did not load'); }, ms || 10000);
+    iframe.addEventListener('load', () => { setTimeout(() => { if (!w.done) { w.done = 'ok'; clearTimeout(w.t); onOk && onOk(); setTimeout(() => frameWatch.delete(w), 3000); } }, 500); });
+    iframe.addEventListener('error', () => w.fail('failed to load'));
+    return w;
+  }
+  function mountMaps() {
+    $body.querySelectorAll('.map[data-map]:not([data-mounted])').forEach((box) => {
+      box.setAttribute('data-mounted', '1');
+      const q = box.dataset.map;
+      const f = document.createElement('iframe');
+      f.title = 'Map of ' + q; f.loading = 'lazy'; f.referrerPolicy = 'no-referrer-when-downgrade';
+      f.src = 'https://maps.google.com/maps?q=' + encodeURIComponent(q) + '&output=embed';
+      box.appendChild(f);
+      watchFrame(f, (u) => /google\./.test(u) || u === 'frame-src' || !u, (why) => {
+        box.classList.add('fail'); box.setAttribute('data-state', 'fail');
+        box.insertAdjacentHTML('beforeend', `<div class="mmsg">Map can't be shown here (${esc(why)}). ${extA(mapsUrl(q), 'Open in Google Maps', 'lk-place')}</div>`);
+      }, () => box.setAttribute('data-state', 'ok'));
+    });
+  }
+
+  /* ---------- filings viewer ---------- */
+  function openFilings(idx) {
+    const parent = st.ctx; if (!parent || !parent.company) return;
+    pushNav();
+    st.ctx = { kind: 'filings', company: parent.company, idx: Math.max(0, idx || 0), blobs: {}, det: parent.det, query: parent.query, domain: parent.domain };
+    st.req++;
+    renderFilings(st.ctx, true);
+  }
+  function renderFilings(ctx, fresh) {
+    const f = ctx.company, x = f.filings[ctx.idx];
+    const total = f.filingsTotal || f.filings.length;
+    const head = `${backBar()}<div class="card">
+      <div class="row jsb"><div class="sub">Filing history · ${companyRef(f.number, f.display)}</div></div>
+      <div class="pager mt8"><button class="btn sm" data-act="f-prev" ${ctx.idx <= 0 ? 'disabled' : ''} title="Previous">${ICON.back}</button><span class="pos">${ctx.idx + 1} of ${total}</span><button class="btn sm" data-act="f-next" ${ctx.idx >= total - 1 ? 'disabled' : ''} title="Next">${ICON.next}</button></div>
+      ${x ? `<div class="title mt10">${esc(x.text)}</div><div class="sub"><span class="fl"><span class="ty">${esc(x.type)}</span></span>${cv(fmtDate(x.date))}${x.pages ? ' · ' + x.pages + ' page' + (x.pages === 1 ? '' : 's') : ''} · ${esc(x.category)}</div>
+      <div class="row mt10">${x.meta ? `<a class="btn sm" href="${esc(docUrl(f.number, x.id))}" data-act="ext" data-url="${esc(docUrl(f.number, x.id))}">Open in new tab${ICON.ext}</a>
+        <button class="btn sm" data-act="f-dl">${ICON.dl}Download</button><button class="btn sm" data-act="f-share">${ICON.share}Share</button>` : extA(`${f.url}/filing-history`, 'Filing history', 'btn sm')}</div>
+      <div class="pdf" data-pdf="${esc(x.id)}">${x.meta ? '<div class="mmsg"><span class="spin"></span>&nbsp; Loading document...</div>' : '<div class="mmsg">No document image is available for this filing.</div>'}</div>` : ''}
+    </div>`;
+    const more = f.filings.length < total ? `<div class="row mt6"><button class="btn sm" data-act="f-more">Load more (${f.filings.length} of ${total})</button></div>` : '';
+    setBody(head + `<div class="card"><div class="sub mb8"><b>All filings</b></div><div class="vlist">${filingsListHtml(f, ctx, ctx.idx)}</div>${more}</div>`, fresh);
+    const cur = $body.querySelector('.vlist li.cur'); if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: 'nearest' });
+    if (x && x.meta) showDoc(ctx, x);
+  }
+  async function fetchDoc(ctx, x) {
+    if (ctx.blobs[x.id]) return ctx.blobs[x.id];
+    const r = await chRequest(x.meta + '/content', null, { accept: 'application/pdf', responseType: 'arraybuffer', timeout: 45000 });
+    if (r.status !== 200 || !r.response) throw new PErr('doc', 'HTTP ' + r.status + (r.error ? ' ' + r.error : ''), r.status);
+    let u8 = new Uint8Array(r.response);
+    // With an Origin header (our Firefox workaround) the document API answers 200 with the signed S3 URL instead of a 302.
+    if (u8.length && String.fromCharCode(u8[0], u8[1], u8[2], u8[3]) !== '%PDF') {
+      let txt = ''; try { txt = new TextDecoder().decode(u8.slice(0, 4000)); } catch (e) { /* ignore */ }
+      const m = /https:\/\/[^\s"'<>]+/.exec(txt);
+      if (m && /^https:\/\/([a-z0-9.-]+\.)?amazonaws\.com\//.test(m[0])) {
+        const r2 = await xhr({ url: m[0].replace(/\\u0026/g, '&'), responseType: 'arraybuffer', anonymous: true, timeout: 45000, quiet: true });
+        if (r2.status !== 200 || !r2.response) throw new PErr('doc', 'document store HTTP ' + r2.status + (r2.error ? ' ' + r2.error : ''), r2.status);
+        u8 = new Uint8Array(r2.response);
+      }
+    }
+    if (u8.length < 5 || String.fromCharCode(u8[0], u8[1], u8[2], u8[3]) !== '%PDF') throw new PErr('doc', 'not a PDF (' + u8.length + ' bytes)');
+    const blob = new Blob([u8], { type: 'application/pdf' });
+    const name = `${ctx.company.number}_${x.type}_${x.date}.pdf`.replace(/[^\w.-]+/g, '_');
+    return (ctx.blobs[x.id] = { blob, url: URL.createObjectURL(blob), name, size: u8.length });
+  }
+  async function showDoc(ctx, x) {
+    const box = () => $body.querySelector(`.pdf[data-pdf="${x.id}"]`);
+    let d;
+    try { d = await fetchDoc(ctx, x); }
+    catch (e) {
+      if (st.ctx !== ctx || !box()) return;
+      box().setAttribute('data-state', 'fail');
+      box().innerHTML = `<div class="mmsg">Could not load the document in the panel (${esc(e.message || e.code)}). ${extA(docUrl(ctx.company.number, x.id), 'Open it on Companies House', 'lk-ch')}</div>`;
+      return;
+    }
+    if (st.ctx !== ctx || !box()) return;
+    const el = box(); el.innerHTML = ''; el.setAttribute('data-size', String(d.size));
+    if (navigator.pdfViewerEnabled === false) {
+      el.setAttribute('data-state', 'noviewer');
+      el.innerHTML = `<div class="mmsg">Document ready (${Math.round(d.size / 1024)} KB). This browser has its built-in PDF viewer turned off, so use Open in new tab or Download.</div>`;
+      return;
+    }
+    const fr = document.createElement('iframe'); fr.title = x.text; fr.src = d.url + '#view=FitH';
+    el.appendChild(fr);
+    watchFrame(fr, (u) => /^blob/.test(u) || !u, (why) => {
+      el.setAttribute('data-state', 'fail');
+      if (why === 'did not load') { el.insertAdjacentHTML('beforeend', '<div class="mmsg">If the document does not appear, use Open in new tab or Download.</div>'); return; }
+      fr.remove();
+      el.innerHTML = `<div class="mmsg">This page doesn't allow embedded documents (${esc(why)}). Use Open in new tab or Download.</div>`;
+    }, () => el.setAttribute('data-state', 'ok'), 12000);
+  }
+  function docDownload(btn) {
+    const ctx = st.ctx; const x = ctx.company.filings[ctx.idx]; if (!x) return;
+    const d = ctx.blobs[x.id];
+    if (!d) { openTab(docUrl(ctx.company.number, x.id, true), false); return; }
+    const a = document.createElement('a'); a.href = d.url; a.download = d.name; a.rel = 'noopener';
+    sroot.appendChild(a); a.click(); a.remove();
+    st.lastDownload = d.name;
+    confirmCopy(btn); if (btn) { btn.innerHTML = ICON.check + 'Saved'; }
+  }
+  async function docShare(btn) {
+    const ctx = st.ctx; const x = ctx.company.filings[ctx.idx]; if (!x) return;
+    const url = docUrl(ctx.company.number, x.id);
+    const title = `${ctx.company.display}: ${x.text} (${fmtDate(x.date)})`;
+    const d = ctx.blobs[x.id];
+    try {
+      if (navigator.share) {
+        if (d && navigator.canShare && typeof File === 'function') {
+          const file = new File([d.blob], d.name, { type: 'application/pdf' });
+          if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title }); return; }
+        }
+        await navigator.share({ title, url }); return;
+      }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    copyFrom(btn, url, 'Link copied');
+  }
+  async function loadMoreFilings() {
+    const ctx = st.ctx; const f = ctx.company;
+    try {
+      const r = await ch(`/company/${f.number}/filing-history?items_per_page=25&start_index=${f.filings.length}`);
+      const add = ((r && r.items) || []).map((x) => ({ id: x.transaction_id, date: x.date, type: x.type, category: x.category || '', pages: x.pages || 0, text: filingText(x), meta: (x.links && x.links.document_metadata) || '' }));
+      if (!add.length) f.filingsTotal = f.filings.length;
+      f.filings.push(...add);
+    } catch (e) { showToast('Could not load more filings'); }
+    if (st.ctx === ctx) renderFilings(ctx);
+  }
+  function onFilingRow(i) {
+    const ctx = st.ctx; if (!ctx || !ctx.company) return;
+    const f = ctx.company, x = f.filings[i]; if (!x) return;
+    if (ctx.kind === 'filings') { ctx.idx = i; return renderFilings(ctx); }
+    const mode = settings.filingOpen;
+    if (mode === 'viewer') return openFilings(i);
+    if (mode === 'tab' && x.meta) return openTab(docUrl(f.number, x.id));
+    openTab(`${f.url}/filing-history`);
+  }
+
+  /* ---------- person view (officer appointments) ---------- */
+  async function openPerson(link, name) {
+    pushNav();
+    const ctx = st.ctx = { kind: 'person', link, name, data: null, det: { mode: 'person', type: 'person', raw: name, label: 'Person' }, query: name, raw: name };
+    const req = ++st.req;
+    renderPersonView(ctx, true);
+    try { ctx.data = await loadAppointmentsFull(link); } catch (e) { ctx.error = e; }
+    if (req === st.req) renderPersonView(ctx, true);
+  }
+  function renderPersonView(ctx, fresh) {
+    const d = ctx.data;
+    const chUrl = CH_WEB + ctx.link;
+    let h = backBar() + `<div class="card pv"><h3>${esc((d && d.name) || ctx.name)}</h3>
+      <div class="sub">${d && d.dob ? 'Born ' + esc(d.dob) + ' · ' : ''}Companies House officer ${xi(chUrl, 'Companies House officer page (new tab)', 'p')}</div>`;
+    if (!d && !ctx.error) return setBody(h + '<div class="skel w60 mt10"></div><div class="skel w85"></div></div><div class="card skc"><div class="skel w75"></div><div class="skel w90"></div><div class="skel w60"></div></div>', fresh);
+    if (ctx.error) return setBody(h + `</div><div class="err">Could not load appointments (${esc(ctx.error.code || ctx.error.message)}).</div>`, fresh);
+    const active = d.items.filter((a) => !a.resigned), past = d.items.filter((a) => a.resigned);
+    h += `<div class="stat"><span class="cnt">${d.total} appointment${d.total === 1 ? '' : 's'}</span><span class="cnt">${active.length} current</span>${past.length ? `<span class="cnt">${past.length} resigned</span>` : ''}</div>
+      <div class="row mt10">${extA(chUrl, 'Officer page', 'btn sm', 'Companies House officer page (new tab)')}<button class="btn sm" data-act="cp" data-copy="${esc((d && d.name) || ctx.name)}">${ICON.copy}Copy name</button></div></div>`;
+    const row = (a) => `<li class="hov"><span class="n">${companyRef(a.number, a.company)}<small>${esc(a.role)} · appointed ${esc(fmtDate(a.appointed))}${a.resigned ? ' · resigned ' + esc(fmtDate(a.resigned)) : ''}</small></span><span class="m">${a.status && a.status !== 'active' ? `<span class="badge r">${esc(label('company_status', a.status))}</span>` : ''}</span></li>`;
+    h += blk('p-current', 'Current appointments', { def: true, count: active.length, body: active.length ? `<ul class="list">${active.map(row).join('')}</ul>` : '<div class="sub">None.</div>' });
+    if (past.length) h += blk('p-past', 'Resigned', { def: false, count: past.length, body: `<ul class="list">${past.map(row).join('')}</ul>` });
+    if (d.total > d.items.length) h += `<div class="hint">Showing ${d.items.length} of ${d.total}; see the officer page for all.</div>`;
+    setBody(h, fresh);
+  }
+
+  /* ---------- AI brief ---------- */
   function briefHtml(ctx) {
     const b = ctx.brief, s = st.briefState;
     const model = MODELS[settings.model] ? settings.model : DEFAULTS.model;
-    let h = `<h4>AI brief <span class="ct">${esc(MODELS[model].label.replace(/\s*\(.*\)$/, ''))} + web search</span></h4>`;
+    let h = `<div class="sub mb8">${esc(MODELS[model].label.replace(/\s*\(.*\)$/, ''))} + web search</div>`;
     if (s && s.loading) return h + '<div class="sub"><span class="spin"></span>&nbsp; Researching (usually 10-30s)...</div><div class="skel w90"></div><div class="skel w75"></div><div class="skel w82"></div>';
     if (s && s.error) {
       const needKey = s.error.code === 'cl-nokey' || s.error.code === 'cl-401';
@@ -1292,18 +1999,17 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
         <div class="row"><button class="btn sm pri" data-act="brief">Generate brief</button><span class="hint m0">about $${est.toFixed(3)} per brief</span></div>`;
     }
     h += b.what.map((w) => `<p>${esc(w)}</p>`).join('');
-    h += `<h5>Recent signals</h5>${b.signals.length ? `<ul>${b.signals.map((x) => `<li>${esc(x.text)}${x.date ? ' <span class="sub">' + esc(x.date) + '</span>' : ''}${x.url ? ` <a href="${esc(x.url)}" target="_blank" rel="noopener">source</a>` : ''}</li>`).join('')}</ul>` : '<div class="sub">Nothing reliable found.</div>'}`;
+    h += `<h5>Recent signals</h5>${b.signals.length ? `<ul>${b.signals.map((x) => `<li>${esc(x.text)}${x.date ? ' <span class="sub">' + esc(x.date) + '</span>' : ''}${x.url ? ' ' + extA(x.url, 'source', 'lk-ch') : ''}</li>`).join('')}</ul>` : '<div class="sub">Nothing reliable found.</div>'}`;
     h += `<h5>Talking points</h5><ul>${b.talking.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`;
-    if (b.sources.length) h += `<h5>Sources</h5><div class="src">${b.sources.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener" title="${esc(x.title || x.url)}">${esc(x.title || x.url)}</a>`).join('')}</div>`;
+    if (b.sources.length) h += `<h5>Sources</h5><div class="src">${b.sources.map((x) => `<a href="${esc(x.url)}" data-act="ext" data-url="${esc(x.url)}" title="${esc(x.title || x.url)}">${esc(x.title || x.url)}</a>`).join('')}</div>`;
     const when = b.cachedAt ? `cached ${Math.max(1, Math.round((Date.now() - b.cachedAt) / 60000))} min ago` : 'just now';
     h += `<div class="cost">${b.estPrice ? 'Estimated' : 'Cost'} $${b.cost.toFixed(4)} · ${b.usage.input.toLocaleString()} in / ${b.usage.output.toLocaleString()} out tokens · ${b.usage.searches} search${b.usage.searches === 1 ? '' : 'es'} · ${when}${b.confidence ? ' · confidence ' + esc(b.confidence) : ''}</div>
       <div class="row mt6"><button class="btn sm" data-act="brief-regen">Regenerate</button></div>`;
     return h;
   }
-  function rerenderBrief() { const el = $body.querySelector('[data-sec=brief]'); if (el && st.ctx) el.innerHTML = briefHtml(st.ctx); }
-
+  function rerenderBrief() { const el = $body.querySelector('[data-sec-body=brief]'); if (el && st.ctx) el.innerHTML = briefHtml(st.ctx); }
   async function doBrief(force) {
-    const ctx = st.ctx; if (!ctx || !ctx.company) return;
+    const ctx = st.ctx; if (!ctx || !ctx.company || ctx.kind) return;
     if (st.briefState && st.briefState.loading) return;
     st.briefState = { loading: true }; rerenderBrief();
     try {
@@ -1314,16 +2020,18 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
     rerenderBrief();
   }
 
+  /* ---------- officer name search (person mode) ---------- */
   function renderPerson(ctx) {
     const list = ctx.officers || [];
     if (!list.length) {
-      $body.innerHTML = `<div class="state"><b>No officers found</b>No Companies House officers match "${esc(ctx.query)}".<br><button class="btn" data-act="as-company">Search as company</button></div>${linksSection(ctx)}`;
+      setBody(`${backBar()}<div class="card state"><b>No officers found</b>No Companies House officers match "${esc(ctx.query)}".<br><button class="btn" data-act="as-company">Search as company</button></div>${linksSection(ctx)}`, true);
+      wireFavicons();
       return;
     }
-    $body.innerHTML = `<div class="sec"><h4>Officers matching "${esc(ctx.query)}" <span class="ct">${list.length}</span></h4>
-      ${list.map((o, i) => `<div class="off" data-off="${i}"><div class="on"><b>${esc(officerName(o.name.replace(/^(.*) ([A-Z'\-]+)$/, '$2, $1')) || o.name)}</b><span class="sub">${o.count != null ? o.count + ' appt' + (o.count === 1 ? '' : 's') : ''}</span></div>
-        <div class="sub">${o.dob ? 'Born ' + esc(o.dob) + ' · ' : ''}${esc(o.address || '')}</div><div class="ap"><button class="btn sm mt5" data-act="appts" data-i="${i}">Show appointments</button></div></div>`).join('')}
-      <div class="hint">Officer matches are by name only; check date of birth and address.</div></div>${linksSection(ctx)}`;
+    setBody(`${backBar()}<div class="card"><div class="sub mb8"><b>Officers matching "${esc(ctx.query)}"</b> · ${list.length}</div>
+      ${list.map((o, i) => { const nm = officerName(o.name.replace(/^(.*) ([A-Z'\-]+)$/, '$2, $1')) || o.name; return `<div class="off" data-off="${i}"><div class="on"><b>${o.link ? personRef({ name: nm, link: o.link }) : esc(nm)}</b><span class="sub">${o.count != null ? o.count + ' appt' + (o.count === 1 ? '' : 's') : ''}</span></div>
+        <div class="sub">${o.dob ? 'Born ' + esc(o.dob) + ' · ' : ''}${esc(o.address || '')}</div><div class="ap"><button class="btn sm mt5" data-act="appts" data-i="${i}">Show appointments</button></div></div>`; }).join('')}
+      <div class="hint">Officer matches are by name only; check date of birth and address.</div></div>${linksSection(ctx)}`, true);
     wireFavicons();
   }
   async function expandOfficer(ctx, i, req) {
@@ -1333,7 +2041,7 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
     try {
       const appts = await loadAppointments(o.link);
       if (req != null && req !== st.req) return; if (!slot()) return;
-      slot().innerHTML = `<ul class="appt">${appts.slice(0, 15).map((a) => `<li><button data-act="open-co" data-num="${esc(a.number)}">${esc(a.company)}</button><span class="m">${esc(a.role)} · ${a.resigned ? 'resigned ' + esc(fmtDate(a.resigned)) : esc(label('company_status', a.status) || '')}</span></li>`).join('')}</ul>${appts.length > 15 ? `<div class="hint">+${appts.length - 15} more</div>` : ''}`;
+      slot().innerHTML = `<ul class="appt">${appts.slice(0, 15).map((a) => `<li><span>${companyRef(a.number, a.company)}</span><span class="m">${esc(a.role)} · ${a.resigned ? 'resigned ' + esc(fmtDate(a.resigned)) : esc(label('company_status', a.status) || '')}</span></li>`).join('')}</ul>${appts.length > 15 ? `<div class="hint">+${appts.length - 15} more</div>` : ''}`;
     } catch (e) { if (slot()) slot().innerHTML = `<div class="sub">Could not load appointments (${esc(e.code || e.message)}).</div>`; }
   }
 
@@ -1365,12 +2073,43 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
       if (el.dataset.c) el.style.setProperty('--fbc', el.dataset.c);
       favBitmap(el.dataset.dom).then((bmp) => {
         if (!el.isConnected) return;
-        const cv = document.createElement('canvas'); cv.width = 28; cv.height = 28;
-        const g = cv.getContext('2d'); g.drawImage(bmp, 0, 0, 28, 28);
-        el.replaceWith(cv);
+        const cv2 = document.createElement('canvas'); cv2.width = 28; cv2.height = 28;
+        const g = cv2.getContext('2d'); g.drawImage(bmp, 0, 0, 28, 28);
+        el.replaceWith(cv2);
       }, () => { /* keep letter badge */ });
     });
   }
+
+  /* ---------- pinned & recent (one small header menu; nothing persistent in the panel) ---------- */
+  const listGet = (k) => { const v = readJSON(gv(k, null)); return Array.isArray(v) ? v : []; };
+  function addRecent(f) {
+    const r = listGet(K.recent).filter((x) => x.n !== f.number);
+    r.unshift({ n: f.number, name: f.display, t: Date.now() });
+    sv(K.recent, JSON.stringify(r.slice(0, 10)));
+  }
+  function togglePin(f) {
+    let p = listGet(K.pins);
+    if (p.some((x) => x.n === f.number)) p = p.filter((x) => x.n !== f.number);
+    else p.unshift({ n: f.number, name: f.display, t: Date.now() });
+    sv(K.pins, JSON.stringify(p.slice(0, 20)));
+  }
+  function menuHtml() {
+    const pins = listGet(K.pins), recent = listGet(K.recent).filter((x) => !pins.some((p) => p.n === x.n)).slice(0, 8);
+    const cur = st.ctx && st.ctx.company && !st.ctx.kind ? st.ctx.company : null;
+    const isPinned = cur && pins.some((x) => x.n === cur.number);
+    const item = (x, pinned) => `<button class="mi" data-act="menu-open" data-num="${esc(x.n)}">${pinned ? ICON.pinf : ICON.clock}<span class="n">${esc(x.name)}</span><small>${esc(x.n)}</small></button>`;
+    return `${cur ? `<button class="mi" data-act="pin">${isPinned ? ICON.pinf : ICON.pin}<span class="n">${isPinned ? 'Unpin' : 'Pin'} ${esc(cur.display)}</span></button>` : ''}
+      <h6>Pinned</h6>${pins.length ? pins.map((x) => item(x, true)).join('') : '<div class="none">Nothing pinned yet.</div>'}
+      <h6>Recent</h6>${recent.length ? recent.map((x) => item(x, false)).join('') : '<div class="none">No recent companies.</div>'}`;
+  }
+  function toggleMenu(force) {
+    const show = force != null ? force : !st.menu;
+    st.menu = show && !!settings.pinsMenu;
+    if (st.menu) $menu.innerHTML = menuHtml();
+    $menu.classList.toggle('show', st.menu);
+    const b = root && root.querySelector('[data-act=menu]'); if (b) b.classList.toggle('on', st.menu);
+  }
+  function updateMenuBtn() { const b = root && root.querySelector('.hd [data-act=menu]'); if (b) b.hidden = !settings.pinsMenu; }
 
   /* ---------- settings ---------- */
 
@@ -1380,35 +2119,88 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
     const looks = kind === 'ch' ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ki.key) : /^sk-ant-/.test(ki.key);
     return `${ki.source === 'built-in' ? 'Using the built-in key' : 'Key saved'} (${ki.len} chars, starts "${esc(ki.head)}")${looks ? '' : ' <span class="warnk">does not look like a ' + (kind === 'ch' ? 'Companies House REST key' : 'Claude key') + '</span>'}.`;
   }
+  /* Toggle rows. Each entry: [settings key, label, help]. Persisted immediately on change. */
+  const TOGGLES = {
+    ai: [['autoBrief', 'Run AI brief automatically', 'Off: briefs only run when you click Generate (each costs a few cents).']],
+    behaviour: [
+      ['background', 'Open links in background tabs', 'Keeps you on the current page.'],
+      ['inInputs', 'Show the pill in text fields', 'Selections inside inputs and editors.'],
+    ],
+    interactive: [
+      ['chLinks', 'Companies House links', 'Company names, numbers and section titles open Companies House.'],
+      ['peopleInPanel', 'People open in the panel', 'Off: names go straight to the Companies House officer page.'],
+      ['addrMaps', 'Addresses open Google Maps', 'Registered office links to a Maps search.'],
+      ['inlineMap', 'Inline map under the address', 'Embedded Google map. Some sites block it; a link is shown instead.'],
+      ['colorLinks', 'Colour-coded links', 'Blue Companies House, purple people, teal places.'],
+    ],
+    extras: [
+      ['otherRoles', 'Other directorships at a glance', 'Counts each officer\'s other active roles (loaded when Officers is open).'],
+      ['parentLinks', 'Parent company links', 'Corporate PSCs and officers open that company in the panel.'],
+      ['similar', 'Similar companies nearby', 'Same SIC code in the same postcode area. Loads only when expanded.'],
+      ['pinsMenu', 'Pinned and recent menu', 'Clock button in the header.'],
+      ['clickCopy', 'Click a value to copy it', 'Numbers, dates, SIC codes, names.'],
+    ],
+    appearance: [
+      ['animations', 'Animations', 'Subtle motion. Always off when your system asks for reduced motion.'],
+      ['rememberSections', 'Remember section state', 'Keeps sections open or collapsed between lookups.'],
+      ['collapseRecord', 'Collapse the whole Companies House record by default', 'Shows just the header and quick check.'],
+    ],
+  };
+  const tgl = (rows) => rows.map(([k, l, help]) => `<label class="tg"><span>${esc(l)}<small>${esc(help)}</small></span><input type="checkbox" data-set="${k}" ${settings[k] ? 'checked' : ''}></label>`).join('');
+  const seg = (name, opts, cur) => `<div class="seg">${opts.map(([v, l]) => `<label><input type="radio" name="${name}" data-seg="${name}" value="${v}" ${cur === v ? 'checked' : ''}>${esc(l)}</label>`).join('')}</div>`;
   function renderSettings() {
     const ci = keyInfo('ch'), li = keyInfo('claude');
     const hasChSaved = ci.source === 'saved in settings', hasClSaved = li.source === 'saved in settings';
-    $body.innerHTML = `<div class="sec set"><div class="row jsb"><h4 class="m0">Settings</h4><button class="btn sm" data-act="back">Back</button></div>
-      <label class="f" for="p-ch">Companies House API key</label>
-      <input id="p-ch" type="password" autocomplete="off" spellcheck="false" placeholder="${ci.key ? 'Key in use. Paste a new key to replace' : 'Paste your REST API key'}">
-      <div class="help">${keyHelp('ch')} Stored in Tampermonkey storage.</div>
-      <label class="f" for="p-cl">Anthropic (Claude) API key</label>
-      <input id="p-cl" type="password" autocomplete="off" spellcheck="false" placeholder="${li.key ? 'Key in use. Paste a new key to replace' : 'sk-ant-... (only needed for AI briefs)'}">
-      <div class="help">${keyHelp('claude')}</div>
-      <label class="f" for="p-model">AI brief model</label>
-      <select id="p-model">${Object.keys(MODELS).map((m) => `<option value="${m}" ${settings.model === m ? 'selected' : ''}>${esc(MODELS[m].label)}</option>`).join('')}</select>
-      <label class="ck"><input type="checkbox" id="p-bg" ${settings.background ? 'checked' : ''}> Open links in background tabs</label>
-      <label class="ck"><input type="checkbox" id="p-inp" ${settings.inInputs ? 'checked' : ''}> Show the pill when selecting inside text fields</label>
-      <label class="f">Run on</label>
-      <div class="seg"><label><input type="radio" name="p-scope" value="all" ${settings.scope !== 'hubspot' ? 'checked' : ''}>All sites</label><label><input type="radio" name="p-scope" value="hubspot" ${settings.scope === 'hubspot' ? 'checked' : ''}>HubSpot only</label></div>
-      <div class="help">With HubSpot only, the pill and edge tab only appear on hubspot domains. The Tampermonkey menu can still open Prosper anywhere.</div>
-      <div class="row mt14"><button class="btn pri" data-act="save">Save</button><span class="saved" hidden>Saved</span></div>
-      <div class="row sep">
-        <button class="btn sm" data-act="diag">Diagnostics</button>
-        <button class="btn sm" data-act="clear-cache">Clear cache</button>
-        ${hasChSaved ? '<button class="btn sm" data-act="forget-ch">Remove CH key</button>' : ''}
-        ${hasClSaved ? '<button class="btn sm" data-act="forget-cl">Remove Claude key</button>' : ''}
+    setBody(`<div class="set">
+      <div class="top"><h4>Settings</h4><button class="btn sm" data-act="back">${ICON.back}Back</button></div>
+      <div class="grp" data-grp="keys"><div class="gh">Keys</div>
+        <label class="f" for="p-ch">Companies House API key</label>
+        <input id="p-ch" type="password" autocomplete="off" spellcheck="false" placeholder="${ci.key ? 'Key in use. Paste a new key to replace' : 'Paste your REST API key'}">
+        <div class="help">${keyHelp('ch')} Stored in Tampermonkey storage.</div>
+        <label class="f" for="p-cl">Anthropic (Claude) API key</label>
+        <input id="p-cl" type="password" autocomplete="off" spellcheck="false" placeholder="${li.key ? 'Key in use. Paste a new key to replace' : 'sk-ant-... (only needed for AI briefs)'}">
+        <div class="help">${keyHelp('claude')}</div>
+        <div class="row mt10"><button class="btn pri sm" data-act="save">Save keys</button>${hasChSaved ? '<button class="btn sm" data-act="forget-ch">Remove CH key</button>' : ''}${hasClSaved ? '<button class="btn sm" data-act="forget-cl">Remove Claude key</button>' : ''}<span class="saved" hidden>Saved</span></div>
       </div>
-      <div class="diagbox">${diagHtml()}</div>
-      <div class="help mt10">Shortcuts: Alt+P open, Esc close, 1-6 quick links, 0 open all, C copy HubSpot note. Companies House data cached 10 min, briefs 24 h. Prosper v${VERSION} (${BUILD}).</div>
-    </div>`;
+      <div class="grp" data-grp="ai"><div class="gh">AI</div>
+        <label class="f" for="p-model">AI brief model</label>
+        <select id="p-model" data-set="model">${Object.keys(MODELS).map((m) => `<option value="${m}" ${settings.model === m ? 'selected' : ''}>${esc(MODELS[m].label)}</option>`).join('')}</select>
+        ${tgl(TOGGLES.ai)}
+      </div>
+      <div class="grp" data-grp="behaviour"><div class="gh">Behaviour</div>
+        ${tgl(TOGGLES.behaviour)}
+        <label class="f">Run on</label>
+        ${seg('scope', [['all', 'All sites'], ['hubspot', 'HubSpot only']], settings.scope === 'hubspot' ? 'hubspot' : 'all')}
+        <div class="help">With HubSpot only, the pill and edge tab only appear on hubspot domains. The Tampermonkey menu still opens Prosper anywhere.</div>
+      </div>
+      <div class="grp" data-grp="interactive"><div class="gh">Interactive features</div>
+        ${tgl(TOGGLES.interactive)}
+        <label class="f">Filings open</label>
+        ${seg('filingOpen', [['viewer', 'In viewer'], ['tab', 'PDF in new tab'], ['history', 'Filing history']], settings.filingOpen)}
+        <div class="legend"><div><span class="sw ch"></span>Companies House: companies, filings, CH pages</div><div><span class="sw person"></span>People: officers and PSCs</div><div><span class="sw place"></span>Places: addresses and maps</div>
+          <div class="sub">${ICON.ext} opens a new tab · no arrow opens here in Prosper</div></div>
+      </div>
+      <div class="grp" data-grp="extras"><div class="gh">Extras</div>${tgl(TOGGLES.extras)}</div>
+      <div class="grp" data-grp="appearance"><div class="gh">Appearance</div>${tgl(TOGGLES.appearance)}
+        <div class="row mt6"><button class="btn sm" data-act="reset-sections">Reset section state</button></div></div>
+      <div class="grp" data-grp="data"><div class="gh">Diagnostics and data</div>
+        <div class="row mt6"><button class="btn sm" data-act="diag">Run diagnostics</button><button class="btn sm" data-act="clear-cache">Clear cache</button></div>
+        <div class="diagbox">${diagHtml()}</div>
+        <div class="help mt10">Shortcuts: Alt+P open, Esc close, 1-6 quick links, 0 open all, C copy HubSpot note. Companies House data cached 10 min, briefs 24 h. Prosper v${VERSION} (${BUILD}).</div>
+      </div>
+    </div>`);
     $body.scrollTop = 0;
   }
+  function onChange(e) {
+    if (st.view !== 'settings') return;
+    const t = e.target; if (!t || !t.dataset) return;
+    if (t.dataset.set) settings[t.dataset.set] = t.type === 'checkbox' ? t.checked : t.value;
+    else if (t.dataset.seg) settings[t.dataset.seg] = t.value;
+    else return;
+    saveSettings(); applySettingsLive();
+    showToast('Saved');
+  }
+  function applySettingsLive() { applyRootClasses(); updateScope(); updateMenuBtn(); }
 
   /* ---------- diagnostics ---------- */
 
@@ -1424,7 +2216,7 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
     const d = st.diag; if (!d) return '';
     if (d.running) return '<div class="diag"><div class="dr"><span class="st info">...</span><div><span class="spin"></span> Running checks...</div></div></div>';
     return `<div class="diag">${d.rows.map((r) => `<div class="dr"><span class="st ${r.state}">${r.state === 'pass' ? 'PASS' : r.state === 'fail' ? 'FAIL' : 'INFO'}</span><div><b>${esc(r.name)}</b><div class="dd">${esc(r.detail)}</div></div></div>`).join('')}</div>
-      <div class="row mt6"><button class="btn sm" data-act="diag-copy">Copy report</button><span class="hint m0">No keys are included in the report.</span></div>`;
+      <div class="row mt6"><button class="btn sm" data-act="diag-copy">${ICON.copy}Copy report</button><span class="hint m0">No keys are included in the report.</span></div>`;
   }
   function rerenderDiag() { const el = $body.querySelector('.diagbox'); if (el) el.innerHTML = diagHtml(); }
   async function runDiagnostics() {
@@ -1432,18 +2224,17 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
     st.diag = { running: true }; rerenderDiag();
     const rows = [];
     const add = (name, state, detail) => rows.push({ name, state, detail });
-    add('Environment', 'info', `Prosper v${VERSION} (${BUILD}) · ${mgrInfo()} · ${browserInfo()} · storage API ${API} · page ${location.hostname}`);
+    add('Environment', 'info', `Prosper v${VERSION} (${BUILD}) · ${mgrInfo()} · ${browserInfo()} · storage API ${API} · page ${location.hostname} · animations ${root.classList.contains('anim') ? 'on' : 'off'}${reducedMotion() ? ' (reduced motion)' : ''}`);
     add('Panel styles', st.styleMode === 'none' ? 'fail' : 'pass', st.styleMode === 'none' ? 'Blocked: ' + (st.styleErr || '') : 'Applied via ' + st.styleMode);
     ensureFonts();
     await new Promise((r) => setTimeout(r, 300));
     add('Font', /loaded/.test(st.fontStatus) ? 'pass' : 'info', st.fontStatus || 'not loaded yet');
-    // Companies House
     const ci = keyInfo('ch');
     if (!ci.key) add('Companies House API', 'fail', 'No key saved. Add your REST key above.');
     else {
       const log = [];
       const saved = chAuthOk; chAuthOk = null;
-      const r = await chRequest('/company/00000006', log);
+      await chRequest('/company/00000006', log);
       if (!chAuthOk) chAuthOk = saved;
       const okm = log.find((x) => x.status === 200);
       const tried = log.map((x) => `${x.method}: HTTP ${x.status}${x.error ? ' ' + x.error : ''} (${x.ms} ms)`).join(' | ');
@@ -1452,9 +2243,7 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
       else if (!okm && log.every((x) => x.status === 401)) hint = ' -> 401 means the key itself was rejected; re-copy it from the Companies House developer hub (REST key).';
       else if (!okm && log.every((x) => x.status <= 0)) hint = ' -> request never reached Companies House. Allow api.company-information.service.gov.uk when Tampermonkey asks.';
       add('Companies House API', okm ? 'pass' : 'fail', `${okm ? 'OK with ' + okm.method + '. ' : ''}Key ${ci.source}, ${ci.len} chars, starts "${ci.head}". ${tried}${hint}`);
-      void r;
     }
-    // Claude (free models list)
     const li = keyInfo('claude');
     if (!li.key) add('Claude API', 'info', 'No key saved (only needed for AI briefs).');
     else {
@@ -1463,11 +2252,10 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
       let msg = ''; try { const j = JSON.parse(r.text); msg = (j.error && j.error.message) || ''; } catch (e) { /* ignore */ }
       add('Claude API (/v1/models, free)', r.status === 200 ? 'pass' : 'fail', `HTTP ${r.status} (${Date.now() - t0} ms). Key ${li.source}, ${li.len} chars, starts "${li.head}".${msg || r.error ? ' ' + (msg || r.error) : ''}`);
     }
-    // Other hosts
     {
       const t0 = Date.now();
       const r = await xhr({ url: ENUMS_URL, method: 'HEAD', timeout: 10000, quiet: true });
-      add('Labels (raw.githubusercontent.com)', r.status === 200 ? 'pass' : 'info', `HTTP ${r.status} (${Date.now() - t0} ms)${r.error ? ' ' + r.error : ''}. Optional: only used for SIC descriptions.`);
+      add('Labels (raw.githubusercontent.com)', r.status === 200 ? 'pass' : 'info', `HTTP ${r.status} (${Date.now() - t0} ms)${r.error ? ' ' + r.error : ''}. Optional: SIC and filing descriptions.`);
     }
     {
       const t0 = Date.now();
@@ -1484,30 +2272,20 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
   }
   function toggleSettings(force) {
     const show = force != null ? force : st.view !== 'settings';
-    st.view = show ? 'settings' : 'main';
-    root.querySelector('[data-act=settings]').classList.toggle('on', show);
+    toggleMenu(false);
+    setView(show ? 'settings' : 'main');
     if (show) { if (!st.open) open(); renderSettings(); }
     else restoreMain();
   }
-  function restoreMain() {
-    const ctx = st.ctx;
-    root.querySelector('[data-act=settings]').classList.remove('on');
-    if (!ctx) return renderEmpty();
-    if (ctx.company) return renderCompany(ctx);
-    lookup(ctx.det.raw, $mode.value);
-  }
-  function saveFromForm() {
+  function restoreMain() { renderCtx(st.ctx); }
+  function saveKeys() {
     const q = (s) => $body.querySelector(s);
     const chRaw = q('#p-ch').value, clRaw = q('#p-cl').value;
     const chv = cleanKey(chRaw, 'ch'), clv = cleanKey(clRaw, 'claude');
     const fixed = (chRaw.trim() && chv !== chRaw.trim()) || (clRaw.trim() && clv !== clRaw.trim());
     if (chv) { sv(K.chKey, chv); chAuthOk = null; }
     if (clv) sv(K.claudeKey, clv);
-    settings.model = q('#p-model').value;
-    settings.background = q('#p-bg').checked;
-    settings.inInputs = q('#p-inp').checked;
-    const sc = $body.querySelector('input[name=p-scope]:checked'); settings.scope = sc ? sc.value : 'all';
-    saveSettings(); updateScope();
+    saveSettings();
     renderSettings();
     const s = $body.querySelector('.saved'); if (s) s.hidden = false;
     showToast(fixed ? 'Saved (removed stray characters from the key)' : 'Settings saved');
@@ -1516,42 +2294,58 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
   /* ---------- actions ---------- */
 
   function onClick(e) {
+    if (st.menu && !e.target.closest('.menu') && !e.target.closest('[data-act=menu]')) toggleMenu(false);
     const el = e.target.closest('[data-act]');
     if (!el) return;
     const act = el.dataset.act, ctx = st.ctx;
+    const f = ctx && ctx.company;
     switch (act) {
       case 'close': close(); break;
       case 'settings': toggleSettings(); break;
       case 'back': toggleSettings(false); break;
-      case 'save': saveFromForm(); break;
-      case 'clear-cache': clearCache(); ENUMS = null; showToast('Cache cleared'); break;
+      case 'save': saveKeys(); break;
+      case 'clear-cache': clearCache(); ENUMS = null; FHD = null; dv(K.fhd); showToast('Cache cleared'); break;
+      case 'reset-sections': secState = {}; saveSecState(); showToast('Section state reset'); break;
       case 'diag': runDiagnostics().catch((er) => { warn('diagnostics crashed', er); st.diag = { rows: [{ name: 'Diagnostics', state: 'fail', detail: String((er && er.message) || er) }], at: Date.now() }; rerenderDiag(); }); break;
       case 'diag-open': toggleSettings(true); runDiagnostics().catch((er) => warn('diagnostics crashed', er)); break;
-      case 'diag-copy': copyText(diagReport()).then(() => showToast('Diagnostics copied')); break;
+      case 'diag-copy': copyFrom(el, diagReport(), 'Diagnostics copied'); break;
       case 'forget-ch': dv(K.chKey); renderSettings(); showToast('Companies House key removed'); break;
       case 'forget-cl': dv(K.claudeKey); renderSettings(); showToast('Claude key removed'); break;
-      case 'retry': if (ctx) lookup(ctx.det.raw, $mode.value); break;
+      case 'retry': if (ctx && ctx.det) lookup(ctx.det.raw, $mode.value); break;
       case 'as-person': if (ctx) lookup(ctx.det.type === 'person' ? ctx.query : ctx.raw, 'person'); break;
       case 'as-company': if (ctx) lookup(ctx.raw, 'company'); break;
       case 'pick': if (ctx) { e.preventDefault(); const req = ++st.req; showCompany(ctx, el.dataset.num, req).catch((er) => req === st.req && renderError(er)); } break;
-      case 'open-co': {
-        const num = el.dataset.num; if (!num) break;
-        lookup(num, 'auto');
-        break;
-      }
+      case 'open-co': e.preventDefault(); openCompanyHere(el.dataset.num); break;
+      case 'person': e.preventDefault(); openPerson(el.dataset.link, el.dataset.name); break;
+      case 'person-search': e.preventDefault(); setView('main'); lookup(el.dataset.name, 'person', true); break;
+      case 'nav-back': navBack(); break;
+      case 'tog': toggleBlock(el.closest('.blk')); break;
+      case 'ext': e.preventDefault(); e.stopPropagation(); openTab(el.dataset.url || el.getAttribute('href')); break;
+      case 'cp': e.preventDefault(); e.stopPropagation(); copyFrom(el, el.dataset.copy); break;
+      case 'roles': if (ctx && ctx.rolesOpen) { const l = el.dataset.link; ctx.rolesOpen[l] = !ctx.rolesOpen[l]; const o = f.officers.find((x) => x.link === l); if (o) refreshRoles(ctx, o); } break;
+      case 'map-toggle': if (ctx && f) { ctx.mapOpen = !(ctx.mapOpen != null ? ctx.mapOpen : settings.inlineMap); const sc = $body.scrollTop; renderCompany(ctx, false); $body.scrollTop = sc; } break;
+      case 'filing': onFilingRow(+el.dataset.i); break;
+      case 'filings-all': openFilings(0); break;
+      case 'f-prev': if (ctx && ctx.kind === 'filings' && ctx.idx > 0) { ctx.idx--; renderFilings(ctx); } break;
+      case 'f-next': if (ctx && ctx.kind === 'filings') { if (ctx.idx + 1 < ctx.company.filings.length) { ctx.idx++; renderFilings(ctx); } else if (ctx.company.filings.length < ctx.company.filingsTotal) { ctx.idx++; loadMoreFilings(); } } break;
+      case 'f-more': loadMoreFilings(); break;
+      case 'f-dl': docDownload(el); break;
+      case 'f-share': docShare(el); break;
       case 'appts': if (ctx) expandOfficer(ctx, +el.dataset.i, st.req); break;
       case 'link': if (ctx) openTab(linkFor(el.dataset.id, ctx)); break;
       case 'link-all': openAll(); break;
-      case 'ch-page': e.preventDefault(); if (ctx && ctx.company) openTab(ctx.company.url); break;
-      case 'copy-num': if (ctx && ctx.company) copyText(ctx.company.number).then(() => showToast('Company number copied')); break;
-      case 'copy-addr': if (ctx && ctx.company) copyText(ctx.company.address).then(() => showToast('Address copied')); break;
-      case 'copy-note': copyNote(); break;
+      case 'copy-num': if (f) copyFrom(el, f.number, 'Company number copied'); break;
+      case 'copy-addr': if (f) copyFrom(el, f.address, 'Address copied'); break;
+      case 'copy-note': copyNote(el); break;
       case 'brief': doBrief(false); break;
       case 'brief-regen': doBrief(true); break;
+      case 'menu': toggleMenu(); break;
+      case 'menu-open': toggleMenu(false); setView('main'); lookup(el.dataset.num, 'auto'); break;
+      case 'pin': if (f && !ctx.kind) { togglePin(f); $menu.innerHTML = menuHtml(); showToast(listGet(K.pins).some((x) => x.n === f.number) ? 'Pinned' : 'Unpinned'); } break;
     }
   }
   function openAll() { const ctx = st.ctx; if (!ctx) return; PROVIDERS.forEach((p) => openTab(linkFor(p.id, ctx), true)); showToast('Opened 6 tabs'); }
-  function copyNote() { const ctx = st.ctx; if (!ctx || !ctx.company) return; copyText(hubspotNote(ctx.company, ctx.brief)).then(() => showToast('HubSpot note copied')); }
+  function copyNote(el) { const ctx = st.ctx; if (!ctx || !ctx.company || ctx.kind) return; copyFrom(el, hubspotNote(ctx.company, ctx.brief), 'HubSpot note copied'); }
 
   function onKey(e) {
     if (e.altKey && !e.ctrlKey && !e.metaKey && (e.code === 'KeyP' || (e.key || '').toLowerCase() === 'p')) {
@@ -1566,7 +2360,7 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
       return;
     }
     if (!st.open) { if (e.key === 'Escape') hidePill(); return; }
-    if (e.key === 'Escape') { close(); return; }
+    if (e.key === 'Escape') { if (st.menu) toggleMenu(false); else close(); return; }
     const path = e.composedPath ? e.composedPath() : [e.target];
     const inOurPanel = path.includes(host);
     const target = path[0];
@@ -1576,7 +2370,7 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
     if (st.view === 'settings' || !st.ctx) return;
     if (/^[1-6]$/.test(e.key)) { e.preventDefault(); openTab(linkFor(PROVIDERS[+e.key - 1].id, st.ctx)); }
     else if (e.key === '0') { e.preventDefault(); openAll(); }
-    else if ((e.key === 'c' || e.key === 'C') && st.ctx.company) { e.preventDefault(); copyNote(); }
+    else if ((e.key === 'c' || e.key === 'C') && st.ctx.company && !st.ctx.kind) { e.preventDefault(); copyNote(null); }
   }
 
   /* ------------------------------------------------------------------ */
@@ -1587,8 +2381,10 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
     if (!document.documentElement) return;
     await storageInit();
     loadSettings();
+    loadSecState();
     ENUMS = readJSON(gv(K.enums, null));
     mount();
+    updateMenuBtn();
     let down = false;
     const isOurs = (e) => !!(e && e.composedPath && e.composedPath().includes(host));
     const onDown = (e) => { if (isOurs(e)) return; down = true; hidePill(); };
@@ -1607,6 +2403,7 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
       if ((!s || s.isCollapsed) && !inField) return hidePill();
       if (!down) onSelect(null);
     }, 220));
+    document.addEventListener('securitypolicyviolation', onCspViolation, true);
     window.addEventListener('blur', () => { down = false; });
     window.addEventListener('scroll', onScroll, { passive: true, capture: true });
     window.addEventListener('keydown', (e) => { try { onKey(e); } catch (err) { warn('key handler failed', err); } }, true);
@@ -1621,7 +2418,7 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
     } catch (e) { warn('menu commands unavailable', e); }
     try {
       if (typeof GM_addValueChangeListener === 'function') {
-        GM_addValueChangeListener(K.settings, (n, o, v, remote) => { if (remote) { settings = Object.assign({}, DEFAULTS, readJSON(v) || {}); updateScope(); } });
+        GM_addValueChangeListener(K.settings, (n, o, v, remote) => { if (remote) { settings = Object.assign({}, DEFAULTS, readJSON(v) || {}); applySettingsLive(); } });
       }
     } catch (e) { /* ignore */ }
     setTimeout(() => { pruneCache(); loadEnums().catch(() => null); }, 1500);
@@ -1629,7 +2426,11 @@ a { color: var(--accent); text-decoration: none; } a:hover { text-decoration: un
   }
 
   // Exposed for automated tests only (no secrets).
-  window.__prosperTest = { detect, alphaKey, companyLabelFromDomain, hubspotNote: () => st.ctx && st.ctx.company ? hubspotNote(st.ctx.company, st.ctx.brief) : '', state: () => st, cleanKey, keyInfo: (k) => { const i = keyInfo(k); return { source: i.source, len: i.len, head: i.head }; } };
+  window.__prosperTest = {
+    detect, alphaKey, companyLabelFromDomain, hubspotNote: () => st.ctx && st.ctx.company ? hubspotNote(st.ctx.company, st.ctx.brief) : '', state: () => st, cleanKey,
+    keyInfo: (k) => { const i = keyInfo(k); return { source: i.source, len: i.len, head: i.head }; },
+    settings: () => Object.assign({}, settings), sections: () => Object.assign({}, secState), ukRegNumber,
+  };
 
   boot().catch((e) => warn('failed to start:', e));
 
