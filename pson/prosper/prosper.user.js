@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Prosper
 // @namespace    https://wills.im/pson/prosper
-// @version      12.3
+// @version      12.4
 // @description  Highlight a company, email, website, Companies House number or person to get an instant Companies House card, quick check, quick links, a copyable quick note, an automatic AI summary from Companies House data with interactive names, places and codes, Expand (company website plus web search), a per-company chat that searches the web when needed, and export to CSV, CRM import files, vCard and JSON. Built for prospecting in any CRM.
 // @author       Will
 // @match        *://*/*
@@ -62,8 +62,8 @@
   /* ------------------------------------------------------------------ */
 
   // Tampermonkey compares @version, so build N ships as 12.N. Neither number is shown in the UI.
-  const VERSION = '12.3';
-  const BUILD = 3;
+  const VERSION = '12.4';
+  const BUILD = 4;
   const EDITION = 'public';
   // Built-in default keys. Empty in the public build; the private build fills these in.
   const BAKED = { ch: '', claude: '' };
@@ -1905,6 +1905,31 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 .dym .opt.per { margin-top: 8px; border: 1px dashed var(--line2); border-radius: 8px; }
 .dym .hint { margin-top: 8px; }
 .anim .turn { animation: rise var(--d3) var(--eo) both; }
+/* b4: copy-note icon button, address line with map pin */
+.hcard { position: relative; }
+.hcard > .title { padding-right: 44px; }
+.qn { position: absolute; top: 10px; right: 10px; width: 34px; height: 34px; display: grid; place-items: center; padding: 0; border: 1px solid var(--line); border-radius: 8px; background: #fff; color: var(--fg2); cursor: pointer; z-index: 2; }
+.qn svg { width: 16px; height: 16px; }
+.qn:hover { background: var(--bg3); color: var(--fg); border-color: var(--line2); }
+.qn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+.qn.done { color: var(--good); }
+.qn.copied::after { content: 'Copied'; position: absolute; right: 0; top: calc(100% + 5px); background: var(--pri); color: var(--pri-fg); font-size: 10.5px; font-weight: 600; padding: 2px 6px; border-radius: 5px; white-space: nowrap; pointer-events: none; }
+.anim .qn { transition: background-color var(--d1) var(--eo), color var(--d1) var(--eo), border-color var(--d1) var(--eo); }
+.anim .qn.done svg { animation: tick var(--d2) var(--eo) both; }
+.anim .qn.copied::after { animation: fade var(--d2) var(--eo) both; }
+.hcard .addr { display: flex; align-items: flex-start; gap: 8px; margin-top: 10px; font-size: 12.25px; line-height: 1.4; color: var(--fg); }
+.hcard .addr .al { flex: 1; min-width: 0; padding: 3px 0; }
+.mpin { flex: none; width: 28px; height: 28px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 7px; background: transparent; color: var(--c-place); cursor: pointer; }
+.mpin svg { width: 15px; height: 15px; }
+.mpin:hover { background: var(--bg3); } .mpin.on { background: var(--c-place-soft); }
+.mpin:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus); }
+.hcard .mapw { margin: 8px -14px -12px; }
+.hcard .mapw.closed { margin-top: 0; margin-bottom: 0; }
+.mapw.closed { grid-template-rows: 0fr; }
+.mapw.closed > .bi { visibility: hidden; opacity: 0; }
+.anim .mapw.closed > .bi { transition: opacity 120ms ease-in, visibility 0s linear 200ms; }
+.hcard .mapw .map.wide { margin: 0; }
+.anim .hcard .mapw { transition: grid-template-rows 200ms cubic-bezier(.2,.7,.2,1), margin 200ms cubic-bezier(.2,.7,.2,1); }
 /* b3 (2): logo, collapsed sources, summary placeholder, Load more */
 .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
 .hcard .title { display: flex; align-items: center; gap: 8px; }
@@ -1928,11 +1953,6 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 /* b3: merged Overview, interactive entities, Expand, export menu */
 .hcard .kv.ov { margin-top: 10px; grid-template-columns: 92px 1fr; font-size: 12.25px; gap: 4px 10px; }
 .hcard .kv.ov dd .sub { font-size: 11.5px; }
-.acts.four { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto minmax(0, 1.4fr); }
-.acts .mapb { padding: 0 8px; gap: 4px; color: var(--c-place); }
-.acts .mapb svg { width: 12px; height: 12px; flex: none; }
-.acts .mapb.on { background: var(--c-place-soft); border-color: transparent; }
-.hcard .map.wide { margin-top: 8px; }
 .ent { position: relative; cursor: pointer; border-radius: 3px; text-decoration: underline dotted; text-decoration-thickness: 1px; text-underline-offset: 3px; }
 .ent.e-person { color: var(--c-person); } .ent.e-place { color: var(--c-place); } .ent.e-ch { color: var(--c-ch); } .ent.e-plain { text-decoration-color: var(--fg3); }
 .ent:hover, .ent:focus-visible { background: var(--bg3); box-shadow: 0 0 0 2px var(--bg3); outline: none; text-decoration-style: solid; }
@@ -2217,6 +2237,12 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     if (el.classList.contains('cv') || el.classList.contains('ent')) {
       el.classList.remove('copied'); void el.offsetWidth; el.classList.add('copied');
       clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('copied'), 1200);
+      return;
+    }
+    if (el.classList.contains('qn')) {
+      if (!el._orig) el._orig = el.innerHTML;
+      el.classList.add('done', 'copied'); el.innerHTML = ICON.check; el.setAttribute('aria-label', 'Copied');
+      clearTimeout(el._t); el._t = setTimeout(() => { el.classList.remove('done', 'copied'); el.innerHTML = el._orig; el._orig = null; el.setAttribute('aria-label', 'Copy quick note'); }, 1300);
       return;
     }
     if (el.classList.contains('btn') || el.classList.contains('xi')) {
@@ -2594,6 +2620,22 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 
   /* Overview: merged into the top card with no heading of its own (still called "Overview" in Settings and here).
      Number and address are in the header line and its buttons, so they are not repeated. */
+  /* Registered office line: the text copies on click; the pin at its end shows/hides the map (height animates like the
+     sections; the iframe is only created the first time it opens). The open/closed state is the "Map open by default" setting. */
+  function addrLineHtml(f, open) {
+    return `<div class="addr"><span class="cv al" data-act="cp" data-copy="${esc(f.address)}" title="Registered office · click to copy">${esc(f.address)}</span>`
+      + `<button class="mpin${open ? ' on' : ''}" data-act="map-toggle" aria-expanded="${open}" aria-controls="p-map" title="${open ? 'Hide the map' : 'Show on a map'}" aria-label="${open ? 'Hide the map' : 'Show the registered office on a map'}">${ICON.map}</button></div>`
+      + `<div class="bb mapw${open ? '' : ' closed'}" id="p-map"><div class="bi"><div class="map wide" data-map="${esc(f.address)}"${open ? '' : ' data-defer="1"'}></div></div></div>`;
+  }
+  function toggleMap(btn) {
+    const card = btn.closest('.hcard'), w = card && card.querySelector('.mapw'); if (!w) return;
+    const open = w.classList.contains('closed');
+    w.classList.toggle('closed', !open); btn.classList.toggle('on', open); btn.setAttribute('aria-expanded', String(open));
+    btn.title = open ? 'Hide the map' : 'Show on a map'; btn.setAttribute('aria-label', open ? 'Hide the map' : 'Show the registered office on a map');
+    if (open) { const m = w.querySelector('.map[data-defer]'); if (m) { m.removeAttribute('data-defer'); mountMaps(); } }
+    if (st.ctx) st.ctx.mapOpen = open;
+    settings.inlineMap = open; saveSettings();
+  }
   function overviewHtml(f) {
     return `<dl class="kv ov" data-part="overview">
       <dt>Type</dt><dd>${cv(f.type)}</dd>
@@ -2621,6 +2663,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     const nameHtml = cv(f.display); // click copies; Companies House is one click away in the quick links and section titles
     const numHtml = cv(n);
     let html = backBar() + `<div class="card hcard">
+      <button class="qn" data-act="copy-note" title="Copy quick note" aria-label="Copy quick note">${ICON.copy}</button>
       <div class="title"><span class="clogo" aria-hidden="true"></span>${nameHtml}</div>
       <div class="sub">${numHtml} · <span class="badge ${f.status === 'active' ? '' : 'r'}">${esc(f.statusLabel)}</span>${f.statusDetail ? ' <span class="badge r">' + esc(f.statusDetail) + '</span>' : ''}</div>
       ${ctx.personHint ? `<div class="alt">Looking for a person called ${esc(ctx.query)}? <button class="lnk" data-act="as-person">Search people</button></div>` : ''}
@@ -2629,13 +2672,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       ${also.length ? `<div class="also"><b>Also:</b> ${also.map(esc).join(' · ')}</div>` : ''}</div></div>
       ${overviewHtml(f)}
       ${pickerHtml(ctx)}
-      <div class="acts${f.address ? ' four' : ''}">
-        <button class="btn sm" data-act="copy-num" title="Copy company number ${esc(n)}"><span>Number</span></button>
-        <button class="btn sm" data-act="copy-addr" title="Copy registered office: ${esc(f.address || 'not available')}"><span>Address</span></button>
-        ${f.address ? `<button class="btn sm mapb${mapOn ? ' on' : ''}" data-act="map-toggle" title="${mapOn ? 'Hide the map' : 'Show the registered office on a map'}">${ICON.map}<span>${mapOn ? 'Hide map' : 'Map'}</span></button>` : ''}
-        <button class="btn sm" data-act="copy-note" title="Copy a CRM-style note with the key Companies House facts"><span>Copy quick note</span></button>
-      </div>
-      ${mapOn && f.address ? `<div class="map wide" data-map="${esc(f.address)}"></div>` : ''}
+      ${f.address ? addrLineHtml(f, mapOn) : ''}
     </div>`;
     // AI: the automatic summary (Companies House data only) sits right under the header card, with web search and chat.
     html += aiBlock(ctx);
@@ -2824,7 +2861,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     return w;
   }
   function mountMaps() {
-    $body.querySelectorAll('.map[data-map]:not([data-mounted])').forEach((box) => {
+    $body.querySelectorAll('.map[data-map]:not([data-mounted]):not([data-defer])').forEach((box) => {
       box.setAttribute('data-mounted', '1');
       const q = box.dataset.map;
       const f = document.createElement('iframe');
@@ -3789,7 +3826,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       ['chLinks', 'Companies House links', 'Section titles open the matching Companies House page.'],
       ['peopleInPanel', 'People open in the panel', 'Off: names go straight to the Companies House officer page.'],
       ['addrMaps', 'Addresses open Google Maps', 'Registered office links to a Maps search.'],
-      ['inlineMap', 'Map open by default', 'Shows the embedded Google map of the registered office in the Overview straight away (the Map button toggles it). Some sites block it; a link is shown instead.'],
+      ['inlineMap', 'Map open by default', 'Shows the embedded Google map under the registered office address straight away. The pin next to the address shows or hides it, and Prosper remembers your last choice here. Some sites block it; a link is shown instead.'],
       ['colorLinks', 'Colour-coded links', 'Blue Companies House, purple people, teal places.'],
     ],
     extras: [
@@ -4006,7 +4043,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       case 'cp': e.preventDefault(); e.stopPropagation(); copyFrom(el.closest('.shm') ? null : el, el.dataset.copy, el.closest('.shm') ? 'Link copied' : undefined); if (el.closest('.shm')) { st.lastShare = { via: 'copy' }; closeShare(); } break;
       case 'roles': if (ctx && ctx.rolesOpen) { const l = el.dataset.link; ctx.rolesOpen[l] = !ctx.rolesOpen[l]; const o = f.officers.find((x) => x.link === l); if (o) refreshRoles(ctx, o); } break;
       case 'similar-more': if (ctx && ctx.similar) loadMoreSimilar(ctx); break;
-      case 'map-toggle': if (ctx && f) { ctx.mapOpen = !(ctx.mapOpen != null ? ctx.mapOpen : settings.inlineMap); const sc = $body.scrollTop; renderCompany(ctx, false); $body.scrollTop = sc; } break;
+      case 'map-toggle': if (ctx && f) toggleMap(el); break;
       case 'filing': onFilingRow(+el.dataset.i); break;
       case 'filings-all': openFilings(0); break;
       case 'fv-prev': fvStep(-1); break;
@@ -4020,8 +4057,6 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       case 'appts': if (ctx) expandOfficer(ctx, +el.dataset.i, st.req); break;
       case 'link': if (ctx) openTab(linkFor(el.dataset.id, ctx)); break;
       case 'link-all': openAll(); break;
-      case 'copy-num': if (f) copyFrom(el, f.number, 'Company number copied'); break;
-      case 'copy-addr': if (f) copyFrom(el, f.address, 'Address copied'); break;
       case 'copy-note': copyNote(el); break;
       case 'ai-auto': case 'ai-refresh': if (f && !ctx.kind) doAuto(ctx); break;
       case 'ai-web': if (f && !ctx.kind) doWeb(ctx); break;
