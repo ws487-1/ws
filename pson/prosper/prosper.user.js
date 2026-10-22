@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Prosper
 // @namespace    https://wills.im/pson/prosper
-// @version      12.1
-// @description  Highlight a company, email, website, Companies House number or person to get an instant Companies House card, quick check, quick links, a copyable quick note and an on-request AI summary with follow-up questions. Built for prospecting in any CRM.
+// @version      12.2
+// @description  Highlight a company, email, website, Companies House number or person to get an instant Companies House card, quick check, quick links, a copyable quick note, an automatic AI summary from Companies House data, web search on request and a follow-up chat per company. Built for prospecting in any CRM.
 // @author       Will
 // @match        *://*/*
 // @noframes
@@ -59,8 +59,8 @@
   /* ------------------------------------------------------------------ */
 
   // Tampermonkey compares @version, so build N ships as 12.N. Neither number is shown in the UI.
-  const VERSION = '12.1';
-  const BUILD = 1;
+  const VERSION = '12.2';
+  const BUILD = 2;
   const EDITION = 'public';
   // Built-in default keys. Empty in the public build; the private build fills these in.
   const BAKED = { ch: '', claude: '' };
@@ -83,10 +83,16 @@
     sections: 'prosper.sections',
     pins: 'prosper.pins',
     recent: 'prosper.recent',
+    ai: 'prosper.ai.', // + company number: saved summary, web search and chat for that company
+    aiIdx: 'prosper.ai.idx', // most-recently-used list of company numbers (LRU)
   };
+  const AI_KEEP = 200; // companies with saved summaries/chats (least recently used are dropped)
+  const CHAT_KEEP = 30; // saved chat turns per company
+  const AUTO_MODEL = 'claude-haiku-5-5'; // the automatic summary always uses Haiku: fast and cheap
+  const DEAD = /^(dissolved|closed|closed-on|converted-closed|removed)$/;
   const MODELS = {
     'claude-haiku-5-5': { label: 'Claude Haiku 5.5 (fast, cheap)', inM: 0.10, outM: 0.50 },
-    'claude-sonnet-5-5': { label: 'Claude Sonnet 5.5 (deeper)', inM: 3.00, outM: 15.00, est: true },
+    'claude-sonnet-5-5': { label: 'Claude Sonnet 5.5 (deeper)', inM: 2.00, outM: 10.00 },
   };
   const SEARCH_COST = 10 / 1000;
   const FHD_URL = 'https://raw.githubusercontent.com/companieshouse/api-enumerations/master/filing_history_descriptions.yml';
@@ -119,7 +125,7 @@
 
 
   const DEFAULTS = {
-    model: 'claude-haiku-5-5', background: true, inInputs: false, scope: 'all',
+    model: 'claude-haiku-5-5', autoSummary: true, background: true, inInputs: false, scope: 'all',
     // Interactive features (v11.2)
     chLinks: true, peopleInPanel: true, addrMaps: true, inlineMap: false, colorLinks: true, filingOpen: 'viewer',
     // Extras (v11.2)
@@ -281,10 +287,14 @@
     return [a.care_of && ('c/o ' + a.care_of), a.po_box, a.premises, a.address_line_1, a.address_line_2, a.locality, a.region, a.postal_code, a.country]
       .filter(Boolean).map((x) => String(x).trim()).filter((x, i, arr) => x && arr.indexOf(x) === i).join(', ');
   }
+  // Comparable key for company names: case, punctuation, '&'/'and', 'The' and legal suffixes (Ltd, Limited, PLC,
+  // 'Public Limited Company', 'Company', ...) are ignored, so "O and O Electrical Ltd" = "O & O ELECTRICAL LIMITED".
+  const LEGAL_SUFFIX = /\s+(PUBLIC LIMITED COMPANY|LIMITED LIABILITY PARTNERSHIP|COMMUNITY INTEREST COMPANY|LIMITED|LTD|PLC|LLP|LP|CIC|COMPANY|CO)$/;
   function alphaKey(s) {
     let k = String(s || '').toUpperCase().replace(/&/g, ' AND ').replace(/[^A-Z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
-    k = k.replace(/\b(THE)\b\s*/g, '').replace(/\s*\b(LIMITED|LTD|PLC|LLP|LP|CIC|COMPANY|CO|PUBLIC LIMITED COMPANY|LIMITED LIABILITY PARTNERSHIP|UK)\b\.?$/g, '');
-    k = k.replace(/\s*\b(LIMITED|LTD|PLC|LLP)\b$/g, '');
+    k = k.replace(/\bTHE\b/g, ' ').replace(/\s+/g, ' ').trim();
+    let prev;
+    do { prev = k; if (k.includes(' ')) k = k.replace(LEGAL_SUFFIX, '').trim(); } while (k !== prev);
     return k.replace(/[^A-Z0-9]/g, '');
   }
   function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
@@ -313,18 +323,77 @@
     if (/^(mr|mrs|ms|miss|dr|sir|prof)$/.test(first)) return true;
     return FIRST_NAMES.has(first);
   }
-  function detect(raw) {
-    let t = String(raw || '').replace(/\s+/g, ' ').trim().replace(/^[\s"'(<\[]+|[\s"',;:)>\].]+$/g, '');
-    if (!t) return null;
+  /* 2-4 capitalised words, letters only, no company words: a person, or a company named like one ("Thomas Cook").
+     Which one is decided by searching Companies House (see lookup). */
+  function looksLikeName(t) {
+    if (!t || t.length > 50 || /\d/.test(t) || COMPANY_WORDS.test(t)) return false;
+    const w = t.replace(/^(mr|mrs|ms|miss|mx|dr|sir|dame|prof)\.?\s+/i, '').split(/\s+/);
+    if (w.length < 2 || w.length > 4) return false;
+    if (!w.every((x) => /^[A-Z](?:[A-Za-z'\u2019\-]*[a-z][A-Za-z'\u2019\-]*|\.?)$/.test(x))) return false;
+    return w.filter((x) => x.replace('.', '').length > 1).length >= 2;
+  }
+  const HONORIFIC = /^(mr|mrs|ms|miss|mx|dr|sir|dame|prof)\.?\s+/i;
+  const ROLE_RE = '(?:chief\\s+executive(?:\\s+officer)?|chief\\s+(?:operating|financial|technology|technical|marketing|commercial|revenue|people|product|information|data)\\s+officer|founder\\s*(?:&|and)\\s*ceo|ceo|cfo|coo|cto|cmo|cro|cio|co-?founder|founder|managing\\s+director|executive\\s+director|non-executive\\s+director|sales\\s+director|finance\\s+director|director|chair(?:man|woman|person)?|president|managing\\s+partner|owner|general\\s+manager|company\\s+secretary|head\\s+of\\s+[a-z&]+(?:\\s+[a-z&]+)?|vp(?:\\s+of)?\\s+[a-z&]+|vice\\s+president(?:\\s+of\\s+[a-z&]+)?)';
+  const ROLE_PRE = new RegExp('^' + ROLE_RE + '\\s*[:,\\-\\u2013\\u2014|]?\\s+', 'i');
+  const ROLE_POST = new RegExp('(?:\\s*(?:,|\\||\\()\\s*|\\s+[-\\u2013\\u2014]\\s+|\\s+at\\s+|\\s+)' + ROLE_RE + '\\b.*$', 'i');
+  /* "Chief Executive Roisin Currie", "Roisin Currie, CEO" -> "Roisin Currie" (only when what is left looks like a name). */
+  function personFromRole(t) {
+    let x = t, role = false;
+    if (ROLE_PRE.test(x)) { x = x.replace(ROLE_PRE, ''); role = true; }
+    if (ROLE_POST.test(x)) { x = x.replace(ROLE_POST, ''); role = true; }
+    x = x.replace(/[\s,;:)\-]+$/, '').trim();
+    return role && looksLikeName(x) ? x : '';
+  }
+  /* Page-title and footer junk: " | LinkedIn", "Home - ", taglines after " | " or " - ", "overview", "Registered in ...". */
+  const SITE_SEG = /^(linkedin|facebook|instagram|twitter|x|youtube|tiktok|crunchbase|glassdoor|indeed|wikipedia|bloomberg|reuters|gov\.?uk|companies house|find and update company information|endole|company ?check|yell|yelp|trustpilot|google|google maps|maps)$/i;
+  const GENERIC_SEG = /^(home|home ?page|welcome|about|about us|contact|contact us|overview|official (?:site|website)|careers|jobs|news|blog|people|posts|company profile|profile|log ?in|sign ?in)$/i;
+  function cleanName(t) {
+    let x = String(t || '');
+    x = x.replace(/(?:copyright|\u00a9|\(c\))\s*(?:\d{4}(?:\s*[-\u2013]\s*\d{2,4})?)?/gi, ' ').replace(/\ball rights reserved\b\.?/gi, ' ');
+    x = x.replace(/\s+/g, ' ').trim().replace(/^(?:re|fw|fwd)\s*:\s*/i, '');
+    const parts = x.split(/\s+(?:\||-|\u2013|\u2014|\u00b7|\u2022|::|\u00bb|\u203a|>)\s+/).map((p) => p.trim()).filter(Boolean);
+    if (parts.length > 1) { const keep = parts.filter((p) => !SITE_SEG.test(p) && !GENERIC_SEG.test(p)); x = keep[0] || parts[0]; }
+    x = x.replace(/^(?:welcome to|about|careers at|jobs at|working at|life at)\s+/i, '');
+    x = x.replace(/\s+(?:overview|company profile|profile|official site|official website|home ?page|careers|jobs)$/i, '');
+    x = x.replace(/[.,;]?\s+(?:is\s+)?(?:a\s+)?(?:company\s+)?registered\s+(?:in|office|address|at)\b.*$/i, '');
+    x = x.replace(/[.,;]?\s*(?:registered|company|reg\.?)\s*(?:no\.?|number|#)(?:\s|:|$).*$/i, '');
+    return x.replace(/^[\s"'(<\[]+|[\s"',;:)>\].]+$/g, '').replace(/\s+/g, ' ').trim();
+  }
+  const CH_PREFIX = 'SC|NI|OC|SO|NC|LP|SL|NL|FC|SF|NF|GE|IP|SP|RC|SR|CE|CS|ZC|SZ|SE|IC|SI|NP|NR|RS|AC|SA|NA';
+  /* A Companies House number inside a longer selection: "Registered in England No. 00502851", "Company number SC311560". */
+  function findNumber(t) {
+    let m = new RegExp('(?:^|[^A-Za-z0-9])(' + CH_PREFIX + ')\\s?(\\d{6})(?![0-9])').exec(t);
+    if (m) return m[1] + m[2];
+    m = /\b(?:company|registered|registration|reg|crn|incorporated)\b[^0-9\n]{0,40}?(?<![\d+])(\d{6,8})(?![\d\-])/i.exec(t);
+    if (m) return m[1].padStart(8, '0');
+    const all = t.match(/(?<![\d+\-])\b[01]\d{7}\b(?![\-\d])/g); // a lone 8-digit number in CH range
+    return all && all.length === 1 ? all[0] : '';
+  }
+  const TLD = /\.(?:com|co\.uk|org\.uk|uk|org|net|io|ai|co|eu|biz|info|app|dev|tech|scot|wales|london|cymru|ie|de|fr|nl|global|group|agency|studio|digital|works|ltd|plc)$/i;
+  const SITE_DOMAIN = /(?:^|\.)(?:gov\.uk|linkedin\.com|wikipedia\.org|facebook\.com|twitter\.com|x\.com|instagram\.com|youtube\.com|google\.com|google\.co\.uk|crunchbase\.com|glassdoor\.co\.uk|glassdoor\.com|indeed\.com|endole\.co\.uk|companycheck\.co\.uk|bbc\.co\.uk)$/i;
+  function findDomain(t) {
+    for (let w of t.split(/\s+/)) {
+      w = w.replace(/^[<(\["']+|[>)\]"',;.!?]+$/g, '');
+      if (!w || w.includes('@')) continue;
+      if (!/^(?:https?:\/\/)?(?:www\.)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:[/?#:].*)?$/i.test(w)) continue;
+      const d = cleanDomain(w);
+      if (SITE_DOMAIN.test(d) || (/^[A-Z0-9.\-]+$/.test(w) && /[A-Z]/.test(w))) continue; // "GOV.UK", "linkedin.com": the site, not the company
+      if (/^(?:https?:\/\/|www\.)/i.test(w) || TLD.test(d)) return w;
+    }
+    return '';
+  }
+  function emailName(local) {
+    const p = String(local || '').replace(/[0-9_]+/g, ' ').split(/[.\-+ ]/).filter((x) => x.length > 1);
+    return p.length >= 2 && p.length <= 3 ? p.map((x) => x[0].toUpperCase() + x.slice(1).toLowerCase()).join(' ') : '';
+  }
+  /* Exact formats: the whole selection is an email, a company number or a website. */
+  function detectWhole(t) {
     const mail = /^(?:mailto:)?([a-z0-9._%+'-]+)@([a-z0-9.-]+\.[a-z]{2,})$/i.exec(t);
     if (mail) {
-      const domain = mail[2].toLowerCase();
-      if (FREEMAIL.test(domain)) {
-        const local = mail[1].replace(/[0-9_]+/g, ' ').split(/[.\-+]/).filter((x) => x.length > 1);
-        const name = local.length >= 2 ? local.map((x) => x[0].toUpperCase() + x.slice(1)).join(' ') : '';
-        return { raw: t, type: 'freemail', label: 'Personal email', query: name || t, mode: name ? 'person' : 'none', email: t };
-      }
-      return { raw: t, type: 'email', label: 'Email', query: companyLabelFromDomain(domain), mode: 'company', domain, email: t };
+      const domain = mail[2].toLowerCase(), email = mail[1] + '@' + mail[2];
+      const name = emailName(mail[1]);
+      if (FREEMAIL.test(domain)) return { raw: t, type: 'freemail', label: 'Personal email', query: name || email, mode: name ? 'person' : 'none', email, personName: name };
+      return { raw: t, type: 'email', label: 'Email', query: companyLabelFromDomain(domain), mode: 'company', domain, email, personName: name };
     }
     const chn = t.replace(/\s+/g, '').toUpperCase();
     if (/^(?:\d{8}|[A-Z]{2}\d{6}|[A-Z]\d{7})$/.test(chn) && /^(\d{8}|SC|NI|OC|SO|NC|FC|SF|NF|IP|SP|RC|SR|LP|SL|NL|ZC|SZ|IC|SI|NR|NP|SE|GE|R\d|CE|CS|RS|AC|SA|NA|NO|IS)/.test(chn)) {
@@ -335,8 +404,50 @@
       const domain = cleanDomain(t);
       return { raw: t, type: 'domain', label: 'Website', query: companyLabelFromDomain(domain), mode: 'company', domain };
     }
-    if (looksLikePerson(t)) return { raw: t, type: 'person', label: 'Person', query: t, mode: 'person' };
-    return { raw: t, type: 'company', label: 'Company', query: t, mode: 'company' };
+    return null;
+  }
+  /* Strong identifiers first (company number, email, website, also inside longer text), then a cleaned-up name. */
+  function detect(raw) {
+    const t = String(raw || '').replace(/\s+/g, ' ').trim().replace(/^[\s"'(<\[]+|[\s"',;:)>\].]+$/g, '');
+    if (!t) return null;
+    const whole = detectWhole(t);
+    if (whole) return whole;
+    const num = findNumber(t);
+    if (num) return { raw: t, type: 'chnum', label: 'Company number', query: num, mode: 'number', number: num, inText: true };
+    const em = /(?:mailto:)?[a-z0-9._%+'-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/i.exec(t);
+    if (em) {
+      const d = detectWhole(em[0]);
+      if (d) {
+        d.raw = t; d.inText = true;
+        const nm = cleanName(t.replace(em[0], ' ').replace(/[<>()"\[\]]/g, ' '));
+        if (looksLikeName(nm) || looksLikePerson(nm)) d.personName = nm.replace(HONORIFIC, '');
+        if (d.type === 'freemail' && d.personName) { d.query = d.personName; d.mode = 'person'; }
+        return d;
+      }
+    }
+    const dom = findDomain(t);
+    if (dom) { const d = detectWhole(dom); if (d && d.type === 'domain') { d.raw = t; d.inText = true; return d; } }
+    const name = cleanName(t) || t;
+    const viaRole = personFromRole(name);
+    if (viaRole) return { raw: t, type: 'person', label: 'Person', query: viaRole.replace(HONORIFIC, ''), mode: 'person' };
+    if (HONORIFIC.test(name) && (looksLikeName(name) || looksLikePerson(name))) return { raw: t, type: 'person', label: 'Person', query: name.replace(HONORIFIC, ''), mode: 'person' };
+    if (/^[A-Z][A-Z'\- ]+,\s*[A-Za-z'\- ]+$/.test(name) && !COMPANY_WORDS.test(name)) return { raw: t, type: 'person', label: 'Person', query: name, mode: 'person' };
+    if (looksLikeName(name) || looksLikePerson(name)) return { raw: t, type: 'name', label: 'Name', query: name, mode: 'company', personHint: looksLikePerson(name) ? 'likely' : 'maybe' };
+    return { raw: t, type: 'company', label: 'Company', query: name, mode: 'company' };
+  }
+  // "Oxford Flow raises £14m to scale" -> "Oxford Flow" (1-4 leading capitalised words followed by lower-case text).
+  function leadName(q) {
+    const w = String(q || '').split(/\s+/);
+    if (w.length < 4) return '';
+    let i = 0;
+    while (i < w.length && i < 5 && (/^[A-Z0-9][A-Za-z0-9'\u2019&.\-]*$/.test(w[i]) || (i > 0 && /^(?:&|and|of|the)$/i.test(w[i]) && /^[A-Z]/.test(w[i + 1] || '')))) i++;
+    return i >= 1 && i <= 4 && i < w.length && /^[a-z£$0-9]/.test(w[i]) ? w.slice(0, i).join(' ') : '';
+  }
+  /* Officer search titles look like "Roisin CURRIE" or "Roisin Mary CURRIE": same first and last name? */
+  function sameName(title, q) {
+    const tok = (x) => { let v = String(x || ''); const m = /^([^,]+),\s*(.+)$/.exec(v); if (m) v = m[2] + ' ' + m[1]; return v.toLowerCase().replace(HONORIFIC, '').replace(/[^a-z'\u2019 \-]/g, ' ').split(/\s+/).filter(Boolean); };
+    const a = tok(title), b = tok(q);
+    return a.length >= 2 && b.length >= 2 && a[0] === b[0] && a[a.length - 1] === b[b.length - 1];
   }
 
   /* ------------------------------------------------------------------ */
@@ -486,7 +597,11 @@
   /* Company lookup                                                     */
   /* ------------------------------------------------------------------ */
 
-  async function findCompanies(q) {
+  /* Company search + match strength. A match is "strong" (opens straight away, AI summary runs) only when exactly one
+     live company has the name; otherwise the caller shows a "Did you mean" list. Domains (from emails/websites) also
+     rank names that start with the domain word, oldest first (monzo.com -> Monzo Bank Limited). */
+  async function findCompanies(q, o) {
+    o = o || {};
     const enc = encodeURIComponent(q);
     const [search, alpha] = await Promise.all([
       ch(`/search/companies?q=${enc}&items_per_page=20`),
@@ -495,21 +610,35 @@
     const qk = alphaKey(q);
     const items = ((search && search.items) || []).map((it, i) => ({
       number: it.company_number, name: it.title, status: it.company_status, created: it.date_of_creation,
-      address: it.address_snippet, formerly: (it.snippet || '').split(' · ').map((s) => s.trim()).filter(Boolean), rank: i,
+      address: it.address_snippet, town: titleCase((it.address && it.address.locality) || ''),
+      formerly: (it.snippet || '').split(' · ').map((x) => x.trim()).filter(Boolean), rank: i,
     }));
     const top = alpha && alpha.top_hit;
     if (top && top.company_number && !items.some((x) => x.number === top.company_number)) {
-      items.push({ number: top.company_number, name: top.company_name, status: top.company_status, formerly: [], rank: 30, address: '' });
+      items.push({ number: top.company_number, name: top.company_name, status: top.company_status, formerly: [], rank: 30, address: '', town: '' });
     }
+    const now = Date.now();
     for (const it of items) {
-      it.exact = alphaKey(it.name) === qk;
+      it.key = alphaKey(it.name);
+      it.exact = it.key === qk;
       it.formerExact = !it.exact && it.formerly.some((f) => alphaKey(f) === qk);
-      it.score = (it.exact ? 100 : 0) + (it.formerExact ? 60 : 0) + (it.status === 'active' ? 20 : 0) - it.rank;
+      it.prefix = !it.exact && qk.length >= 3 && it.key.startsWith(qk);
+      it.live = !DEAD.test(it.status || '');
+      const yrs = it.created ? Math.max(0, (now - Date.parse(it.created)) / 3.156e10) : 0;
+      it.score = (it.exact ? 100 : 0) + (it.formerExact ? (o.domain ? 20 : 60) : 0) + (it.prefix ? (o.domain ? 40 : 10) : 0)
+        + (it.status === 'active' ? 20 : it.live ? 8 : 0) - it.rank + (o.domain && it.prefix ? Math.min(15, yrs / 2) : 0);
     }
     items.sort((a, b) => b.score - a.score);
-    const exactish = items.filter((x) => x.exact || x.formerExact);
-    const ambiguous = items.length > 1 && (!items[0].exact || exactish.length > 1);
-    return { items: items.slice(0, 8), ambiguous, matched: !!(items[0] && (items[0].exact || items[0].formerExact)), qk };
+    const E = items.filter((x) => x.exact), F = items.filter((x) => x.formerExact);
+    const liveE = E.filter((x) => x.live), liveF = F.filter((x) => x.live);
+    // Overseas companies and UK branches (FC/SF/NF/BR numbers) share names with the UK company: one UK match still counts.
+    const ukE = liveE.filter((x) => !/^(FC|SF|NF|BR)/.test(x.number));
+    let strong = null;
+    if (liveE.length === 1) strong = liveE[0];
+    else if (ukE.length === 1) strong = ukE[0];
+    else if (!liveE.length && E.length === 1 && !liveF.length) strong = E[0];
+    const exactCount = E.length + F.length;
+    return { items: items.slice(0, 8), strong, exactCount, reason: strong ? 'strong' : exactCount > 1 ? 'several' : 'none', matched: !!strong, ambiguous: !strong && items.length > 1, qk };
   }
 
   async function loadCompany(number) {
@@ -728,7 +857,7 @@
   /* Claude brief                                                       */
   /* ------------------------------------------------------------------ */
 
-  function factsText(f) {
+  function factsText(f, ctx) {
     const L = [];
     L.push(`Company: ${f.name} (Companies House ${f.number})`);
     L.push(`Status: ${f.statusLabel}${f.statusDetail ? ' - ' + f.statusDetail : ''}; Type: ${f.type}; Incorporated ${fmtDate(f.created)} (${ageText(f.created)})`);
@@ -736,11 +865,19 @@
     if (f.sic.length) L.push(`SIC: ${f.sic.map((s) => s.code + (s.desc ? ' ' + s.desc : '')).join('; ')}`);
     if (f.previousNames.length) L.push(`Previous names: ${f.previousNames.map((n) => n.name).join('; ')}`);
     L.push(`Accounts: last made up to ${fmtDate(f.accounts.lastMadeUp) || 'none'}${f.accounts.lastType ? ' (' + f.accounts.lastType + ')' : ''}; next due ${fmtDate(f.accounts.nextDue) || 'n/a'}${f.accounts.overdue ? ' OVERDUE' : ''}`);
-    if (f.officersKnown) L.push(`Directors/officers: ${f.officers.slice(0, 12).map((o) => `${o.name} (${o.role}, since ${fmtDate(o.appointed)})`).join('; ') || 'none'}`);
+    if (f.officersKnown) L.push(`Current officers (${f.officers.filter((o) => /director/i.test(o.role)).length} directors, ${f.officers.filter((o) => !/director/i.test(o.role)).length} other): ${f.officers.slice(0, 12).map((o) => `${o.name} (${o.role}, since ${fmtDate(o.appointed)})`).join('; ') || 'none'}`);
     if (f.recent.length) L.push(`Changes in last 12 months: ${f.recent.slice(0, 8).map((r) => r.text + ' ' + fmtDate(r.date)).join('; ')}`);
     if (f.pscs.length) L.push(`PSCs: ${f.pscs.map((p) => p.name + (p.control ? ' (' + p.control + ')' : '')).join('; ')}`);
     if (f.charges.total) L.push(`Charges: ${f.charges.outstanding} outstanding of ${f.charges.total}`);
     if (f.insolvency.length) L.push(`Insolvency: ${f.insolvency.map((c) => c.type + ' ' + c.dates).join(' | ')}`);
+    const outC = f.charges.list.filter((c) => c.outstanding).slice(0, 4);
+    if (outC.length) L.push(`Outstanding charges held by: ${outC.map((c) => (c.entitled || 'not stated') + ' (' + fmtDate(c.created) + ')').join('; ')}`);
+    if (f.filings.length) L.push(`Recent filings: ${f.filings.slice(0, 8).map((x) => fmtDate(x.date) + ' ' + x.text).join('; ')}`);
+    if (ctx && ctx.roles) {
+      const r = f.officers.slice(0, 12).filter((o) => ctx.roles[o.link] && ctx.roles[o.link].others && ctx.roles[o.link].others.length)
+        .map((o) => `${o.name}: ${ctx.roles[o.link].others.length} other active roles (${ctx.roles[o.link].others.slice(0, 4).map((a) => a.company).join(', ')})`);
+      if (r.length) L.push(`Other directorships: ${r.join('; ')}`);
+    }
     L.push(`Quick check: ${verdictLabel(f.verdict)}${f.caution.concat(f.check).length ? ' - ' + f.caution.concat(f.check).join('; ') : ''}`);
     return L.join('\n');
   }
@@ -752,85 +889,142 @@
     if (status === 402 || /credit balance|billing/i.test(msg)) return new PErr('cl-credit', 'Your Anthropic account is out of credit. Top up at console.anthropic.com, then try again.');
     if (status === 429) return new PErr('cl-429', 'AI rate limit hit. Wait a minute and try again.');
     if (status === 529 || status === 503) return new PErr('cl-busy', 'The AI service is busy right now. Try again shortly.');
-    if (status === 404 || /model/i.test(msg)) return new PErr('cl-model', 'Model not available: ' + (msg || status));
+    if (status === 404 || /model[^.]*\b(not found|not available|does not exist)\b|not_found_error/i.test(msg)) return new PErr('cl-model', 'Model not available: ' + (msg || status));
     if (status === -1) return new PErr('cl-net', 'The AI did not answer in time (timeout). Try again.', -1);
     if (status <= 0) return new PErr('cl-net', 'Could not reach api.anthropic.com' + (text ? ': ' + text : '.'), 0);
     return new PErr('cl-http', 'AI error ' + status + (msg ? ': ' + msg : ''), status);
   }
 
-  async function runBrief(f, domain, force) {
-    const model = settings.model in MODELS ? settings.model : DEFAULTS.model;
-    const ck = `brief:${f.number}:${model}`;
-    if (!force) { const hit = cacheGet(ck, TTL_BRIEF); if (hit) return Object.assign({}, hit.d, { cachedAt: hit.t }); }
-    const key = claudeKey();
-    if (!key) throw new PErr('cl-nokey');
-    const prompt = `You are helping a UK B2B salesperson prepare to contact a prospect. Companies House facts (authoritative, do not contradict):\n\n${factsText(f)}\n${domain ? 'Likely website: ' + domain + '\n' : ''}\nUse web search (at most 3 searches) to learn what this company actually does and find recent signals (news, hiring, funding, contracts, expansion, leadership changes; prefer the last 18 months). Make sure results are about THIS company, not a similarly named one.\n\nReply with ONLY a JSON object, no prose before or after:\n{"what":["3 short lines on what they do, who for, where"],"signals":[{"text":"one line","date":"YYYY-MM or empty","url":"source url from your search results"}],"talking_points":["3 specific, practical openers for a sales conversation"],"questions":["3 short follow-up questions (under 12 words each) a salesperson would want answered about THIS company specifically"],"confidence":"high|medium|low"}\nRules: at most 4 signals; each line under 25 words; only use URLs that appeared in your search results; if nothing reliable is found, say so in "what" and leave signals empty.`;
-    const body = {
-      model, max_tokens: 4000,
-      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3, user_location: { type: 'approximate', country: 'GB' } }],
-      messages: [{ role: 'user', content: prompt }],
-    };
-    const r = await xhr({
-      method: 'POST', url: CLAUDE_URL, timeout: 120000, data: JSON.stringify(body),
-      headers: claudeHeaders(key),
-    });
-    if (r.status !== 200) { const er = claudeError(r.status, r.status <= 0 ? r.error : r.text); warn('Claude brief failed:', er.message); throw er; }
-    let res; try { res = JSON.parse(r.text); } catch (e) { throw new PErr('cl-bad', 'The AI returned an unreadable response.'); }
-    const blocks = res.content || [];
-    const searchUrls = new Map();
-    let lastTool = -1;
-    blocks.forEach((b, i) => {
-      if (b.type === 'web_search_tool_result') {
-        lastTool = i;
-        if (Array.isArray(b.content)) for (const c of b.content) if (c.url) searchUrls.set(c.url, c.title || c.url);
-      }
-    });
-    const cited = new Map();
-    for (const b of blocks) if (b.type === 'text' && b.citations) for (const c of b.citations) if (c.url && searchUrls.has(c.url)) cited.set(c.url, c.title || searchUrls.get(c.url));
-    let text = blocks.slice(lastTool + 1).filter((b) => b.type === 'text').map((b) => b.text).join('');
-    if (!text.includes('{')) text = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('');
-    const fence = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
-    let js = fence ? fence[1] : text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
-    let data = null; try { data = JSON.parse(js); } catch (e) { data = null; }
-    if (!data) data = { what: [text.replace(/\s+/g, ' ').trim().slice(0, 400) || 'No summary returned.'], signals: [], talking_points: [] };
-    const signals = (data.signals || []).slice(0, 4).map((s) => ({ text: String(s.text || ''), date: String(s.date || ''), url: s.url && searchUrls.has(s.url) ? s.url : '' }));
-    const sources = new Map(cited);
-    for (const s of signals) if (s.url) sources.set(s.url, searchUrls.get(s.url));
-    if (!sources.size) for (const [u, t] of Array.from(searchUrls).slice(0, 4)) sources.set(u, t);
-    const u = res.usage || {};
-    const price = MODELS[model];
-    const inTok = (u.input_tokens || 0) + 1.25 * (u.cache_creation_input_tokens || 0) + 0.1 * (u.cache_read_input_tokens || 0);
-    const searches = (u.server_tool_use && u.server_tool_use.web_search_requests) || 0;
-    const cost = (inTok * price.inM + (u.output_tokens || 0) * price.outM) / 1e6 + searches * SEARCH_COST;
-    const brief = {
-      what: (data.what || []).slice(0, 3).map(String), signals, talking: (data.talking_points || []).slice(0, 3).map(String),
-      questions: (data.questions || []).map(String).filter((q) => q && q.length < 140).slice(0, 3),
-      confidence: data.confidence || '', sources: Array.from(sources).slice(0, 6).map(([url, title]) => ({ url, title })),
-      usage: { input: u.input_tokens || 0, output: u.output_tokens || 0, searches }, cost, model, at: Date.now(), estPrice: !!price.est,
-    };
-    cacheSet(ck, brief);
-    return brief;
+  /* ---------- AI: per-company store (summary, web search, chat), LRU-capped ---------- */
+  // Change signature of the Companies House data the AI saw: a new filing, status or officer change marks saved AI text stale.
+  function coSig(f) { return [f.name, f.status, f.statusDetail, f.accounts.lastMadeUp, f.cs.last, (f.filings[0] || {}).date || '', f.officers.length, f.charges.outstanding, f.insolvency.length].join('|'); }
+  const aiKey = (n) => K.ai + String(n).toUpperCase();
+  function aiIdx() { const v = readJSON(gv(K.aiIdx, null)); return Array.isArray(v) ? v.filter((x) => Array.isArray(x) && x[0]) : []; }
+  function aiTouch(n, saved) {
+    if (!saved && gv(aiKey(n), null) == null) return;
+    const idx = aiIdx().filter((x) => x[0] !== n);
+    idx.unshift([n, Date.now()]);
+    for (const x of idx.slice(AI_KEEP)) { dv(aiKey(x[0])); delete st.aiMem[x[0]]; }
+    sv(K.aiIdx, JSON.stringify(idx.slice(0, AI_KEEP)));
+  }
+  function aiRec(f) {
+    const n = f.number;
+    let rec = st.aiMem[n];
+    if (!rec) {
+      rec = readJSON(gv(aiKey(n), null)) || { n, chat: [] };
+      if (!Array.isArray(rec.chat)) rec.chat = [];
+      st.aiMem[n] = rec;
+    }
+    rec.n = n; rec.name = f.display;
+    aiTouch(n, false);
+    return rec;
+  }
+  function aiSave(rec) {
+    if (rec.chat.length > CHAT_KEEP + 10) rec.chat = rec.chat.slice(-CHAT_KEEP);
+    const chat = rec.chat.filter((t) => t.a && !t.pending).slice(-CHAT_KEEP)
+      .map((t) => ({ q: t.q, a: String(t.a).slice(0, 1500), web: !!t.web, needsWeb: !!t.needsWeb, sources: (t.sources || []).slice(0, 4), at: t.at, sig: t.sig, usage: t.usage }));
+    sv(aiKey(rec.n), JSON.stringify({ n: rec.n, name: rec.name, auto: rec.auto || null, web: rec.web || null, chat }));
+    aiTouch(rec.n, true);
+  }
+  function aiClearAll() { for (const k of lv()) if (k.startsWith(K.ai)) dv(k); st.aiMem = {}; st.aiErr = {}; }
+  function fmtAgo(t) {
+    const m = (Date.now() - t) / 60000;
+    if (!(m >= 1)) return 'just now';
+    if (m < 60) return Math.round(m) + ' min ago';
+    const h = m / 60; if (h < 23.5) { const r = Math.round(h); return r + (r === 1 ? ' hour ago' : ' hours ago'); }
+    const d = h / 24; if (d < 1.5) return 'yesterday';
+    if (d < 30) return Math.round(d) + ' days ago';
+    const mo = Math.round(d / 30.44); if (mo < 12) return mo + (mo === 1 ? ' month ago' : ' months ago');
+    const y = Math.round(d / 365.25); return y + (y === 1 ? ' year ago' : ' years ago');
   }
 
-  /* Question chips: one Claude call per question (no web search), company facts + any brief as context, short output. */
-  async function askClaude(f, brief, q) {
-    const model = settings.model in MODELS ? settings.model : DEFAULTS.model;
-    const ck = `ask:${f.number}:${model}:${alphaKey(q).slice(0, 60)}`;
-    const hit = cacheGet(ck, TTL_BRIEF); if (hit) return Object.assign({}, hit.d, { cachedAt: hit.t });
+  /* ---------- AI calls ---------- */
+  async function claudeCall(body, timeout, what) {
     const key = claudeKey();
     if (!key) throw new PErr('cl-nokey');
-    const ctxBrief = brief ? `\nEarlier research brief (from web search; may be incomplete):\n- ${brief.what.join('\n- ')}${brief.signals.length ? '\nSignals: ' + brief.signals.map((x) => x.text).join('; ') : ''}\n` : '';
-    const prompt = `You help a UK B2B salesperson. Companies House facts (authoritative):\n\n${factsText(f)}\n${ctxBrief}\nQuestion: ${q}\n\nAnswer in 2-4 short sentences, at most 70 words, plain text (no markdown, no bullet lists, no preamble). Be practical and specific to this company. Base it on the facts above; say plainly when the data cannot answer something and what to check instead.`;
-    const r = await xhr({ method: 'POST', url: CLAUDE_URL, timeout: 60000, data: JSON.stringify({ model, max_tokens: 400, thinking: { type: 'disabled' }, messages: [{ role: 'user', content: prompt }] }), headers: claudeHeaders(key) });
-    if (r.status !== 200) { const er = claudeError(r.status, r.status <= 0 ? r.error : r.text); warn('Claude question failed:', er.message); throw er; }
+    const t0 = Date.now();
+    const r = await xhr({ method: 'POST', url: CLAUDE_URL, timeout: timeout || 60000, data: JSON.stringify(body), headers: claudeHeaders(key) });
+    if (r.status !== 200) { const er = claudeError(r.status, r.status <= 0 ? r.error : r.text); warn('Claude ' + what + ' failed:', er.message); throw er; }
     let res; try { res = JSON.parse(r.text); } catch (e) { throw new PErr('cl-bad', 'The AI returned an unreadable response.'); }
-    const text = (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('').replace(/\*\*/g, '').trim();
+    const u = res.usage || {};
+    // Usage is kept with the saved result (for testing and a future subscription meter); it is never shown in the UI.
+    return { res, usage: { model: body.model, in: u.input_tokens || 0, cw: u.cache_creation_input_tokens || 0, cr: u.cache_read_input_tokens || 0, out: u.output_tokens || 0, searches: (u.server_tool_use && u.server_tool_use.web_search_requests) || 0, ms: Date.now() - t0 } };
+  }
+  function parseJsonText(text) {
+    const fence = /```(?:json)?\s*([\s\S]*?)```/.exec(text);
+    const js = fence ? fence[1] : text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1);
+    try { return JSON.parse(js); } catch (e) { return null; }
+  }
+  const strs = (x, n) => (Array.isArray(x) ? x : []).map((v) => String(v == null ? '' : v).replace(/\*\*/g, '').trim()).filter(Boolean).slice(0, n);
+  // Web search responses: the text after the last search result, plus the URLs the search actually returned.
+  function webParts(blocks) {
+    const urls = new Map(); let last = -1;
+    blocks.forEach((b, i) => { if (b.type === 'web_search_tool_result') { last = i; if (Array.isArray(b.content)) for (const c of b.content) if (c.url) urls.set(c.url, c.title || ''); } });
+    const cited = new Map();
+    for (const b of blocks) if (b.type === 'text' && b.citations) for (const c of b.citations) if (c.url && urls.has(c.url)) cited.set(c.url, c.title || urls.get(c.url));
+    let text = blocks.slice(last + 1).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    if (!text.trim()) text = blocks.filter((b) => b.type === 'text').map((b) => b.text).join('');
+    return { text, urls, cited };
+  }
+  const hostOf = (u) => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return u; } };
+  const JUNK_TITLE = /^(back to results|back|home|untitled|page not found|404|not found|log ?in|sign ?in|loading\.*)$/i;
+  // Source list: drop junk titles ("Back to results"), label short ones with their site.
+  function srcList(map, limit) {
+    return Array.from(map).filter(([, t]) => !JUNK_TITLE.test(String(t || '').trim())).slice(0, limit)
+      .map(([url, title]) => ({ url, title: !title || title.trim().split(/\s+/).length < 3 ? hostOf(url) + (title ? ': ' + title.trim() : '') : title.trim() }));
+  }
+
+  /* Automatic summary: Companies House data only, no web search, Haiku with thinking off and a small token budget.
+     The 2-3 suggested questions come from this same call. */
+  async function runAuto(f, ctx) {
+    const sys = 'You write short, factual company summaries for UK B2B salespeople. Use ONLY the Companies House data you are given: never invent products, customers, revenue, staff numbers or news. When you infer what a company does from its SIC codes or name, say "probably". Plain English, no hype, no markdown.';
+    const user = `Companies House data:\n\n${factsText(f, ctx)}\n\nReply with ONLY a JSON object:\n{"summary":["2 to 4 short lines: what the company probably does, how long it has traded, where it is, who runs or owns it"],"watch":["0 to 3 things worth checking before a sales call (risks, overdue filings, recent changes); [] if none"],"openers":["2 practical conversation openers based only on this data"],"questions":["3 short questions (under 9 words) a salesperson might ask next; at least 2 must be answerable from this data (owners, directors, filings, charges, history)"]}\nEvery line under 25 words.`;
+    const { res, usage } = await claudeCall({ model: AUTO_MODEL, max_tokens: 500, thinking: { type: 'disabled' }, system: sys, messages: [{ role: 'user', content: user }] }, 45000, 'summary');
+    const text = (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    const d = parseJsonText(text) || { summary: [text.replace(/\s+/g, ' ').trim().slice(0, 400) || 'No summary returned.'] };
+    return { summary: strs(d.summary, 4), watch: strs(d.watch, 3), openers: strs(d.openers, 2), questions: strs(d.questions, 3).filter((q) => q.length < 90), at: Date.now(), sig: coSig(f), usage };
+  }
+
+  /* Search the web (on request): deeper research with the web search tool, added under the automatic summary. */
+  async function runWeb(f, ctx, rec) {
+    const model = settings.model in MODELS ? settings.model : DEFAULTS.model;
+    const auto = rec.auto ? `\nSummary so far (from Companies House data only):\n- ${rec.auto.summary.join('\n- ')}\n` : '';
+    const prompt = `You are helping a UK B2B salesperson prepare to contact a prospect. Companies House facts (authoritative, do not contradict):\n\n${factsText(f, ctx)}\n${ctx.domain ? 'Likely website: ' + ctx.domain + '\n' : ''}${auto}\nUse web search (at most 3 searches) to learn what this company actually does and find recent signals (news, hiring, funding, contracts, expansion, leadership changes; prefer the last 18 months). Make sure results are about THIS company, not a similarly named one.\n\nReply with ONLY a JSON object, no prose before or after:\n{"what":["up to 3 short lines on what they do, who for, where"],"signals":[{"text":"one line","date":"YYYY-MM or empty","url":"source url from your search results"}],"talking_points":["3 specific, practical openers for a sales conversation"],"confidence":"high|medium|low"}\nRules: at most 4 signals; each line under 25 words; only use URLs that appeared in your search results; if nothing reliable is found, say so in "what" and leave signals empty.`;
+    const { res, usage } = await claudeCall({ model, max_tokens: 3000, tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3, user_location: { type: 'approximate', country: 'GB' } }], messages: [{ role: 'user', content: prompt }] }, 120000, 'web search');
+    const { text, urls, cited } = webParts(res.content || []);
+    const data = parseJsonText(text) || { what: [text.replace(/\s+/g, ' ').trim().slice(0, 400) || 'Nothing returned.'], signals: [], talking_points: [] };
+    const signals = (Array.isArray(data.signals) ? data.signals : []).slice(0, 4).map((x) => ({ text: String((x && x.text) || ''), date: String((x && x.date) || ''), url: x && x.url && urls.has(x.url) ? x.url : '' })).filter((x) => x.text);
+    const src = new Map(cited);
+    for (const x of signals) if (x.url) src.set(x.url, urls.get(x.url));
+    const sources = srcList(src.size ? src : urls, src.size ? 6 : 4);
+    return { what: strs(data.what, 3), signals, talking: strs(data.talking_points, 3), confidence: String(data.confidence || ''), sources, at: Date.now(), sig: coSig(f), usage };
+  }
+
+  /* Chat: one company only. Context = that company's Companies House data, its saved summary/web research and its
+     own earlier questions and answers. No web search unless asked; the model flags answers that need it. */
+  async function askChat(f, ctx, rec, q, web, upto) {
+    const model = settings.model in MODELS ? settings.model : DEFAULTS.model;
+    const a = rec.auto, w = rec.web;
+    const extra = (a ? `\n\nSummary (from Companies House data):\n- ${a.summary.concat(a.watch).join('\n- ')}` : '')
+      + (w ? `\n\nWeb research (${fmtAgo(w.at)}):\n- ${w.what.concat(w.signals.map((x) => x.text + (x.date ? ' (' + x.date + ')' : ''))).join('\n- ')}` : '');
+    const rule = web
+      ? ' You can use web search (at most 2 searches); make sure results are about this company.'
+      : ' You cannot browse the web. If a proper answer needs information that is not in this data (for example products, customers, news, staff, contact details), say in one short sentence what is missing, give what the data does show, and end with [WEB] on its own line.';
+    const sys = `You answer a salesperson's questions about ONE UK company: ${f.display} (Companies House ${f.number}). Use the data below and the conversation so far. Plain text, at most 80 words, no markdown, no preamble.${rule}\n\nCompanies House data:\n${factsText(f, ctx)}${extra}`;
+    const hist = rec.chat.slice(0, upto == null ? rec.chat.length : upto).filter((t) => t.a && !t.pending && !t.err).slice(-8);
+    const messages = [];
+    for (const t of hist) messages.push({ role: 'user', content: t.q }, { role: 'assistant', content: t.a });
+    messages.push({ role: 'user', content: q });
+    const body = { model, max_tokens: web ? 1500 : 350, system: sys, messages };
+    if (web) body.tools = [{ type: 'web_search_20250305', name: 'web_search', max_uses: 2, user_location: { type: 'approximate', country: 'GB' } }];
+    else body.thinking = { type: 'disabled' };
+    const { res, usage } = await claudeCall(body, web ? 90000 : 45000, 'chat');
+    const p = web ? webParts(res.content || []) : { text: (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join(''), urls: new Map(), cited: new Map() };
+    let text = p.text.replace(/\*\*/g, '').trim();
+    const needsWeb = !web && /\[WEB\]/i.test(text);
+    text = text.replace(/\s*\[WEB\]\s*/gi, '\n').trim();
     if (!text) throw new PErr('cl-bad', 'No answer returned. Try again.');
-    const u = res.usage || {}; const price = MODELS[model];
-    const cost = ((u.input_tokens || 0) * price.inM + (u.output_tokens || 0) * price.outM) / 1e6;
-    const a = { q, text, cost, usage: { input: u.input_tokens || 0, output: u.output_tokens || 0 }, model, at: Date.now() };
-    cacheSet(ck, a);
-    return a;
+    return { a: text, web: !!web, needsWeb, sources: srcList(p.cited.size ? p.cited : p.urls, 3), at: Date.now(), sig: coSig(f), usage };
   }
   function shortSummary(f) {
     const reasons = f.caution.concat(f.check);
@@ -890,7 +1084,7 @@
   function verdictLabel(v) { return v === 'caution' ? 'Caution' : v === 'check' ? 'Check' : 'Looks normal'; }
 
   /* Quick note: templated from Companies House data (no AI call). */
-  function crmNote(f, brief) {
+  function crmNote(f, ai) {
     const L = [];
     const d = new Date();
     L.push(`Prosper check - ${f.display} (${f.number}) - ${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`);
@@ -909,13 +1103,20 @@
     if (f.charges.total) L.push(`Charges: ${f.charges.outstanding} outstanding of ${f.charges.total}`);
     if (f.insolvency.length) L.push(`Insolvency: ${f.insolvency.map((c) => `${c.type} (${c.dates})`).join('; ')}`);
     L.push(`Companies House: ${f.url}`);
-    if (brief) {
+    const a = ai && ai.auto, w = ai && ai.web;
+    if (a) {
       L.push('');
-      L.push('Summary (AI research, check before relying on it):');
-      for (const w of brief.what) L.push(`- ${w}`);
-      if (brief.signals.length) { L.push('Recent signals:'); for (const s of brief.signals) L.push(`- ${s.text}${s.date ? ' (' + s.date + ')' : ''}${s.url ? ' ' + s.url : ''}`); }
-      if (brief.talking.length) { L.push('Talking points:'); for (const t of brief.talking) L.push(`- ${t}`); }
-      if (brief.sources.length) { L.push('Sources:'); for (const s of brief.sources) L.push(`- ${s.url}`); }
+      L.push('Summary (AI, from Companies House data):');
+      for (const x of a.summary) L.push(`- ${x}`);
+      if (a.watch.length) { L.push('Worth checking:'); for (const x of a.watch) L.push(`- ${x}`); }
+    }
+    if (w) {
+      L.push('');
+      L.push('From the web (AI research, check before relying on it):');
+      for (const x of w.what) L.push(`- ${x}`);
+      if (w.signals.length) { L.push('Recent signals:'); for (const x of w.signals) L.push(`- ${x.text}${x.date ? ' (' + x.date + ')' : ''}${x.url ? ' ' + x.url : ''}`); }
+      if (w.talking.length) { L.push('Talking points:'); for (const x of w.talking) L.push(`- ${x}`); }
+      if (w.sources.length) { L.push('Sources:'); for (const x of w.sources) L.push(`- ${x.url}`); }
     }
     return L.join('\n');
   }
@@ -1365,12 +1566,56 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
 @keyframes tick { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+/* b2: automatic summary, web search, per-company chat, did-you-mean */
+.lnk { border: 0; background: none; padding: 0; margin: 0; font: inherit; color: var(--fg2); cursor: pointer; text-decoration: underline; text-decoration-color: var(--line2); text-underline-offset: 2px; }
+.lnk:hover, .lnk:focus-visible { color: var(--fg); outline: none; text-decoration-color: currentColor; }
+.ai .lnk { color: var(--ai-ink); text-decoration-color: #d9cdf8; }
+.brief .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 6px; margin-top: 8px; font-size: 11px; color: var(--fg3); }
+.brief .meta .stale { color: var(--warn); }
+.brief .meta .lnk { font-size: 11px; }
+.webbtn { display: flex; align-items: center; gap: 7px; width: 100%; margin-top: 10px; padding: 8px 10px; border-radius: 9px; border: 1px solid #e4dafb; background: var(--bg); cursor: pointer; font: inherit; font-size: 12.5px; font-weight: 500; color: var(--fg); text-align: left; }
+.webbtn small { margin-left: auto; font-size: 11px; font-weight: 400; color: var(--fg3); }
+.webbtn:hover, .webbtn:focus-visible { background: linear-gradient(90deg, var(--ai-vs), var(--ai-as)); border-color: #cbbaf7; outline: none; }
+.webbtn.sm { width: auto; margin-top: 7px; padding: 4px 10px; font-size: 12px; border-radius: 14px; }
+.webbtn svg, .brief h5 svg, .ldg svg.globe { width: 14px; height: 14px; flex: none; color: var(--ai-ink); }
+.webpart { margin-top: 12px; padding-top: 10px; border-top: 1px dashed #e6ddfb; }
+.brief h5.wh { margin-top: 0; display: flex; align-items: center; gap: 6px; }
+.chat { margin-top: 12px; padding-top: 10px; border-top: 1px solid #eee8fc; }
+.brief .chat h5 { margin: 0 0 6px; }
+.turn { margin: 8px 0 10px; }
+.uq { margin-left: auto; width: fit-content; max-width: 86%; padding: 6px 10px; border-radius: 12px 12px 3px 12px; background: var(--bg3); font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+.ua { margin-top: 6px; max-width: 96%; padding: 8px 10px; border-radius: 12px 12px 12px 3px; background: linear-gradient(135deg, #faf8ff, #fffbf3); border: 1px solid #ece4fc; font-size: 12.5px; }
+.ua .at { white-space: pre-wrap; word-break: break-word; }
+.ua .meta { margin-top: 6px; }
+.ua .src { margin-top: 5px; }
+.ua.err2 { background: var(--bad-soft); border-color: #f6d4d0; }
+.chat .clr { margin: -2px 0 6px; font-size: 11px; }
+.chatbox { display: flex; align-items: flex-end; gap: 6px; margin-top: 6px; padding: 4px 4px 4px 10px; border: 1px solid #e4dafb; border-radius: 10px; background: var(--bg); }
+.chatbox:focus-within { border-color: #b9a3f3; box-shadow: 0 0 0 3px rgba(167, 139, 250, .18); }
+.chatin { flex: 1; min-width: 0; border: 0; outline: 0; resize: none; background: transparent; color: var(--fg); font: inherit; font-size: 12.5px; line-height: 1.4; padding: 5px 0; height: 28px; max-height: 96px; }
+.chatin::placeholder { color: var(--fg3); }
+.send { flex: none; width: 28px; height: 28px; display: grid; place-items: center; border: 0; border-radius: 8px; cursor: pointer; color: #fff; background: linear-gradient(135deg, #8f74de, #c99540); }
+.send svg { width: 15px; height: 15px; }
+.send:hover, .send:focus-visible { filter: brightness(1.07); outline: none; box-shadow: 0 0 0 3px rgba(167, 139, 250, .25); }
+.chat .chips { margin-top: 7px; }
+.chat .chips:empty { display: none; }
+.alt { margin-top: 6px; font-size: 12px; color: var(--fg2); }
+.dym .dyh { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; font-size: 12.5px; color: var(--fg2); }
+.dym .dyh b { color: var(--fg); font-size: 14px; }
+.dym .opts { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.dym .opt { padding: 8px 10px; }
+.dym .opt small { max-width: 270px; }
+.dym .opt.per { margin-top: 8px; border: 1px dashed var(--line2); border-radius: 8px; }
+.dym .hint { margin-top: 8px; }
+.anim .turn { animation: rise var(--d3) var(--eo) both; }
 @media (prefers-reduced-motion: reduce) {
   .root *, .root *::before, .root *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: 0s !important; transition-delay: 0s !important; }
 }
 `;
 
   const ICON = {
+    globe: '<svg class="globe" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c1.8 1.7 2.7 3.7 2.7 6S9.8 12.3 8 14M8 2C6.2 3.7 5.3 5.7 5.3 8s.9 4.3 2.7 6"/></svg>',
+    send: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 13V3.5M3.8 7.5L8 3.3l4.2 4.2"/></svg>',
     spark: '<svg class="spark" viewBox="0 0 16 16" aria-hidden="true"><path fill="#9b80e3" d="M7 1.5l1.3 3.7 3.7 1.3-3.7 1.3L7 11.5 5.7 7.8 2 6.5l3.7-1.3z"/><path fill="#e3a84f" d="M12.5 9.4l.65 1.95 1.95.65-1.95.65-.65 1.95-.65-1.95L9.9 12l1.95-.65z"/></svg>',
     x: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3.6 3.6l8.8 8.8M12.4 3.6l-8.8 8.8"/></svg>',
     up: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10l4-4 4 4"/></svg>',
@@ -1393,7 +1638,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   };
 
   let host, sroot, root, $pill, $panel, $drawer, $edge, $body, $input, $det, $mode, $toast, $menu, $sheet;
-  const st = { open: false, view: 'main', det: null, ctx: null, stack: [], req: 0, pillText: '', briefState: null, styleMode: 'none', fontStatus: '', diag: null, anchor: null, menu: false };
+  const st = { open: false, view: 'main', det: null, ctx: null, stack: [], req: 0, pillText: '', aiBusy: {}, aiErr: {}, aiMem: {}, styleMode: 'none', fontStatus: '', diag: null, anchor: null, menu: false };
   let secState = {};
   function loadSecState() { secState = readJSON(gv(K.sections, null)) || {}; }
   function saveSecState() { sv(K.sections, JSON.stringify(secState)); }
@@ -1521,12 +1766,18 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     sr.addEventListener('change', onChange);
     // Shadow-DOM events lose their target after dispatch, so read it now and debounce only the filtering.
     const fvFilter = debounce(() => { const q = $drawer && $drawer.querySelector('.dw-q'); if (st.fv && q) { st.fv.q = q.value; renderFvList(); } }, 110);
-    sr.addEventListener('input', (e) => { const t = e.target; if (st.fv && t && t.classList && t.classList.contains('dw-q')) fvFilter(); });
+    sr.addEventListener('input', (e) => {
+      const t = e.target;
+      if (st.fv && t && t.classList && t.classList.contains('dw-q')) fvFilter();
+      if (t && t.classList && t.classList.contains('chatin')) { t.style.height = 'auto'; t.style.height = Math.min(96, t.scrollHeight) + 'px'; }
+    });
+    sr.addEventListener('submit', (e) => { const fm = e.target; if (fm && fm.dataset && fm.dataset.form === 'chat') { e.preventDefault(); submitChat(fm.querySelector('.chatin')); } });
     sr.addEventListener('scroll', onDrawerScroll, true); // scroll does not bubble; capture sees the list's scroll
     // Esc is handled once, by the window-level key handler (escapeAction). This one: hotkey recording, headers, menus.
     sr.addEventListener('keydown', (e) => {
       if (st.recording) { recordKey(e); return; }
       const t = e.target;
+      if (t && t.classList && t.classList.contains('chatin') && e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); submitChat(t); return; }
       if ((e.key === 'Enter' || e.key === ' ') && t && t.classList && t.classList.contains('bh')) { e.preventDefault(); toggleBlock(t.closest('.blk')); return; }
       if (t && t.classList && (t.classList.contains('qc') || t.classList.contains('qc2')) && (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openQMenu(t.closest('.qb'), true); return; }
       const menu = t && t.closest && t.closest('.qmenu, .shm');
@@ -1681,7 +1932,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 
   /* ---------- navigation ---------- */
 
-  function ctxTitle(c) { return !c ? '' : c.kind === 'person' ? (c.name || 'person') : c.kind === 'filings' ? 'Filings' : c.company ? c.company.display : (c.query || c.raw || ''); }
+  function ctxTitle(c) { return !c ? '' : c.kind === 'dym' ? 'results' : c.kind === 'person' ? (c.name || 'person') : c.kind === 'filings' ? 'Filings' : c.company ? c.company.display : (c.query || c.raw || ''); }
   function pushNav() { if (st.ctx) { st.stack.push(st.ctx); if (st.stack.length > 20) st.stack.shift(); } }
   function backBar() {
     const prev = st.stack[st.stack.length - 1];
@@ -1698,6 +1949,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   function renderCtx(c) {
     if (!c) return renderEmpty();
     if (c.kind === 'person') return renderPersonView(c);
+    if (c.kind === 'dym') return renderDym(c);
     if (c.company) { renderDet(c.det); return renderCompany(c, false); }
     if (c.officers) return renderPerson(c);
     lookup(c.det.raw, $mode.value);
@@ -1718,15 +1970,15 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 
   async function lookup(text, forceMode, push) {
     const det = detect(text) || { raw: text, type: 'company', label: 'Company', query: text, mode: 'company' };
-    let mode = det.mode;
-    if (forceMode === 'company' && mode !== 'number') { mode = 'company'; det.label = det.type === 'person' ? 'Company' : det.label; }
-    if (forceMode === 'person') { mode = 'person'; if (det.type !== 'freemail') det.query = text; }
+    let mode = det.mode, hint = det.personHint || '';
+    if (forceMode === 'company' && mode !== 'number') { mode = 'company'; hint = ''; if (det.type === 'person' || det.type === 'name') det.label = 'Company'; }
+    if (forceMode === 'person') { mode = 'person'; hint = ''; if (det.type !== 'freemail') det.query = det.personName || (det.domain ? text : det.query); }
     if (push) pushNav(); else { leaveCtx(st.ctx); st.stack = []; }
     $mode.value = forceMode || 'auto';
     st.det = det;
-    $input.value = det.type === 'chnum' ? det.number : (det.type === 'email' || det.type === 'domain' || det.type === 'freemail' ? det.raw : det.query);
+    $input.value = det.type === 'chnum' ? det.number : det.type === 'email' || det.type === 'freemail' ? (mode === 'person' && det.type === 'email' ? det.query : det.email) : det.type === 'domain' ? det.domain : det.query;
     renderDet(det);
-    const ctx = st.ctx = { det, raw: det.raw, query: det.query, domain: det.domain || '', company: null, candidates: null, brief: null, mode };
+    const ctx = st.ctx = { det, raw: det.raw, query: det.query, domain: det.domain || '', company: null, candidates: null, mode, personHint: hint };
     const req = ++st.req;
     if (!chKey()) return renderNoKey();
     renderLoading(mode === 'person' ? 'Searching officers' : 'Looking up Companies House');
@@ -1736,32 +1988,52 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       } else if (mode === 'person') {
         const officers = await findOfficers(ctx.query);
         if (req !== st.req) return;
-        ctx.officers = officers;
-        renderPerson(ctx);
-        officers.slice(0, 3).forEach((o, i) => expandOfficer(ctx, i, req));
+        showPeople(ctx, officers, req);
       } else if (mode === 'none') {
         renderNone(ctx);
       } else {
-        const found = await findCompanies(ctx.query);
+        // Names that could be a person ("Thomas Cook", "Roisin Currie") search companies and officers together.
+        const [found, offs] = await Promise.all([findCompanies(ctx.query, { domain: !!det.domain }), hint ? findOfficers(ctx.query).catch(() => []) : null]);
         if (req !== st.req) return;
         ctx.candidates = found;
+        if (found.strong) return await showCompany(ctx, found.strong.number, req);
+        // Headlines and sentences ("Oxford Flow raises £14m to ..."): also try the leading capitalised words, and offer
+        // that company first in the list rather than opening it.
+        const lead = leadName(ctx.query);
+        if (lead && !det.domain) {
+          const f2 = await findCompanies(lead).catch(() => null);
+          if (req !== st.req) return;
+          if (f2 && f2.items.length) {
+            const first = f2.strong ? [f2.strong] : f2.items.slice(0, 3);
+            found.items = first.concat(found.items.filter((x) => !first.some((y) => y.number === x.number))).slice(0, 8);
+            if (f2.strong) found.reason = 'lead';
+          }
+        }
+        const personNamed = (offs || []).some((o) => sameName(o.name, ctx.query));
+        if (hint && !found.exactCount && (hint === 'likely' || personNamed || !found.items.length)) { ctx.fromName = true; return showPeople(ctx, offs || [], req); }
         if (!found.items.length) return renderNoMatch(ctx);
-        await showCompany(ctx, found.items[0].number, req);
+        ctx.kind = 'dym';
+        renderDym(ctx);
       }
     } catch (e) { if (req === st.req) renderError(e); }
   }
+  function showPeople(ctx, officers, req) {
+    ctx.officers = officers; ctx.mode = 'person';
+    renderPerson(ctx);
+    officers.slice(0, 3).forEach((o, i) => expandOfficer(ctx, i, req));
+  }
   function openCompanyHere(num) { if (num) { setView('main'); lookup(num, 'auto', true); } }
 
+  // Only reached for a strong match, a company number or a company the user picked: the automatic summary may run.
   async function showCompany(ctx, number, req) {
     renderLoading('Loading company');
     const f = await loadCompany(number);
     if (req !== st.req) return;
     ctx.company = f; ctx.roles = {}; ctx.rolesOpen = {}; ctx.similar = null; ctx.mapOpen = null;
-    const hit = cacheGet(`brief:${f.number}:${settings.model}`, TTL_BRIEF);
-    ctx.brief = hit ? Object.assign({}, hit.d, { cachedAt: hit.t }) : null;
-    st.briefState = null; ctx.summaryOn = false;
+    ctx.ai = aiRec(f);
     addRecent(f);
     renderCompany(ctx, true);
+    maybeAuto(ctx);
   }
 
   /* ---------- renderers ---------- */
@@ -1799,6 +2071,25 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   function renderNoMatch(ctx) {
     setBody(`${backBar()}<div class="card state"><b>No Companies House match</b>Nothing found for "${esc(ctx.query)}". Try the full registered name, or search as a person.
       <br><button class="btn" data-act="as-person">Search as person</button></div>${linksSection(ctx)}`, true);
+    wireFavicons();
+  }
+  function statusBadge(s) { return s === 'active' ? '<span class="badge">Active</span>' : `<span class="badge r">${esc(label('company_status', s) || s || 'Unknown')}</span>`; }
+  /* Weak or ambiguous name: a short list to choose from instead of silently opening one. No AI runs here. */
+  function renderDym(ctx) {
+    const c = ctx.candidates, q = ctx.det.domain || ctx.query;
+    const head = c.reason === 'several' ? `Several companies match “${esc(q)}”. Which one?`
+      : c.reason === 'lead' ? `“${esc(q)}” looks like a headline or sentence. Best match first:`
+      : ctx.det.domain ? `No company is called exactly “${esc(q)}”. Closest matches on Companies House:` : `No exact match for “${esc(q)}”. Closest matches on Companies House:`;
+    const row = (it) => {
+      const yr = it.created ? String(it.created).slice(0, 4) : '';
+      const former = it.formerExact ? it.formerly.find((x) => alphaKey(x) === c.qk) : '';
+      const meta = [it.number, it.town, yr && 'inc. ' + yr, former && 'formerly ' + titleCase(former)].filter(Boolean).join(' · ');
+      return `<button class="opt" data-act="pick-dym" data-num="${esc(it.number)}"><span class="n">${esc(titleCase(it.name))}<small>${esc(meta)}</small></span>${statusBadge(it.status)}</button>`;
+    };
+    setBody(`${backBar()}<div class="card dym"><div class="dyh"><b>Did you mean…</b><span>${head}</span></div>
+      <div class="opts">${c.items.slice(0, 6).map(row).join('')}</div>
+      ${ctx.personHint ? `<button class="opt per" data-act="as-person"><span class="n">Search people named “${esc(ctx.query)}”<small>Companies House officers</small></span></button>` : ''}
+      <div class="hint">Pick one to open it. The summary is written once you choose.</div></div>${linksSection(ctx)}`, true);
     wireFavicons();
   }
   function renderNone(ctx) {
@@ -1914,13 +2205,11 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 
   function pickerHtml(ctx) {
     const c = ctx.candidates;
-    if (!c || c.items.length < 2 || (!c.ambiguous && c.matched)) return '';
+    if (!c || ctx.fromDym || c.items.length < 2 || c.exactCount < 2) return '';
     const cur = ctx.company && ctx.company.number;
-    const others = c.items.length - 1;
-    const stBadge = (s) => s === 'active' ? '<span class="badge">Active</span>' : `<span class="badge r">${esc(label('company_status', s) || s || 'Unknown')}</span>`;
-    return `<details class="picker" ${c.ambiguous ? 'open' : ''}><summary><span>${c.ambiguous ? 'Not the right one? ' : ''}Other matches (${others})</span><span>${c.matched ? '' : 'best guess'}</span></summary>
+    return `<details class="picker"><summary><span>Other matches (${c.items.length - 1})</span><span></span></summary>
       <div class="opts">${c.items.map((it) => `<button class="opt ${it.number === cur ? 'cur' : ''}" data-act="pick" data-num="${esc(it.number)}"><span class="n">${esc(titleCase(it.name))}
-        <small>${esc(it.number)}${it.formerExact ? ' · formerly ' + esc(titleCase(it.formerly.find((f) => alphaKey(f) === c.qk) || '')) : ''}${it.address ? ' · ' + esc(it.address) : ''}</small></span>${stBadge(it.status)}</button>`).join('')}</div>
+        <small>${esc(it.number)}${it.formerExact ? ' · formerly ' + esc(titleCase(it.formerly.find((f) => alphaKey(f) === c.qk) || '')) : ''}${it.address ? ' · ' + esc(it.address) : ''}</small></span>${statusBadge(it.status)}</button>`).join('')}</div>
     </details>`;
   }
 
@@ -1943,6 +2232,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     let html = backBar() + `<div class="card hcard">
       <div class="title">${nameHtml}</div>
       <div class="sub">${numHtml} · <span class="badge ${f.status === 'active' ? '' : 'r'}">${esc(f.statusLabel)}</span>${f.statusDetail ? ' <span class="badge r">' + esc(f.statusDetail) + '</span>' : ''}</div>
+      ${ctx.personHint ? `<div class="alt">Looking for a person called ${esc(ctx.query)}? <button class="lnk" data-act="as-person">Search people</button></div>` : ''}
       ${settings.quickRow ? quickRow(ctx) : ''}
       <div class="verdict ${vcls}"><div class="vl">${verdictLabel(f.verdict)}</div><div>${reasons.length ? `<ul>${reasons.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : '<ul class="one"><li title="Active, filings up to date, officers in place.">Active, filings up to date, officers in place.</li></ul>'}
       ${also.length ? `<div class="also"><b>Also:</b> ${also.map(esc).join(' · ')}</div>` : ''}</div></div>
@@ -1953,9 +2243,9 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
         <button class="btn sm" data-act="copy-addr" title="Copy registered office address"><span>Address</span></button>
         <button class="btn sm" data-act="copy-note" title="Copy a CRM-style note with the key Companies House facts"><span>Copy quick note</span></button>
       </div>
-      ${ctx.summaryOn ? '' : `<button class="genbtn" data-act="summary" title="${ctx.brief ? 'Show the saved summary (no new cost)' : 'Researches the company on the web. Runs only when you press it.'}">${ICON.spark}<span>${ctx.brief ? 'Show summary' : 'Generate summary'}</span></button>`}</div>`;
-    // AI: nothing runs until the button is pressed; the summary sits right under the header card.
-    if (ctx.summaryOn) html += blk('summary', 'Summary', { force: true, cls: 'brief ai' + (st.briefState && st.briefState.loading ? ' loading' : ''), icon: ICON.spark, body: `<div data-sec-body="summary">${briefHtml(ctx)}</div>` });
+    </div>`;
+    // AI: the automatic summary (Companies House data only) sits right under the header card, with web search and chat.
+    html += aiBlock(ctx);
 
     const secs = [];
     // Overview
@@ -2412,64 +2702,125 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     setBody(h, fresh);
   }
 
-  /* ---------- AI summary (UI name; code still says brief) ---------- */
-  function briefHtml(ctx) { return briefCore(ctx) + questionsHtml(ctx); }
-  function questionsHtml(ctx) {
-    if (!settings.questions || !ctx.company) return '';
-    const asked = ctx.answers || {};
-    const sugg = (ctx.brief && ctx.brief.questions) || [];
-    const chip = (q, sug) => `<button class="qchip${sug ? ' sug' : ''}${asked[q] ? ' on' : ''}" data-act="ask" data-q="${esc(q)}"${sug ? ' title="Suggested for this company"' : ''}>${esc(q)}</button>`;
-    const ans = (q) => {
-      const a = asked[q]; if (!a) return '';
-      let inner;
-      if (a.loading) inner = '<div class="skel w90"></div><div class="skel w75"></div>';
-      else if (a.error) inner = `<div class="sub">${esc(a.error.code === 'cl-nokey' ? 'Add an AI key in Settings to ask questions.' : a.error.message || String(a.error))}</div>${a.error.code === 'cl-nokey' ? '<div class="row"><button class="btn sm" data-act="settings">Open settings</button></div>' : ''}`;
-      else inner = `<div class="at">${esc(a.text)}</div><div class="row jsb"><span class="cost">$${a.cost.toFixed(4)}${a.cachedAt ? ' · cached' : ''} · based on Companies House data${ctx.brief ? ' + summary' : ''}</span><button class="btn sm" data-act="cp" data-copy="${esc(q + '\n' + a.text)}">${ICON.copy}Copy</button></div>`;
-      return `<div class="ans" data-ans="${esc(q)}"><div class="aq">${esc(q)}</div>${inner}</div>`;
-    };
-    if (!sugg.length && !(ctx.askOrder || []).length) return '';
-    return `<div class="qa"><h5>Ask about ${esc(shortCo(ctx.company.display))}</h5><div class="chips">${sugg.map((q) => chip(q, true)).join('')}</div>
-      ${(ctx.askOrder || []).slice().reverse().map(ans).join('')}</div>`;
+  /* ---------- AI: automatic summary, Search the web, per-company chat ---------- */
+  const busy = (n, k) => !!(st.aiBusy[n] && st.aiBusy[n][k]);
+  function setBusy(n, k, v) { st.aiBusy[n] = Object.assign({}, st.aiBusy[n], { [k]: v }); }
+  function setAiErr(n, k, e) { st.aiErr[n] = Object.assign({}, st.aiErr[n], { [k]: e }); }
+  function liveCtx(n) { const c = st.ctx; return c && c.company && !c.kind && c.company.number === n ? c : null; }
+  function aiBlock(ctx) {
+    const n = ctx.company.number;
+    const loading = busy(n, 'auto') || busy(n, 'web') || ctx.ai.chat.some((t) => t.pending);
+    return blk('summary', 'Summary', { force: true, cls: 'brief ai' + (loading ? ' loading' : ''), icon: ICON.spark, body: `<div data-sec-body="summary">${aiHtml(ctx)}</div>` });
   }
-  async function doAsk(q) {
-    const ctx = st.ctx; if (!ctx || !ctx.company || ctx.kind) return;
-    ctx.answers = ctx.answers || {}; ctx.askOrder = (ctx.askOrder || []).filter((x) => x !== q).concat(q);
-    if (ctx.answers[q] && ctx.answers[q].loading) return;
-    ctx.answers[q] = { loading: true }; rerenderBrief();
-    try { ctx.answers[q] = await askClaude(ctx.company, ctx.brief, q); } catch (e) { ctx.answers[q] = { error: e }; }
-    if (st.ctx === ctx) rerenderBrief();
+  function aiHtml(ctx) {
+    if (!claudeKey()) return `<div class="sub">Add an AI key in Settings to get an automatic summary and ask questions about this company.</div><div class="row mt6"><button class="btn sm" data-act="settings">Open settings</button></div>`;
+    const nm = shortCo(ctx.company.display);
+    return `<div data-ai="top">${aiTopHtml(ctx)}</div>
+      <div class="chat" data-ai="chat"><h5>Ask about ${esc(nm)}</h5><div data-ai="log">${chatLogHtml(ctx)}</div>
+        <form class="chatbox" data-form="chat"><textarea class="chatin" rows="1" maxlength="500" placeholder="Ask a question about ${esc(nm)}" aria-label="Ask a question about ${esc(nm)}"></textarea><button class="send" type="submit" title="Ask (Enter)" aria-label="Ask">${ICON.send}</button></form>
+        <div class="chips" data-ai="chips">${chipsHtml(ctx)}</div></div>`;
   }
-  function briefCore(ctx) {
-    const b = ctx.brief, s = st.briefState;
+  function errBox(title, e, act) {
+    const needKey = e.code === 'cl-nokey' || e.code === 'cl-401';
+    return `<div class="err tight mt6"><b>${esc(e.code === 'cl-nokey' ? 'AI key needed' : title)}</b><div>${esc(e.code === 'cl-nokey' ? 'Add an AI key in Settings.' : e.message || String(e))}</div></div>
+      <div class="row">${needKey ? '<button class="btn sm pri" data-act="settings">Open settings</button>' : ''}<button class="btn sm" data-act="${act}">Try again</button></div>`;
+  }
+  const li = (x) => `<li>${esc(x)}</li>`;
+  function aiTopHtml(ctx) {
+    const f = ctx.company, n = f.number, rec = ctx.ai, a = rec.auto, sig = coSig(f), er = st.aiErr[n] || {};
     let h = '';
-    if (s && s.loading) return `<div class="ldg" aria-live="polite">${ICON.spark}<span class="lt">Researching ${esc(shortCo(ctx.company.display))}... usually 10-30 seconds</span></div><div class="skel w90"></div><div class="skel w75"></div><div class="skel w82"></div><div class="skel w60"></div>`;
-    if (s && s.error) {
-      const needKey = s.error.code === 'cl-nokey' || s.error.code === 'cl-401';
-      h += `<div class="err tight"><b>${s.error.code === 'cl-nokey' ? 'AI key needed' : 'Summary failed'}</b><div>${esc(s.error.code === 'cl-nokey' ? 'Add an AI key in Settings to generate summaries.' : s.error.message)}</div></div>
-        <div class="row">${needKey ? '<button class="btn sm pri" data-act="settings">Open settings</button>' : ''}<button class="btn sm" data-act="brief">Try again</button></div>`;
-      return h;
+    if (busy(n, 'auto') && !a) h += `<div class="ldg" aria-live="polite">${ICON.spark}<span class="lt">Writing a summary from Companies House data...</span></div><div class="skel w90"></div><div class="skel w75"></div><div class="skel w82"></div>`;
+    else if (er.auto && !a) h += errBox('Summary failed', er.auto, 'ai-auto');
+    else if (!a) h += `<button class="genbtn" data-act="ai-auto">${ICON.spark}<span>Write summary</span></button><div class="hint">From Companies House data only. Automatic summaries are off in Settings.</div>`;
+    else {
+      h += a.summary.map((x) => `<p>${esc(x)}</p>`).join('');
+      if (a.watch.length) h += `<h5>Worth checking</h5><ul>${a.watch.map(li).join('')}</ul>`;
+      if (a.openers.length) h += `<h5>Openers</h5><ul>${a.openers.map(li).join('')}</ul>`;
+      const upd = busy(n, 'auto');
+      h += `<div class="meta"><span>Summary from Companies House data · ${upd ? 'updating...' : esc(fmtAgo(a.at))}</span>${!upd && a.sig !== sig ? '<span class="stale">· Companies House data has changed since</span>' : ''}${upd ? '' : '<button class="lnk" data-act="ai-refresh" title="Write it again from the latest Companies House data">Refresh</button>'}</div>`;
+      if (er.auto && !upd) h += `<div class="sub mt4">${esc(er.auto.message || String(er.auto))}</div>`;
     }
-    if (!b) return `<div class="ldg">${ICON.spark}<span class="lt">Preparing...</span></div><div class="skel w90"></div><div class="skel w75"></div>`;
-    h += b.what.map((w) => `<p>${esc(w)}</p>`).join('');
-    h += `<h5>Recent signals</h5>${b.signals.length ? `<ul>${b.signals.map((x) => `<li>${esc(x.text)}${x.date ? ' <span class="sub">' + esc(x.date) + '</span>' : ''}${x.url ? ' ' + extA(x.url, 'source', 'lk-ch') : ''}</li>`).join('')}</ul>` : '<div class="sub">Nothing reliable found.</div>'}`;
-    h += `<h5>Talking points</h5><ul>${b.talking.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>`;
-    if (b.sources.length) h += `<h5>Sources</h5><div class="src">${b.sources.map((x) => `<a href="${esc(x.url)}" data-act="ext" data-url="${esc(x.url)}" title="${esc(x.title || x.url)}">${esc(x.title || x.url)}</a>`).join('')}</div>`;
-    const when = b.cachedAt ? `saved ${Math.max(1, Math.round((Date.now() - b.cachedAt) / 60000))} min ago` : 'just now';
-    h += `<div class="cost">${b.estPrice ? 'Estimated cost' : 'Cost'} $${b.cost.toFixed(4)} · ${b.usage.searches} web search${b.usage.searches === 1 ? '' : 'es'} · ${when}${b.confidence ? ' · confidence ' + esc(b.confidence) : ''}</div>
-      <div class="row mt6"><button class="btn sm" data-act="brief-regen">Regenerate</button></div>`;
+    const w = rec.web;
+    if (busy(n, 'web')) h += `<div class="webpart"><div class="ldg" aria-live="polite">${ICON.globe}<span class="lt">Searching the web for ${esc(shortCo(f.display))}... usually 10-30 seconds</span></div><div class="skel w90"></div><div class="skel w75"></div><div class="skel w60"></div></div>`;
+    else if (w) {
+      h += `<div class="webpart"><h5 class="wh">${ICON.globe}From the web</h5>${w.what.map((x) => `<p>${esc(x)}</p>`).join('')}`;
+      if (w.signals.length) h += `<h5>Recent signals</h5><ul>${w.signals.map((x) => `<li>${esc(x.text)}${x.date ? ' <span class="sub">' + esc(x.date) + '</span>' : ''}${x.url ? ' ' + extA(x.url, 'source', 'lk-ch') : ''}</li>`).join('')}</ul>`;
+      if (w.talking.length) h += `<h5>Talking points</h5><ul>${w.talking.map(li).join('')}</ul>`;
+      if (w.sources.length) h += `<h5>Sources</h5><div class="src">${w.sources.map((x) => `<a href="${esc(x.url)}" data-act="ext" data-url="${esc(x.url)}" title="${esc(x.url)}">${esc(x.title || x.url)}</a>`).join('')}</div>`;
+      h += `<div class="meta"><span>Web search · ${esc(fmtAgo(w.at))}${w.confidence === 'low' ? ' · low confidence' : ''}</span>${w.sig !== sig ? '<span class="stale">· Companies House data has changed since</span>' : ''}<button class="lnk" data-act="ai-web">Search again</button></div></div>`;
+    }
+    if (er.web && !busy(n, 'web')) h += errBox('Web search failed', er.web, 'ai-web');
+    if (!w && !busy(n, 'web')) h += `<button class="webbtn" data-act="ai-web" title="Search the web for what they sell, recent news and hiring. Runs only when you press it.">${ICON.globe}<span>Search the web</span><small>what they sell, news, hiring</small></button>`;
     return h;
   }
-  function rerenderBrief() { const el = $body.querySelector('[data-sec-body=summary]'); if (el && st.ctx) { el.innerHTML = briefHtml(st.ctx); const sec = el.closest('.blk'); if (sec) sec.classList.toggle('loading', !!(st.briefState && st.briefState.loading)); } }
-  async function doBrief(force) {
-    const ctx = st.ctx; if (!ctx || !ctx.company || ctx.kind) return;
-    if (st.briefState && st.briefState.loading) return;
-    st.briefState = { loading: true }; rerenderBrief();
-    try {
-      const b = await runBrief(ctx.company, ctx.domain, force);
-      if (st.ctx !== ctx) return;
-      ctx.brief = b; st.briefState = null;
-    } catch (e) { if (st.ctx !== ctx) return; st.briefState = { error: e }; }
-    rerenderBrief();
+  function chatLogHtml(ctx) {
+    const rec = ctx.ai, sig = coSig(ctx.company);
+    if (!rec.chat.length) return '';
+    return rec.chat.map((t, i) => {
+      let a;
+      if (t.pending) a = `<div class="ua">${t.webPending ? `<div class="ldg">${ICON.globe}<span class="lt">Searching the web...</span></div>` : ''}<div class="skel w90"></div><div class="skel w60"></div></div>`;
+      else if (t.err) a = `<div class="ua err2">${esc(t.err.code === 'cl-nokey' ? 'Add an AI key in Settings to ask questions.' : t.err.message || String(t.err))} <button class="lnk" data-act="chat-retry" data-i="${i}">Try again</button></div>`;
+      else {
+        a = `<div class="ua"><div class="at">${esc(t.a)}</div>`
+          + (t.sources && t.sources.length ? `<div class="src">${t.sources.map((x) => `<a href="${esc(x.url)}" data-act="ext" data-url="${esc(x.url)}" title="${esc(x.url)}">${esc(x.title || x.url)}</a>`).join('')}</div>` : '')
+          + `<div class="meta"><span>${t.web ? 'With web search' : 'From Companies House data'} · ${esc(fmtAgo(t.at))}</span>${t.sig && t.sig !== sig ? '<span class="stale">· before the latest Companies House change</span>' : ''}<button class="lnk" data-act="cp" data-copy="${esc(t.q + '\n' + t.a)}">Copy</button></div>`
+          + (t.needsWeb && !t.web ? `<button class="webbtn sm" data-act="chat-web" data-i="${i}">${ICON.globe}<span>Search the web for this</span></button>` : '')
+          + '</div>';
+      }
+      return `<div class="turn" data-turn="${i}"><div class="uq">${esc(t.q)}</div>${a}</div>`;
+    }).join('') + '<div class="row jsb clr"><span></span><button class="lnk" data-act="chat-clear">Clear chat</button></div>';
+  }
+  function chipsHtml(ctx) {
+    const a = ctx.ai.auto;
+    if (!settings.questions || !a || !a.questions.length) return '';
+    const asked = new Set(ctx.ai.chat.map((t) => t.q));
+    return a.questions.filter((q) => !asked.has(q)).slice(0, 3).map((q) => `<button class="qchip sug" data-act="ask" data-q="${esc(q)}">${esc(q)}</button>`).join('');
+  }
+  // Partial re-render: the chat box (and anything typed in it) is left alone.
+  function rerenderAi(n, scrollTurn) {
+    const ctx = liveCtx(n); if (!ctx) return;
+    const box = $body.querySelector('[data-sec-body=summary]'); if (!box) return;
+    const top = box.querySelector('[data-ai=top]'), log = box.querySelector('[data-ai=log]'), chips = box.querySelector('[data-ai=chips]');
+    if (top && log && chips) { top.innerHTML = aiTopHtml(ctx); log.innerHTML = chatLogHtml(ctx); chips.innerHTML = chipsHtml(ctx); } else box.innerHTML = aiHtml(ctx);
+    const sec = box.closest('.blk');
+    if (sec) sec.classList.toggle('loading', busy(n, 'auto') || busy(n, 'web') || ctx.ai.chat.some((t) => t.pending));
+    if (scrollTurn != null) { const el = box.querySelector(`.turn[data-turn="${scrollTurn}"]`); if (el) el.scrollIntoView({ block: 'nearest', behavior: reducedMotion() || !settings.animations ? 'auto' : 'smooth' }); }
+  }
+  function maybeAuto(ctx) {
+    const f = ctx.company, a = ctx.ai.auto;
+    if (a && a.sig === coSig(f)) return; // saved and still current: shown instantly, no API call
+    if (!settings.autoSummary || !claudeKey()) return;
+    doAuto(ctx);
+  }
+  async function doAuto(ctx) {
+    const f = ctx.company, n = f.number, rec = ctx.ai;
+    if (busy(n, 'auto')) return;
+    setBusy(n, 'auto', true); setAiErr(n, 'auto', null); rerenderAi(n);
+    try { rec.auto = await runAuto(f, ctx); aiSave(rec); } catch (e) { setAiErr(n, 'auto', e); }
+    setBusy(n, 'auto', false); rerenderAi(n);
+  }
+  async function doWeb(ctx) {
+    const f = ctx.company, n = f.number, rec = ctx.ai;
+    if (busy(n, 'web')) return;
+    setBusy(n, 'web', true); setAiErr(n, 'web', null); rerenderAi(n);
+    try { rec.web = await runWeb(f, ctx, rec); aiSave(rec); } catch (e) { setAiErr(n, 'web', e); }
+    setBusy(n, 'web', false); rerenderAi(n);
+  }
+  function submitChat(ta) {
+    const ctx = st.ctx; if (!ta || !ctx || !ctx.company || ctx.kind) return;
+    const q = ta.value.trim(); if (!q) return;
+    ta.value = ''; ta.style.height = '';
+    sendChat(ctx, q);
+  }
+  // New question (i == null), or re-ask turn i with web search.
+  async function sendChat(ctx, q, i) {
+    const f = ctx.company, n = f.number, rec = ctx.ai;
+    let turn, idx;
+    if (i != null) { turn = rec.chat[i]; if (!turn || turn.pending) return; idx = i; Object.assign(turn, { pending: true, webPending: true, err: null }); }
+    else { q = String(q || '').trim().slice(0, 500); if (!q) return; turn = { q, pending: true, at: Date.now() }; rec.chat.push(turn); idx = rec.chat.length - 1; }
+    rerenderAi(n, idx);
+    try { Object.assign(turn, await askChat(f, ctx, rec, turn.q, i != null, idx), { pending: false, webPending: false, err: null }); aiSave(rec); } catch (e) { Object.assign(turn, { pending: false, webPending: false, err: e }); }
+    rerenderAi(n, idx);
   }
 
   /* ---------- officer name search (person mode) ---------- */
@@ -2480,7 +2831,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       wireFavicons();
       return;
     }
-    setBody(`${backBar()}<div class="card"><div class="sub mb8"><b>Officers matching "${esc(ctx.query)}"</b> · ${list.length}</div>
+    setBody(`${backBar()}<div class="card">${ctx.fromName ? `<div class="alt mb8">Showing people. Did you mean a company? <button class="lnk" data-act="as-company">Search companies</button></div>` : ''}<div class="sub mb8"><b>Officers matching "${esc(ctx.query)}"</b> · ${list.length}</div>
       ${list.map((o, i) => { const nm = officerName(o.name.replace(/^(.*) ([A-Z'\-]+)$/, '$2, $1')) || o.name; return `<div class="off" data-off="${i}"><div class="on"><b>${o.link ? personRef({ name: nm, link: o.link }) : esc(nm)}</b><span class="sub">${o.count != null ? o.count + ' appt' + (o.count === 1 ? '' : 's') : ''}</span></div>
         <div class="sub">${o.dob ? 'Born ' + esc(o.dob) + ' · ' : ''}${esc(o.address || '')}</div><div class="ap"><button class="btn sm mt5" data-act="appts" data-i="${i}">Show appointments</button></div></div>`; }).join('')}
       <div class="hint">Officer matches are by name only; check date of birth and address.</div></div>${linksSection(ctx)}`, true);
@@ -2659,7 +3010,8 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   }
   /* Toggle rows. Each entry: [settings key, label, help]. Persisted immediately on change. */
   const TOGGLES = {
-    ai: [['questions', 'Question chips', 'Ready-made and company-specific questions shown with the summary. Each click is one short AI call (well under a cent).']],
+    ai: [['autoSummary', 'Automatic summary', 'Written from the Companies House data as soon as a company is confirmed. Takes a few seconds and does not search the web.'],
+      ['questions', 'Suggested questions', 'Two or three suggested questions under the chat box. They come from the same AI call as the summary, so they cost nothing extra.']],
     behaviour: [
       ['background', 'Open links in background tabs', 'Keeps you on the current page.'],
       ['inInputs', 'Show the pill in text fields', 'Also show the Prosper pill when you highlight text inside input boxes and text areas (for example a CRM field or an email you are writing). Off by default so selecting text while you type stays quiet.'],
@@ -2702,9 +3054,10 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
         <div class="row mt10"><button class="btn pri sm" data-act="save">Save keys</button>${hasChSaved ? '<button class="btn sm" data-act="forget-ch">Remove CH key</button>' : ''}${hasClSaved ? '<button class="btn sm" data-act="forget-cl">Remove Claude key</button>' : ''}<span class="saved" hidden>Saved</span></div>
       </div>
       <div class="grp" data-grp="ai"><div class="gh">AI</div>
-        <div class="help">AI only runs when you press Generate summary or a question chip.</div>
-        <label class="f" for="p-model">Summary model</label>
+        <div class="help">Search the web and chat questions only run when you ask. Summaries and chats are saved per company, so going back to a company is instant.</div>
+        <label class="f" for="p-model">Model for web search and chat</label>
         <select id="p-model" data-set="model">${Object.keys(MODELS).map((m) => `<option value="${m}" ${settings.model === m ? 'selected' : ''}>${esc(MODELS[m].label)}</option>`).join('')}</select>
+        <div class="help">The automatic summary always uses Claude Haiku.</div>
         ${tgl(TOGGLES.ai)}
       </div>
       <div class="grp" data-grp="behaviour"><div class="gh">Behaviour</div>
@@ -2731,9 +3084,9 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       <div class="grp" data-grp="hotkeys"><div class="gh">Keyboard shortcuts</div><div class="hkb">${hotkeysHtml()}</div></div>
       <div class="grp" data-grp="appearance"><div class="gh">Appearance</div>${tgl(TOGGLES.appearance)}</div>
       <div class="grp" data-grp="data"><div class="gh">Diagnostics and data</div>
-        <div class="row mt6"><button class="btn sm" data-act="diag">Run diagnostics</button><button class="btn sm" data-act="clear-cache">Clear cache</button></div>
+        <div class="row mt6"><button class="btn sm" data-act="diag">Run diagnostics</button><button class="btn sm" data-act="clear-cache">Clear cache</button><button class="btn sm" data-act="clear-ai">Clear saved summaries</button></div>
         <div class="diagbox">${diagHtml()}</div>
-        <div class="help mt10">Press ? in the panel for keyboard shortcuts. Companies House data cached 10 min, summaries and answers 24 h.</div>
+        <div class="help mt10">Press ? in the panel for keyboard shortcuts. Companies House data is cached for 10 minutes. Saved summaries and chats: <span class="aicount">${aiIdx().length}</span> ${aiIdx().length === 1 ? 'company' : 'companies'} (the most recent ${AI_KEEP} are kept).</div>
       </div>
     </div>`);
     $body.scrollTop = 0;
@@ -2865,8 +3218,13 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       case 'forget-ch': dv(K.chKey); renderSettings(); showToast('Companies House key removed'); break;
       case 'forget-cl': dv(K.claudeKey); renderSettings(); showToast('Claude key removed'); break;
       case 'retry': if (ctx && ctx.det) lookup(ctx.det.raw, $mode.value); break;
-      case 'as-person': if (ctx) lookup(ctx.det.type === 'person' ? ctx.query : ctx.raw, 'person'); break;
-      case 'as-company': if (ctx) lookup(ctx.raw, 'company'); break;
+      case 'as-person': if (ctx) lookup(ctx.det.personName || (ctx.det.domain ? ctx.raw : ctx.query), 'person', true); break;
+      case 'as-company': if (ctx) lookup(ctx.raw, 'company', true); break;
+      case 'pick-dym': if (ctx) {
+        e.preventDefault(); pushNav();
+        const nc = st.ctx = { det: ctx.det, raw: ctx.raw, query: ctx.query, domain: ctx.domain, company: null, candidates: ctx.candidates, mode: ctx.mode, fromDym: true };
+        const req = ++st.req; showCompany(nc, el.dataset.num, req).catch((er) => req === st.req && renderError(er));
+      } break;
       case 'pick': if (ctx) { e.preventDefault(); const req = ++st.req; showCompany(ctx, el.dataset.num, req).catch((er) => req === st.req && renderError(er)); } break;
       case 'open-co': e.preventDefault(); openCompanyHere(el.dataset.num); break;
       case 'person': e.preventDefault(); openPerson(el.dataset.link, el.dataset.name); break;
@@ -2893,17 +3251,16 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       case 'copy-num': if (f) copyFrom(el, f.number, 'Company number copied'); break;
       case 'copy-addr': if (f) copyFrom(el, f.address, 'Address copied'); break;
       case 'copy-note': copyNote(el); break;
-      case 'brief': doBrief(false); break;
-      case 'summary': if (ctx && ctx.company && !ctx.kind) {
-        ctx.summaryOn = true; renderCompany(ctx, false);
-        if (!ctx.brief) doBrief(false);
-        const sec = $body.querySelector('.blk[data-sec=summary]'); if (sec) sec.scrollIntoView({ block: 'start', behavior: reducedMotion() || !settings.animations ? 'auto' : 'smooth' });
-      } break;
-      case 'brief-regen': doBrief(true); break;
+      case 'ai-auto': case 'ai-refresh': if (f && !ctx.kind) doAuto(ctx); break;
+      case 'ai-web': if (f && !ctx.kind) doWeb(ctx); break;
+      case 'chat-web': if (f && !ctx.kind) sendChat(ctx, null, +el.dataset.i); break;
+      case 'chat-retry': if (f && !ctx.kind) { const t = ctx.ai.chat[+el.dataset.i]; if (t) { ctx.ai.chat.splice(+el.dataset.i, 1); sendChat(ctx, t.q); } } break;
+      case 'chat-clear': if (f && !ctx.kind) { ctx.ai.chat = []; aiSave(ctx.ai); rerenderAi(f.number); showToast('Chat cleared'); } break;
+      case 'clear-ai': { aiClearAll(); const c = $body.querySelector('.aicount'); if (c) c.textContent = '0'; showToast('Saved summaries cleared'); } break;
       case 'menu': toggleMenu(); break;
       case 'ql': if (ctx) openTab(linkFor(el.dataset.id, ctx)); break;
       case 'qmenu': openQMenu(el.closest('.qb'), e.detail === 0); break;
-      case 'ask': doAsk(el.dataset.q); break;
+      case 'ask': if (f && !ctx.kind) sendChat(ctx, el.dataset.q); break;
       case 'share-mail': closeShare(); st.lastShare = { via: 'email', url: el.dataset.url }; break; // default action opens the mail client
       case 'share-slack': e.preventDefault(); copyFrom(null, el.dataset.copy, 'Copied for Slack: paste it into a message'); closeShare(); st.lastShare = { via: 'slack' }; break;
       case 'sheet': toggleSheet(true); break;
@@ -2916,7 +3273,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     }
   }
   function openAll() { const ctx = st.ctx; if (!ctx) return; PROVIDERS.forEach((p) => openTab(linkFor(p.id, ctx), true)); showToast('Opened ' + PROVIDERS.length + ' tabs'); }
-  function copyNote(el) { const ctx = st.ctx; if (!ctx || !ctx.company || ctx.kind) return; copyFrom(el, crmNote(ctx.company, ctx.summaryOn ? ctx.brief : null), 'Quick note copied'); }
+  function copyNote(el) { const ctx = st.ctx; if (!ctx || !ctx.company || ctx.kind) return; copyFrom(el, crmNote(ctx.company, ctx.ai), 'Quick note copied'); }
 
   function onKey(e) {
     if (st.recording) return; // the panel's own handler records the new shortcut
@@ -3009,7 +3366,8 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 
   // Exposed for automated tests only (no secrets).
   window.__prosperTest = {
-    detect, alphaKey, companyLabelFromDomain, hubspotNote: () => st.ctx && st.ctx.company ? crmNote(st.ctx.company, st.ctx.summaryOn ? st.ctx.brief : null) : '', state: () => st, cleanKey,
+    detect, alphaKey, companyLabelFromDomain, hubspotNote: () => st.ctx && st.ctx.company ? crmNote(st.ctx.company, st.ctx.ai) : '', cleanName, findNumber,
+    aiRecord: (n) => readJSON(gv(aiKey(n), null)), aiIndex: () => aiIdx(), coSig: () => (st.ctx && st.ctx.company ? coSig(st.ctx.company) : ''), state: () => st, cleanKey,
     keyInfo: (k) => { const i = keyInfo(k); return { source: i.source, len: i.len, head: i.head }; },
     settings: () => Object.assign({}, settings), sections: () => Object.assign({}, secState), ukRegNumber, comboOf: (o) => comboOf(o), shortSummary: () => (st.ctx && st.ctx.company ? shortSummary(st.ctx.company) : ''),
   };
