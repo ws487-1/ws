@@ -422,6 +422,12 @@
   function detect(raw) {
     const t = String(raw || '').replace(/\s+/g, ' ').trim().replace(/^[\s"'(<\[]+|[\s"',;:)>\].]+$/g, '');
     if (!t) return null;
+    if (/linkedin\.com\/(company|in)\//i.test(t) && !/\s/.test(t)) {
+      const lp = liParseUrl(t), nm = lp && liSlugName(lp.slug, lp.kind === 'person');
+      if (lp && nm) return lp.kind === 'company'
+        ? { raw: t, type: 'company', label: 'LinkedIn company page', query: nm, mode: 'company', li: { kind: 'company', url: lp.url, name: nm, key: lp.url, paste: true } }
+        : { raw: t, type: 'person', label: 'LinkedIn profile', query: nm, mode: 'person', li: { kind: 'person', url: lp.url, name: nm, key: lp.url, paste: true } };
+    }
     const whole = detectWhole(t);
     if (whole) return whole;
     const num = findNumber(t);
@@ -941,7 +947,7 @@
     if (rec.chat.length > CHAT_KEEP + 10) rec.chat = rec.chat.slice(-CHAT_KEEP);
     const chat = rec.chat.filter((t) => t.a && !t.pending).slice(-CHAT_KEEP)
       .map((t) => ({ q: t.q, a: String(t.a).slice(0, 1500), web: !!t.web, needsWeb: !!t.needsWeb, sources: (t.sources || []).slice(0, 4), at: t.at, sig: t.sig, usage: t.usage }));
-    sv(aiKey(rec.n), JSON.stringify({ n: rec.n, name: rec.name, auto: rec.auto || null, web: rec.web || null, chat, card: rec.card || null, logo: rec.logo || null }));
+    sv(aiKey(rec.n), JSON.stringify({ n: rec.n, name: rec.name, auto: rec.auto || null, web: rec.web || null, chat, card: rec.card || null, logo: rec.logo || null, li: rec.li || null, liPeople: rec.liPeople || null, notes: rec.notes || null }));
     aiTouch(rec.n, true);
   }
   function aiClearAll() { for (const k of lv()) if (k.startsWith(K.ai)) dv(k); st.aiMem = {}; st.aiErr = {}; }
@@ -1051,6 +1057,237 @@
     return { summary: strs(d.summary, 4).map(fix), watch: strs(d.watch, 3).map(fix), openers: strs(d.openers, 2).map(fix), questions: strs(d.questions, 3).filter((q) => q.length < 90), at: Date.now(), sig: coSig(f), usage, hedge };
   }
 
+  /* ---------- LinkedIn pages ----------
+     Safety rule: on LinkedIn, Prosper only uses location.href, document.title and text the user selects. It never reads the
+     page's DOM content, never fetches LinkedIn pages, never opens profiles by itself, never works in bulk, and stores only
+     the canonical URL the user confirmed (company page, or a profile matched to an officer). Nothing runs until a click. */
+  const LI_HOST = /(^|\.)linkedin\.com$/i;
+  const onLinkedIn = () => { try { return LI_HOST.test(location.hostname); } catch (e) { return false; } };
+  const LI_SECTIONS = 'Overview|About|Posts|Jobs|People|Life|Home|Products|Services|Events|Videos|Insights|Activity|Details|Experience|Recent activity';
+  const capWords = (s) => s.split(/\s+/).filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  function liSlugName(slug, person) {
+    let s = ''; try { s = decodeURIComponent(slug); } catch (e) { s = slug; }
+    s = s.toLowerCase().replace(/[^a-z0-9\-_\u00c0-\u024f]/g, '');
+    if (!s || /^\d+$/.test(s)) return '';
+    const parts = s.split(/[-_]+/).filter(Boolean);
+    if (person) { while (parts.length > 2 && /\d/.test(parts[parts.length - 1])) parts.pop(); if (parts.length === 2 && /\d/.test(parts[1])) parts.pop(); }
+    if (person && (parts.length < 2 || parts.some((p) => /\d/.test(p)))) return '';
+    return capWords(parts.join(' '));
+  }
+  // https://www.linkedin.com/company/<slug>/... or /in/<slug>/... (also uk./m. hosts) -> { kind, slug, url }
+  function liParseUrl(href) {
+    let u; try { u = new URL(String(href || '').trim().replace(/^(?!https?:\/\/)/i, 'https://')); } catch (e) { return null; }
+    if (!LI_HOST.test(u.hostname)) return null;
+    const m = /^\/(company|in)\/([^/?#]+)/i.exec(u.pathname); if (!m) return null;
+    const kind = m[1].toLowerCase() === 'in' ? 'person' : 'company', slug = m[2].replace(/\/+$/, '');
+    if (!slug) return null;
+    return { kind, slug, url: `https://www.linkedin.com/${kind === 'person' ? 'in' : 'company'}/${slug}/` };
+  }
+  const NOT_A_NAME = /^(linkedin|sign ?up|sign ?in|log ?in|join linkedin|security verification|page not found|feed|messaging|notifications|my network|jobs|search)\b/i;
+  // Public pages (checked 2026-10-22, logged out): profiles "First Last - Headline | LinkedIn", companies "Name | LinkedIn".
+  // Logged in, the tab can start with a notification count "(3) " and company tabs can end in ": About" and similar.
+  function liTitleParse(title, kind) {
+    let t = String(title || '').replace(/^\(\d+\+?\)\s*/, '').replace(/\s*[|\u2013\u2014]\s*LinkedIn\s*$/i, '').replace(/\s+/g, ' ').trim();
+    if (!t || NOT_A_NAME.test(t)) return null;
+    if (kind === 'company') {
+      t = t.replace(new RegExp(`\\s*[:|\\u2013\\u2014-]\\s*(?:${LI_SECTIONS})\\b.*$`, 'i'), '').trim();
+      return t && t.length <= 120 ? { name: t } : null;
+    }
+    const [head, ...rest] = t.split(/\s+[-\u2013\u2014|]\s+/);
+    let name = head.replace(/\((?:she|he|they)[^)]*\)/ig, ' ').replace(/,.*$/, '').replace(/[^\p{L}\p{M}'\u2019.\- ]/gu, ' ').replace(HONORIFIC, '').replace(/\s+/g, ' ').trim();
+    const w = name.split(' ');
+    if (w.length < 2 || w.length > 5) return null;
+    const headline = rest.join(' - ');
+    let company = '';
+    const m = /(?:\bat\b|@)\s*([^|·,;\u2022]+)/i.exec(headline);
+    if (m) company = m[1].replace(/\s+(?:and|&)\s+.*$/i, '').replace(/\s+[-\u2013\u2014].*$/, '').trim().slice(0, 80);
+    return { name, company };
+  }
+  function liNow() {
+    if (!onLinkedIn()) return null;
+    const p = liParseUrl(location.href); if (!p) return null;
+    const t = liTitleParse(document.title, p.kind) || {};
+    const name = t.name || liSlugName(p.slug, p.kind === 'person');
+    if (!name) return null;
+    return Object.assign(p, { name, company: t.company || '', key: p.url, fromTitle: !!t.name });
+  }
+  // SPA navigation: compare href + title every 1.5s (and on back/forward); both reads are cheap.
+  function liWatch() {
+    if (!onLinkedIn()) return;
+    let last = '';
+    const tick = () => { const k = location.href + '\n' + document.title; if (k === last) return; last = k; clearTimeout(liWatch.t); liWatch.t = setTimeout(liChanged, 600); };
+    setInterval(tick, 1500); window.addEventListener('popstate', tick); tick();
+  }
+  function liChanged() {
+    const li = liNow(), was = st.li;
+    st.li = li;
+    if (!li || !was || was.key !== li.key) st.liRes = null;
+    liPaint();
+  }
+  const liAsk = (li) => li.kind === 'company' ? `Look up ${li.name} on Companies House?` : `Is ${li.name} a director?`;
+  function liPaint() {
+    const li = st.li, bar = sroot && sroot.querySelector('.libar'), chip = sroot && sroot.querySelector('.lichip');
+    const off = !li || st.liDismissed.has(li.key) || !allowedHere();
+    if (bar) {
+      bar.hidden = off;
+      if (!off) {
+        const r = st.liRes && st.liRes.key === li.key ? st.liRes : null;
+        bar.innerHTML = `<div class="lq"><span class="lt">${esc(liAsk(li))}${li.kind === 'person' && li.company ? ` <span class="sub">(${esc(li.company)}, from the tab title)</span>` : ''}</span>`
+          + `<button class="btn sm lgo" data-act="li-go"${r && r.busy ? ' disabled' : ''}>${r && r.busy ? 'Checking...' : li.kind === 'company' ? 'Look up' : 'Check'}</button><button class="ib lx" data-act="li-x" title="Hide for this page" aria-label="Hide">${ICON.x}</button></div>`
+          + (r && r.html ? `<div class="lres">${r.html}</div>` : '');
+      }
+    }
+    if (chip) {
+      const show = !off && !st.open && !st.liChipSeen.has(li.key);
+      chip.hidden = !show;
+      if (show) {
+        chip.innerHTML = `<button class="lcq" data-act="li-go">${esc(liAsk(li))}</button><button class="lcx" data-act="li-x" aria-label="Dismiss">${ICON.x}</button>`;
+        clearTimeout(liPaint.t); liPaint.t = setTimeout(() => { st.liChipSeen.add(li.key); liPaint(); }, 9000);
+      }
+    }
+    if ($edge) $edge.classList.toggle('lidot', !off && !st.open);
+  }
+  function liGo() {
+    const li = st.li; if (!li) return;
+    st.liChipSeen.add(li.key);
+    open(); setView('main');
+    const info = { kind: li.kind, url: li.url, name: li.name, company: li.company, key: li.key };
+    if (li.kind === 'company') { st.liRes = { key: li.key }; lookup(li.name, 'company'); }
+    else { st.liRes = { key: li.key, busy: true }; lookup(li.company || li.name, li.company ? 'company' : 'person'); }
+    if (st.ctx && st.ctx.det) st.ctx.det.li = info;
+    liPaint();
+  }
+  // Names: case, accents, honorifics, credentials after a comma; "SMITH, John" handled by nameParts on the CH side.
+  const NICK = { bob: 'robert', rob: 'robert', robbie: 'robert', bobby: 'robert', bill: 'william', will: 'william', billy: 'william', liam: 'william', jim: 'james', jimmy: 'james', jamie: 'james', mike: 'michael', mick: 'michael', mickey: 'michael',
+    dave: 'david', tom: 'thomas', tommy: 'thomas', chris: 'christopher', kate: 'katherine', katie: 'katherine', kathy: 'katherine', cathy: 'catherine', liz: 'elizabeth', beth: 'elizabeth', lizzie: 'elizabeth', betty: 'elizabeth',
+    rich: 'richard', rick: 'richard', ricky: 'richard', dick: 'richard', andy: 'andrew', drew: 'andrew', tony: 'anthony', steve: 'stephen', matt: 'matthew', nick: 'nicholas', alex: 'alexander', sam: 'samuel', ben: 'benjamin',
+    dan: 'daniel', danny: 'daniel', joe: 'joseph', pete: 'peter', ed: 'edward', eddie: 'edward', ted: 'edward', jon: 'jonathan', jonny: 'jonathan', jen: 'jennifer', jenny: 'jennifer', sue: 'susan', pat: 'patrick', vicky: 'victoria',
+    becky: 'rebecca', charlie: 'charles', chuck: 'charles', harry: 'henry', jack: 'john', johnny: 'john', greg: 'gregory', phil: 'philip', tim: 'timothy', fred: 'frederick', al: 'alan', abby: 'abigail', mandy: 'amanda', nat: 'nathan', ollie: 'oliver', ali: 'alistair', fran: 'frances', jo: 'joanne', di: 'diana', geoff: 'geoffrey', ray: 'raymond', ron: 'ronald', stu: 'stuart', theo: 'theodore', toby: 'tobias', zach: 'zachary' };
+  const nmNorm = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/['\u2019.]/g, '');
+  const nmToks = (s) => nmNorm(s).replace(/\b(mr|mrs|ms|miss|mx|dr|sir|dame|lord|lady|prof|professor|rev)\b/g, ' ').replace(/[^a-z\- ]/g, ' ').split(/\s+/).filter(Boolean);
+  const canon = (w) => NICK[w] || w;
+  function liNameMatch(liName, ch) {
+    const a = nmToks(liName); if (a.length < 2) return null;
+    const p = ch.first || ch.last ? ch : nameParts(ch.name || '');
+    const cf = nmToks(p.first)[0] || '', cm = nmToks(p.middle), cl = nmToks(p.last).join('-');
+    if (!cf || !cl) return null;
+    const lf = a[0], ll = a[a.length - 1], lm = a.slice(1, -1);
+    const flat = (x) => x.replace(/-/g, '');
+    let level = 'exact', why = '';
+    if (flat(ll) !== flat(cl)) { if (cl.split('-').includes(ll) || ll.split('-').includes(cl)) { level = 'possible'; why = 'surname differs slightly'; } else return null; }
+    if (lf === cf) { /* same first name */ }
+    else if (lf.length === 1 && cf[0] === lf) { level = 'possible'; why = why || 'first initial only'; }
+    else if (canon(lf) === canon(cf)) { level = 'possible'; why = why || `${capWords(lf)} / ${capWords(cf)}`; }
+    else if (cm[0] && (lf === cm[0] || canon(lf) === canon(cm[0]))) { level = 'possible'; why = why || 'known by middle name'; }
+    else return null;
+    if (lm.length && cm.length && !lm.every((m, i) => cm[i] && (cm[i] === m || (m.length === 1 && cm[i][0] === m)))) { level = 'possible'; why = why || 'middle name differs'; }
+    return { level, label: level === 'exact' ? 'Exact match' : `Possible match (${why})` };
+  }
+  const yr = (d) => (d ? String(d).slice(0, 4) : '');
+  const liKey = (p) => { const q = p.first || p.last ? p : nameParts(p.name || ''); return (nmToks(q.last).join('-') + '|' + (nmToks(q.first)[0] || '')); };
+  function liAfterCompany(ctx) {
+    const li = ctx.det && ctx.det.li, f = ctx.company, rec = ctx.ai; if (!li || !f || !rec) return;
+    const live = st.li && st.li.key === li.key ? st.li : null;
+    if (li.kind === 'company') {
+      if (li.paste || live) { rec.li = { company: li.url, at: Date.now() }; if (rec.card) rec.card.linkedin = li.url; aiSave(rec); }
+      if (live) st.liRes = { key: li.key, html: `<span class="ok">${ICON.check}</span> LinkedIn page saved with ${esc(f.display)} (for exports).` };
+      return liPaint();
+    }
+    // person: officers now, PSCs, and officers who left in the last 2 years
+    const hits = [];
+    for (const o of f.officers) if (!o.corporate) { const m = liNameMatch(li.name, o); if (m) hits.push({ m, o, line: `${o.role} of ${f.display}${o.appointed ? ' since ' + yr(o.appointed) : ''}`, title: o.appointed ? 'Appointed ' + fmtDate(o.appointed) : '' }); }
+    for (const p of f.pscs) if (p.kind === 'Individual') { const m = liNameMatch(li.name, p); if (m && !hits.some((h) => liKey(h.o) === liKey(p))) hits.push({ m, o: p, line: `person with significant control of ${f.display}${p.notified ? ' since ' + yr(p.notified) : ''}`, title: p.control || '' }); }
+    for (const o of f.former || []) { const m = liNameMatch(li.name, o); if (m) hits.push({ m, o, line: `former ${String(o.role).toLowerCase()} of ${f.display} (${yr(o.appointed)}${o.resigned ? '\u2013' + yr(o.resigned) : ''})`, title: o.resigned ? 'Resigned ' + fmtDate(o.resigned) : '' }); }
+    hits.sort((x, y) => (x.m.level === 'exact' ? 0 : 1) - (y.m.level === 'exact' ? 0 : 1));
+    let html = '';
+    if (hits.length) {
+      html = hits.slice(0, 3).map((h, i) => `<div class="lline"><b>${esc(li.name)}</b>: ${esc(h.line)}<span class="badge ${h.m.level === 'exact' ? 'g' : 'w'}" title="${esc(h.title)}">${esc(h.m.label)}</span>`
+        + (h.o.name !== li.name ? `<div class="sub">Companies House: ${esc(h.o.name)}</div>` : '')
+        + (i === 0 && h.m.level !== 'exact' ? `<button class="lnk" data-act="li-save" data-k="${esc(liKey(h.o))}" data-n="${esc(h.o.name)}">It's them: save the profile link to ${esc(h.o.name)}</button>` : '') + '</div>').join('')
+        + '<div class="sub">A name match, not proof: different people can share a name.</div>';
+      const top = hits[0];
+      ctx.liPerson = { name: top.o.name, role: top.line, url: li.url, level: top.m.level };
+      if (top.m.level === 'exact') { rec.liPeople = Object.assign({}, rec.liPeople, { [liKey(top.o)]: { url: li.url, name: top.o.name, at: Date.now() } }); aiSave(rec); html += `<div class="sub">${ICON.check} Profile link saved to ${esc(top.o.name)} (for exports).</div>`; }
+    } else {
+      html = `<div class="lline">No current officer or PSC of <b>${esc(f.display)}</b> matches ${esc(li.name)} (officers who left in the last 2 years were checked too).</div>
+        <button class="lnk" data-act="li-osearch">Search all Companies House officers named ${esc(li.name)}</button>`;
+    }
+    st.liRes = { key: li.key, html }; liPaint();
+  }
+  function liAfterPeople(ctx, officers) {
+    const li = ctx.det && ctx.det.li; if (!li || li.kind !== 'person') return;
+    const same = officers.filter((o) => liNameMatch(li.name, { name: o.name }));
+    st.liRes = { key: li.key, html: `${li.companyMissing ? `<div class="sub">Couldn't find ${esc(li.company)} on Companies House, so this is a search by name.</div>` : ''}<div class="lline">${same.length ? `${same.length} Companies House officer${same.length === 1 ? '' : 's'} named like ${esc(li.name)}` : `No Companies House officers named ${esc(li.name)}`}${officers.length > same.length ? ` (${officers.length} results in all)` : ''}.</div><div class="sub">Same-name people exist, so check the companies and dates before treating any of them as this person.</div>` };
+    liPaint();
+  }
+  function liOfficerSearch() {
+    const li = st.li; if (!li) return;
+    const info = { kind: 'person', url: li.url, name: li.name, company: li.company, key: li.key };
+    lookup(li.name, 'person'); if (st.ctx && st.ctx.det) st.ctx.det.li = info;
+  }
+  function liSave(k, name) {
+    const ctx = st.ctx, li = st.li; if (!ctx || !ctx.ai || !li) return;
+    ctx.ai.liPeople = Object.assign({}, ctx.ai.liPeople, { [k]: { url: li.url, name, at: Date.now() } }); aiSave(ctx.ai);
+    if (ctx.liPerson) ctx.liPerson.level = 'confirmed';
+    st.liRes = { key: li.key, html: (st.liRes && st.liRes.html ? st.liRes.html.replace(/<button class="lnk" data-act="li-save"[\s\S]*?<\/button>/, '') : '') + `<div class="sub">${ICON.check} Profile link saved to ${esc(name)} (for exports).</div>` };
+    liPaint();
+  }
+  // Saved LinkedIn profile for a person on the current company (by surname + first name).
+  function liSavedFor(name) { const r = st.ctx && st.ctx.ai && st.ctx.ai.liPeople; if (!r) return ''; const x = r[liKey({ name })]; return x ? x.url : ''; }
+  const liPeopleUrl = (q) => 'https://www.linkedin.com/search/results/people/?keywords=' + encodeURIComponent(q);
+
+  /* ---------- AI connection note (copy only; Prosper never pastes or sends) ---------- */
+  function noteTargets(ctx) {
+    const f = ctx.company, out = [];
+    if (ctx.liPerson) out.push({ k: liKey({ name: ctx.liPerson.name }), name: ctx.liPerson.name, role: ctx.liPerson.role });
+    for (const o of f.officers) if (!o.corporate && /director/i.test(o.role) && !out.some((x) => x.k === liKey(o))) out.push({ k: liKey(o), name: o.name, role: `${o.role} of ${f.display}` });
+    return out.slice(0, 9);
+  }
+  function noteHtml(ctx) {
+    if (!claudeKey()) return '';
+    const n = ctx.company.number, ns = st.note[n] || {};
+    if (!ns.open) return `<button class="webbtn xbtn nbtn" data-act="note-open" title="Drafts a short LinkedIn connection request (under 300 characters) or a longer message from the Companies House data, the summary and any Expand results. You copy it yourself.">${ICON.spark}<span>Write connection note</span><small>short request or longer message, for you to copy</small></button>`;
+    const T = noteTargets(ctx), to = ns.to != null ? ns.to : (T[0] && ctx.liPerson ? T[0].k : '_');
+    const c = (ctx.ai.notes || {})[to], kind = ns.kind || 'note';
+    const opts = `<option value="_"${to === '_' ? ' selected' : ''}>No name (general)</option>` + T.map((x) => `<option value="${esc(x.k)}"${x.k === to ? ' selected' : ''}>${esc(x.name)}</option>`).join('');
+    let body;
+    if (busy(n, 'note')) body = '<div class="aiwait"><div class="skel w90"></div><div class="skel w75"></div></div>';
+    else if (st.aiErr[n] && st.aiErr[n].note) body = errBox('Note failed', st.aiErr[n].note, 'note-regen');
+    else if (!c) body = `<button class="btn sm" data-act="note-regen">Write it</button>`;
+    else {
+      const txt = (ns.edit && ns.edit[to + kind] != null) ? ns.edit[to + kind] : (kind === 'note' ? c.note : c.msg);
+      body = `<textarea class="nta" data-kind="${kind}" rows="${kind === 'note' ? 4 : 8}" aria-label="${kind === 'note' ? 'Connection request' : 'Message'}">${esc(txt)}</textarea>
+        <div class="nmeta"><span class="ncnt${kind === 'note' && txt.length > 300 ? ' over' : ''}">${txt.length}${kind === 'note' ? ' / 300' : ' characters'}</span><span class="sp"></span><button class="lnk" data-act="note-regen">Write again</button><button class="btn sm" data-act="note-copy">${ICON.copy}<span>Copy</span></button></div>
+        <div class="sub">${kind === 'note' ? 'Connection requests allow up to 300 characters.' : 'For a message or InMail.'} Prosper doesn't paste or send anything.</div>`;
+    }
+    return `<div class="notebox"><div class="nh"><h5>Connection note</h5><label>To <select class="nto" aria-label="Who it is for">${opts}</select></label><button class="ib" data-act="note-close" title="Close" aria-label="Close">${ICON.x}</button></div>
+      <div class="seg" role="tablist"><button role="tab" data-act="note-kind" data-kind="note" aria-selected="${kind === 'note'}" class="${kind === 'note' ? 'on' : ''}">Connection request</button><button role="tab" data-act="note-kind" data-kind="msg" aria-selected="${kind === 'msg'}" class="${kind === 'msg' ? 'on' : ''}">Longer message</button></div>${body}</div>`;
+  }
+  function rerenderNote(n) { const ctx = liveCtx(n); if (!ctx) return; const box = $body.querySelector('[data-ai=note]'); if (box) box.innerHTML = noteHtml(ctx); }
+  async function runNote(f, ctx, rec, target) {
+    const a = rec.auto, w = rec.web;
+    const ctxText = [factsText(f, ctx), a ? 'Summary:\n- ' + a.summary.join('\n- ') : '', w ? 'From their website and the web:\n- ' + w.what.concat(w.signals.map((s) => s.text)).slice(0, 6).join('\n- ') : ''].filter(Boolean).join('\n\n');
+    const sys = 'You draft LinkedIn outreach for a UK B2B salesperson. Use only the facts given. Never invent shared connections, meetings, products or what the sender sells. British English, warm but plain, no flattery, no emojis, no hashtags, no placeholders like [Name] or [Your company], no sign-off name.';
+    const who = target ? `It is addressed to ${target.name} (${target.role}). Use their first name only.` : 'There is no named recipient: write it so it works for any director, without a name.';
+    const user = `${ctxText}\n\n${who}\n\nReply with ONLY a JSON object: {"note":"a connection request under 280 characters: one specific, relevant reason to connect based on the facts","message":"a longer message of 400 to 700 characters: a specific observation from the facts, why it might matter to them, and one easy question"}`;
+    const { res, usage } = await claudeCall({ model: AUTO_MODEL, max_tokens: 450, thinking: { type: 'disabled' }, system: sys, messages: [{ role: 'user', content: user }] }, 40000, 'note');
+    const text = (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
+    const d = parseJsonText(text) || {};
+    const clean = (s) => String(s || '').replace(/\s+/g, ' ').replace(/\bprobably\b/gi, 'likely').trim();
+    let note = clean(d.note), msg = clean(d.message);
+    if (note.length > 300) { const cut = note.slice(0, 300); const i = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('? ')); note = i > 120 ? cut.slice(0, i + 1) : cut.replace(/\s+\S*$/, '') + '...'; }
+    return { note, msg, at: Date.now(), to: target ? target.name : '', usage };
+  }
+  async function doNote(ctx) {
+    const f = ctx.company, n = f.number, rec = ctx.ai, ns = st.note[n] = st.note[n] || {};
+    if (busy(n, 'note')) return;
+    const T = noteTargets(ctx), to = ns.to != null ? ns.to : (T[0] && ctx.liPerson ? T[0].k : '_');
+    ns.to = to; if (ns.edit) { delete ns.edit[to + 'note']; delete ns.edit[to + 'msg']; }
+    setBusy(n, 'note', true); setAiErr(n, 'note', null); rerenderNote(n);
+    try { const r = await runNote(f, ctx, rec, T.find((x) => x.k === to)); rec.notes = Object.assign({}, rec.notes, { [to]: r }); aiSave(rec); } catch (e) { setAiErr(n, 'note', e); }
+    setBusy(n, 'note', false); rerenderNote(n);
+  }
+
   /* ---------- Expand: the company's own website plus web search ----------
      Finds the website (the selection's domain, a saved one, a verified guess from the name, or one quick web search),
      reads the homepage and up to 2 key pages (About / Services / Contact), and gives Haiku that text together with
@@ -1078,6 +1315,7 @@
     return { title, desc, text: all.slice(0, 3500), all: all.slice(0, 300000), links, icons, og };
   }
   async function fetchPage(url) {
+    try { if (LI_HOST.test(new URL(url).hostname)) return null; } catch (e) { return null; } // never fetch LinkedIn pages
     const r = await xhr({ url, timeout: 9000, anonymous: true, quiet: true, headers: { Accept: 'text/html,application/xhtml+xml' } });
     if (r.status !== 200 || !r.text || !htmlish(r.text)) return null;
     const final = r.finalUrl || url;
@@ -1185,6 +1423,7 @@
     const seen = new Set(); return out.filter((c) => !seen.has(c.url) && seen.add(c.url)).slice(0, 6);
   }
   async function decodeImage(url, svgHint) {
+    try { if (LI_HOST.test(new URL(url).hostname)) return null; } catch (e) { return null; }
     const r = await xhr({ url, responseType: 'arraybuffer', timeout: 8000, quiet: true, anonymous: true });
     if (r.status !== 200 || !r.response) return null;
     const bytes = new Uint8Array(r.response); if (bytes.length < 60 || bytes.length > 800000) return null;
@@ -1905,6 +2144,45 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 .dym .opt.per { margin-top: 8px; border: 1px dashed var(--line2); border-radius: 8px; }
 .dym .hint { margin-top: 8px; }
 .anim .turn { animation: rise var(--d3) var(--eo) both; }
+/* b4 (2): LinkedIn page prompt, director check, connection note */
+.libar { padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--bg2); font-size: 12.5px; }
+.libar[hidden] { display: none; }
+.libar .lq { display: flex; align-items: center; gap: 8px; }
+.libar .lq .lt { flex: 1; min-width: 0; color: var(--fg); line-height: 1.35; }
+.libar .lq .sub { font-size: 11.5px; }
+.libar .lq .lgo { flex: none; }
+.libar .lq .lx { width: 24px; height: 24px; } .libar .lq .lx svg { width: 13px; height: 13px; }
+.libar .lres { margin-top: 7px; padding-top: 7px; border-top: 1px dashed var(--line2); display: grid; gap: 5px; }
+.libar .lline { line-height: 1.4; }
+.libar .lline .badge { margin-left: 6px; text-transform: none; letter-spacing: 0; vertical-align: 1px; }
+.badge.g { background: var(--good-soft); color: var(--good); }
+.libar .lres .sub { font-size: 11.5px; }
+.libar .lres .sub svg, .libar .lres .ok svg { width: 11px; height: 11px; color: var(--good); vertical-align: -1px; }
+.libar .lnk { font-size: 12px; justify-self: start; }
+.lichip { position: fixed; right: 30px; top: calc(42% + 14px); z-index: 1; display: flex; align-items: center; gap: 2px; max-width: 280px; padding: 3px 3px 3px 10px; border-radius: 9px; background: var(--bg); color: var(--fg); border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(17,24,39,.14); font: 12.5px/1.3 Inter, system-ui, sans-serif; }
+.lichip[hidden] { display: none; }
+.lichip .lcq { flex: 1; min-width: 0; border: 0; background: none; padding: 4px 2px; color: inherit; font: inherit; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lichip .lcq:hover { text-decoration: underline; text-underline-offset: 2px; }
+.lichip .lcx { flex: none; width: 24px; height: 24px; border: 0; border-radius: 6px; background: none; color: var(--fg3); cursor: pointer; display: grid; place-items: center; }
+.lichip .lcx:hover { background: var(--bg3); color: var(--fg); } .lichip .lcx svg { width: 12px; height: 12px; }
+.anim .lichip:not([hidden]) { animation: rise var(--d3) var(--eo) both; }
+.edge.lidot::after { content: ''; position: absolute; top: 7px; left: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--ai-a); box-shadow: 0 0 0 2px var(--pri); }
+.notebox { margin-top: 10px; padding: 10px; border: 1px solid #e4dafb; border-radius: 9px; background: linear-gradient(180deg, var(--ai-vs), var(--bg) 70px); }
+.notebox .nh { display: flex; align-items: center; gap: 8px; }
+.notebox .nh h5 { margin: 0; flex: 1; }
+.notebox .nh label { font-size: 11.5px; color: var(--fg2); display: inline-flex; align-items: center; gap: 4px; }
+.notebox .nh select { max-width: 150px; height: 24px; font: inherit; font-size: 11.5px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); }
+.notebox .nh .ib { width: 24px; height: 24px; } .notebox .nh .ib svg { width: 13px; height: 13px; }
+.notebox .seg { display: inline-flex; margin: 8px 0 6px; padding: 2px; border-radius: 8px; background: var(--bg3); }
+.notebox .seg button { border: 0; background: none; padding: 3px 9px; border-radius: 6px; font: inherit; font-size: 11.5px; color: var(--fg2); cursor: pointer; }
+.notebox .seg button.on { background: var(--bg); color: var(--fg); box-shadow: 0 1px 2px rgba(17,24,39,.1); }
+.notebox .nta { width: 100%; box-sizing: border-box; resize: vertical; border: 1px solid var(--line); border-radius: 7px; padding: 7px 8px; font: inherit; font-size: 12.5px; line-height: 1.45; color: var(--fg); background: var(--bg); }
+.notebox .nta:focus { outline: none; border-color: #cbbaf7; box-shadow: 0 0 0 3px var(--ai-vs); }
+.notebox .nmeta { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+.notebox .nmeta .sp { flex: 1; }
+.notebox .ncnt { font-size: 11.5px; color: var(--fg2); font-variant-numeric: tabular-nums; } .notebox .ncnt.over { color: var(--bad); font-weight: 600; }
+.notebox > .sub { margin-top: 4px; font-size: 11px; }
+.nbtn { margin-top: 8px; }
 /* b4: copy-note icon button, address line with map pin */
 .hcard { position: relative; }
 .hcard > .title { padding-right: 44px; }
@@ -2015,7 +2293,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   };
 
   let host, sroot, root, $pill, $panel, $drawer, $edge, $body, $input, $det, $mode, $toast, $menu, $sheet;
-  const st = { open: false, view: 'main', det: null, ctx: null, stack: [], req: 0, pillText: '', aiBusy: {}, aiErr: {}, aiMem: {}, aiStep: {}, logoBusy: {}, xmenu: false, styleMode: 'none', fontStatus: '', diag: null, anchor: null, menu: false };
+  const st = { open: false, view: 'main', det: null, ctx: null, stack: [], req: 0, pillText: '', aiBusy: {}, aiErr: {}, aiMem: {}, aiStep: {}, logoBusy: {}, xmenu: false, li: null, liRes: null, liDismissed: new Set(), liChipSeen: new Set(), note: {}, styleMode: 'none', fontStatus: '', diag: null, anchor: null, menu: false };
   let secState = {};
   function loadSecState() { secState = readJSON(gv(K.sections, null)) || {}; }
   function saveSecState() { sv(K.sections, JSON.stringify(secState)); }
@@ -2097,6 +2375,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     sr.innerHTML = `<i class="probe"></i>
 <div class="root">
   <div class="pill" part="pill" role="button" tabindex="-1" aria-label="Look up with Prosper"><span class="p">P</span><span class="t"></span></div>
+  <div class="lichip" role="status" hidden></div>
   <button class="edge" aria-label="Open Prosper" title="Prosper${settings.hotkeys.toggle ? ' (' + settings.hotkeys.toggle + ')' : ''}"><span>P</span></button>
   <aside class="panel" role="dialog" aria-label="Prosper">
     <div class="hd"><div class="brand">Prosper</div>
@@ -2114,6 +2393,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
         <button class="btn pri" type="submit">Go</button>
       </form>
     </div>
+    <div class="libar" role="region" aria-label="This LinkedIn page" hidden></div>
     <div class="body"></div>
     <div class="toast"></div>
     <div class="epop" role="tooltip"></div>
@@ -2150,7 +2430,12 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       const t = e.target;
       if (st.fv && t && t.classList && t.classList.contains('dw-q')) fvFilter();
       if (t && t.classList && t.classList.contains('chatin')) { t.style.height = 'auto'; t.style.height = Math.min(96, t.scrollHeight) + 'px'; }
+      if (t && t.classList && t.classList.contains('nta') && st.ctx && st.ctx.company) { // live character count; the edit is kept while the panel is open
+        const n = st.ctx.company.number, ns = st.note[n] = st.note[n] || {}, kind = t.dataset.kind; ns.edit = ns.edit || {}; ns.edit[(ns.to || '_') + kind] = t.value;
+        const c = t.parentElement.querySelector('.ncnt'); if (c) { c.textContent = t.value.length + (kind === 'note' ? ' / 300' : ' characters'); c.classList.toggle('over', kind === 'note' && t.value.length > 300); }
+      }
     });
+    sr.addEventListener('change', (e) => { const t = e.target; if (t && t.classList && t.classList.contains('nto') && st.ctx && st.ctx.company) { const n = st.ctx.company.number; st.note[n] = Object.assign(st.note[n] || {}, { to: t.value }); rerenderNote(n); } });
     sr.addEventListener('submit', (e) => { const fm = e.target; if (fm && fm.dataset && fm.dataset.form === 'chat') { e.preventDefault(); submitChat(fm.querySelector('.chatin')); } });
     sr.addEventListener('scroll', onDrawerScroll, true); // scroll does not bubble; capture sees the list's scroll
     // Interactive entities in AI text: hover (or keyboard focus) shows a small card with copy and open actions.
@@ -2185,6 +2470,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 
   function placePanel() {
     let top = 12;
+    if (onLinkedIn()) { $panel.style.top = '60px'; return; } // LinkedIn: no page inspection at all, just clear its top bar
     try {
       const x = Math.max(0, window.innerWidth - 200);
       for (const y of [1, 8]) {
@@ -2208,11 +2494,11 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   function open() {
     ensureFonts();
     placePanel();
-    st.open = true; $panel.classList.add('open'); updateScope();
+    st.open = true; $panel.classList.add('open'); updateScope(); liPaint();
     if (st.styleMode === 'none') $panel.style.display = 'block';
   }
   function close() {
-    st.open = false; closeDrawer(); $panel.classList.remove('open'); hidePill(); toggleMenu(false); updateScope();
+    st.open = false; closeDrawer(); $panel.classList.remove('open'); hidePill(); toggleMenu(false); updateScope(); liPaint();
     if (st.styleMode === 'none') $panel.style.display = 'none';
   }
   function openEmpty() {
@@ -2417,6 +2703,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   function showPeople(ctx, officers, req) {
     ctx.officers = officers; ctx.mode = 'person';
     renderPerson(ctx);
+    if (ctx.det && ctx.det.li) liAfterPeople(ctx, officers);
     officers.slice(0, 3).forEach((o, i) => expandOfficer(ctx, i, req));
   }
   function openCompanyHere(num) { if (num) { setView('main'); lookup(num, 'auto', true); } }
@@ -2433,6 +2720,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     addRecent(f);
     renderCompany(ctx, true);
     maybeAuto(ctx);
+    if (ctx.det && ctx.det.li) liAfterCompany(ctx);
     // after the main lookup, off the critical path: similar companies (1-2 CH calls), then the verified logo
     setTimeout(() => { if (st.ctx === ctx && ctx.company === f) loadSimilar(ctx); }, 700);
     setTimeout(() => { if (st.ctx === ctx && ctx.company === f) loadLogo(ctx); }, 1200);
@@ -2472,6 +2760,10 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     wireFavicons();
   }
   function renderNoMatch(ctx) {
+    const li = ctx.det && ctx.det.li;
+    if (li && li.kind === 'person' && li.company && !li.companyMissing && ctx.mode !== 'person') { // company from the title not on CH: search officers by name
+      lookup(li.name, 'person'); if (st.ctx && st.ctx.det) st.ctx.det.li = Object.assign({}, li, { companyMissing: true }); return;
+    }
     setBody(`${backBar()}<div class="card state"><b>No Companies House match</b>Nothing found for "${esc(ctx.query)}". Try the full registered name, or search as a person.
       <br><button class="btn" data-act="as-person">Search as person</button></div>${linksSection(ctx)}`, true);
     wireFavicons();
@@ -2600,10 +2892,11 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       const w = String(name || '').replace(/^(Mr|Mrs|Ms|Miss|Mx|Dr|Sir|Dame|Lord|Lady|Prof)\.?\s+/i, '').split(/\s+/).filter(Boolean);
       name = w.length > 2 ? w[0] + ' ' + w[w.length - 1] : w.join(' ');
     }
-    const liUrl = corporate ? 'https://www.linkedin.com/search/results/companies/?keywords=' + enc(shortCo(name)) : 'https://www.linkedin.com/search/results/people/?keywords=' + enc(co ? `${name} ${co}` : name);
+    const saved = corporate ? '' : liSavedFor(name);
+    const liUrl = corporate ? 'https://www.linkedin.com/search/results/companies/?keywords=' + enc(shortCo(name)) : saved || liPeopleUrl(co ? `${name} ${shortCo(co)}` : name);
     const gUrl = 'https://www.google.com/search?q=' + enc(corporate ? `"${shortCo(name)}"` : `"${name}"${co ? ' ' + co : ''}`);
     const a = (cls, url, txt, title) => `<a class="${cls}" href="${esc(url)}" data-act="ext" data-url="${esc(url)}" title="${esc(title)}">${txt}</a>`;
-    return `<span class="plk">${a('li', liUrl, 'in', corporate ? `LinkedIn: ${shortCo(name)}` : `LinkedIn people: ${co ? name + ' ' + co : name}`)}${a('g', gUrl, 'G', `Google: ${corporate ? shortCo(name) : name + (co ? ' ' + co : '')}`)}${chUrl ? a('c', chUrl, 'CH', corporate ? 'Companies House page' : 'Companies House officer page') : ''}</span>`;
+    return `<span class="plk">${a('li' + (saved ? ' saved' : ''), liUrl, 'in', corporate ? `LinkedIn: ${shortCo(name)}` : saved ? `LinkedIn profile (saved): ${saved}` : `LinkedIn people: ${co ? name + ' ' + shortCo(co) : name}`)}${a('g', gUrl, 'G', `Google: ${corporate ? shortCo(name) : name + (co ? ' ' + co : '')}`)}${chUrl ? a('c', chUrl, 'CH', corporate ? 'Companies House page' : 'Companies House officer page') : ''}</span>`;
   }
 
   function pickerHtml(ctx) {
@@ -3263,7 +3556,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     if (d.k === 'person') {
       h = d.name; s = [d.role, d.since ? 'since ' + fmtDate(d.since) : '', d.until ? 'resigned ' + fmtDate(d.until) : '', d.ctl].filter(Boolean).join(' · ');
       a = cp(d.name) + (d.link ? B('person', 'Appointments', `data-link="${esc(d.link)}" data-name="${esc(d.name)}"`) : B('person-search', 'Find officer', `data-name="${esc(d.name)}"`))
-        + personLinks(d.name, curCoName(), d.link ? CH_WEB + d.link : '');
+        + personLinks(d.name, curCoName(), d.link ? CH_WEB + d.link : '') + X(liPeopleUrl(String(d.name).replace(/^(Mr|Mrs|Ms|Miss|Mx|Dr|Sir|Dame|Lord|Lady|Prof)\.?\s+/i, '')), 'LinkedIn: name only');
     } else if (d.k === 'co') {
       h = d.name; s = d.self ? 'This company · ' + d.num : d.prev ? 'Previous name of this company' + (d.prev ? ', until ' + fmtDate(d.prev) : '') : [d.role, d.num].filter(Boolean).join(' · ');
       a = cp(d.name, 'Copy name') + (d.num && !d.self && !d.prev ? B('open-co', 'Open in Prosper', `data-num="${esc(d.num)}"`) : '') + (d.num ? X(coUrl(d.num), 'Companies House', 'ch') : '');
@@ -3320,7 +3613,9 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   function expRec(card, rec) {
     const a = rec && rec.auto, w = rec && rec.web;
     return {
-      company: Object.assign({}, card, { website: card.website || (w && w.site) || '' }),
+      company: (() => { const c = Object.assign({}, card, { website: card.website || (w && w.site) || '', linkedin: (rec && rec.li && rec.li.company) || card.linkedin || '', liPeople: (rec && rec.liPeople) || {} });
+        const lu = (x) => { const v = c.liPeople[liKey(x)]; return v ? v.url : ''; };
+        c.officers = (card.officers || []).map((o) => (o.corporate ? o : Object.assign({}, o, { linkedin: lu(o) }))); c.pscs = (card.pscs || []).map((p) => (p.kind === 'Individual' ? Object.assign({}, p, { linkedin: lu(p) }) : p)); return c; })(),
       summary: a ? { lines: a.summary, worthChecking: a.watch, openers: a.openers, generated: isoAt(a.at) } : null,
       expanded: w ? { website: w.site || '', what: w.what, signals: w.signals, talkingPoints: w.talking, sources: w.sources, generated: isoAt(w.at) } : null,
       chat: ((rec && rec.chat) || []).filter((t) => t.a && !t.pending && !t.err).map((t) => ({ question: t.q, answer: t.a, webSearch: !!t.web, sources: t.sources || [], at: isoAt(t.at) })),
@@ -3339,13 +3634,13 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   }
   // People: individual officers, then individual PSCs who are not also officers.
   function peopleOf(card, withCorporate) {
-    const out = [];
-    for (const o of card.officers) if (withCorporate || !o.corporate) out.push({ name: o.name, first: o.first, middle: o.middle, last: o.last, role: o.role, date: o.appointed, type: o.corporate ? 'Corporate officer' : 'Officer', control: '', regNumber: o.regNumber });
+    const out = [], lip = card.liPeople || {}, lu = (x) => { const v = lip[liKey(x)]; return v ? v.url : ''; };
+    for (const o of card.officers) if (withCorporate || !o.corporate) out.push({ name: o.name, first: o.first, middle: o.middle, last: o.last, role: o.role, date: o.appointed, type: o.corporate ? 'Corporate officer' : 'Officer', control: '', regNumber: o.regNumber, linkedin: o.corporate ? '' : lu(o) });
     for (const p of card.pscs) {
       const ind = p.kind === 'Individual'; if (!ind && !withCorporate) continue;
       const ex = out.find((x) => x.name.toLowerCase() === p.name.toLowerCase());
       if (ex) { ex.type += ' and PSC'; ex.control = p.control; continue; }
-      out.push({ name: p.name, first: p.first, middle: p.middle, last: p.last, role: 'Person with significant control', date: p.notified, type: ind ? 'PSC' : 'Corporate PSC', control: p.control, regNumber: p.regNumber });
+      out.push({ name: p.name, first: p.first, middle: p.middle, last: p.last, role: 'Person with significant control', date: p.notified, type: ind ? 'PSC' : 'Corporate PSC', control: p.control, regNumber: p.regNumber, linkedin: ind ? lu(p) : '' });
     }
     return out;
   }
@@ -3358,28 +3653,29 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
   };
   const toCsv = (rows) => '\uFEFF' + rows.map((r) => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
-  const GENERIC = ['Company name', 'Company number', 'Company status', 'Company type', 'Incorporated', 'Registered office', 'Address line 1', 'Address line 2', 'Town', 'Region', 'Postcode', 'Country', 'SIC codes', 'Website', 'Companies House link', 'Accounts next due', 'Quick check', 'Name', 'First name', 'Last name', 'Type', 'Role', 'Appointed or notified', 'Control', 'AI summary'];
+  const GENERIC = ['Company name', 'Company number', 'Company status', 'Company type', 'Incorporated', 'Registered office', 'Address line 1', 'Address line 2', 'Town', 'Region', 'Postcode', 'Country', 'SIC codes', 'Website', 'LinkedIn company page', 'Companies House link', 'Accounts next due', 'Quick check', 'Name', 'First name', 'Last name', 'LinkedIn profile', 'Type', 'Role', 'Appointed or notified', 'Control', 'AI summary'];
   function genericRows(r) {
     const c = r.company, a = c.addr || {};
     const co = [c.name, c.number, c.status + (c.statusDetail ? ' - ' + c.statusDetail : ''), c.type, c.created, c.address, a.line1 || '', a.line2 || '', a.town || '', a.region || '', a.postcode || '', a.country || '',
-      c.sic.map((s) => s.code + (s.desc ? ' ' + s.desc : '')).join('; '), c.website, c.url, c.accountsNextDue, c.quickCheck + (c.reasons.length ? ' (' + c.reasons.join('; ') + ')' : '')];
+      c.sic.map((s) => s.code + (s.desc ? ' ' + s.desc : '')).join('; '), c.website, c.linkedin || '', c.url, c.accountsNextDue, c.quickCheck + (c.reasons.length ? ' (' + c.reasons.join('; ') + ')' : '')];
     const ppl = peopleOf(c, true);
-    if (!ppl.length) return [co.concat(['', '', '', '', '', '', '', aiText(r)])];
-    return ppl.map((p) => co.concat([p.name, p.first, p.last, p.type, p.role, p.date, p.control, aiText(r)]));
+    if (!ppl.length) return [co.concat(['', '', '', '', '', '', '', '', aiText(r)])];
+    return ppl.map((p) => co.concat([p.name, p.first, p.last, p.linkedin || '', p.type, p.role, p.date, p.control, aiText(r)]));
   }
   // CRM presets. Column headers are the documented import field labels:
   // HubSpot (contacts + companies, one file): knowledge.hubspot.com/import-and-export/set-up-your-import-file and default properties.
   // Salesforce (Data Import Wizard, "Accounts and Contacts"): standard Contact and Account field labels.
   // Pipedrive (people + organizations): the column names in Pipedrive's sample import spreadsheet.
   const CRM = {
-    hubspot: { label: 'HubSpot', head: ['First Name', 'Last Name', 'Email', 'Job Title', 'Company Name', 'Company Domain Name', 'Website URL', 'Street Address', 'City', 'State/Region', 'Postal Code', 'Country/Region', 'Description'],
-      row: (r, p) => { const c = r.company, a = c.addr || {}; return [p.first, p.last, '', p.role, c.name, domainOf(c.website), c.website ? 'https://' + domainOf(c.website) : '', street(c), a.town || '', a.region || '', a.postcode || '', a.country || '', crmDesc(r)]; } },
+    hubspot: { label: 'HubSpot', head: ['First Name', 'Last Name', 'Email', 'Job Title', 'Company Name', 'Company Domain Name', 'Website URL', 'Street Address', 'City', 'State/Region', 'Postal Code', 'Country/Region', 'LinkedIn company page', 'Description'],
+      row: (r, p) => { const c = r.company, a = c.addr || {}; return [p.first, p.last, '', p.role, c.name, domainOf(c.website), c.website ? 'https://' + domainOf(c.website) : '', street(c), a.town || '', a.region || '', a.postcode || '', a.country || '', c.linkedin || '', crmDesc(r, p)]; } },
     salesforce: { label: 'Salesforce', head: ['First Name', 'Last Name', 'Title', 'Account Name', 'Website', 'Billing Street', 'Billing City', 'Billing State/Province', 'Billing Zip/Postal Code', 'Billing Country', 'SIC Code', 'Description'],
-      row: (r, p) => { const c = r.company, a = c.addr || {}; return [p.first, p.last, p.role, c.name, c.website ? 'https://' + domainOf(c.website) : '', street(c), a.town || '', a.region || '', a.postcode || '', a.country || '', (c.sic[0] && c.sic[0].code) || '', crmDesc(r)]; } },
+      row: (r, p) => { const c = r.company, a = c.addr || {}; return [p.first, p.last, p.role, c.name, c.website ? 'https://' + domainOf(c.website) : '', street(c), a.town || '', a.region || '', a.postcode || '', a.country || '', (c.sic[0] && c.sic[0].code) || '', crmDesc(r, p, true)]; } },
     pipedrive: { label: 'Pipedrive', head: ['Person - Name', 'Person - First name', 'Person - Last name', 'Organization - Name', 'Organization - Address'],
       row: (r, p) => { const c = r.company; return [p.name, p.first, p.last, c.name, c.address]; } },
   };
-  function crmDesc(r) { const c = r.company; return [`Companies House ${c.number} (${c.status}): ${c.url}`, aiText(r)].filter(Boolean).join(' | '); }
+  // LinkedIn URLs go in Description where the CRM has no standard field for them (Salesforce company page; profiles everywhere).
+  function crmDesc(r, p, withCo) { const c = r.company; return [`Companies House ${c.number} (${c.status}): ${c.url}`, withCo && c.linkedin ? 'LinkedIn company page: ' + c.linkedin : '', p && p.linkedin ? 'LinkedIn profile: ' + p.linkedin : '', aiText(r)].filter(Boolean).join(' | '); }
   function crmCsv(kind, recs) {
     const P = CRM[kind], rows = [P.head];
     for (const r of recs) { const ppl = peopleOf(r.company, false); if (ppl.length) for (const p of ppl) rows.push(P.row(r, p)); else rows.push(P.row(r, { name: '', first: '', last: '', role: '' })); }
@@ -3403,8 +3699,9 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
         const lines = ['BEGIN:VCARD', 'VERSION:3.0', `N:${vEsc(last)};${vEsc(first)};${vEsc(p.middle || '')};;`, `FN:${vEsc([first, last].filter(Boolean).join(' ') || p.name)}`,
           `ORG:${vEsc(c.name)}`, `TITLE:${vEsc(p.role)}`,
           c.address ? `ADR;TYPE=WORK:;;${vEsc(street(c))};${vEsc(a.town || '')};${vEsc(a.region || '')};${vEsc(a.postcode || '')};${vEsc(a.country || '')}` : '',
-          `NOTE:${vEsc(`${p.role} at ${c.name}${p.date ? ' since ' + p.date : ''}${p.control ? ' (' + p.control + ')' : ''}. Companies House ${c.number}: ${c.url}`)}`,
-          c.website ? `URL:${vEsc('https://' + domainOf(c.website))}` : `URL:${vEsc(c.url)}`, 'END:VCARD'].filter(Boolean);
+          `NOTE:${vEsc(`${p.role} at ${c.name}${p.date ? ' since ' + p.date : ''}${p.control ? ' (' + p.control + ')' : ''}. Companies House ${c.number}: ${c.url}${c.linkedin ? '. LinkedIn company page: ' + c.linkedin : ''}`)}`,
+          c.website ? `URL:${vEsc('https://' + domainOf(c.website))}` : `URL:${vEsc(c.url)}`,
+          p.linkedin ? `X-SOCIALPROFILE;TYPE=linkedin:${p.linkedin}` : '', 'END:VCARD'].filter(Boolean);
         L.push(...lines.map(vFold));
       }
     }
@@ -3418,6 +3715,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     if (c.sic.length) L.push(`- **SIC:** ${c.sic.map((s) => s.code + (s.desc ? ' ' + s.desc : '')).join('; ')}`);
     if (c.previousNames.length) L.push(`- **Previous names:** ${c.previousNames.map((x) => x.name).join('; ')}`);
     if (c.website) L.push(`- **Website:** https://${domainOf(c.website)}`);
+    if (c.linkedin) L.push(`- **LinkedIn:** ${c.linkedin}`);
     L.push(`- **Quick check:** ${c.quickCheck}${c.reasons.length ? ' (' + c.reasons.join('; ') + ')' : ''}`, `- **Companies House:** ${c.url}`);
     const off = c.officers; if (off.length) { L.push('', '## Officers'); for (const o of off) L.push(`- ${o.name}, ${o.role}${o.appointed ? ' (since ' + fmtDate(o.appointed) + ')' : ''}`); }
     if (c.pscs.length) { L.push('', '## People with significant control'); for (const p of c.pscs) L.push(`- ${p.name}${p.control ? ' (' + p.control + ')' : ''}`); }
@@ -3496,7 +3794,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   function aiHtml(ctx) {
     if (!claudeKey()) return `<div class="sub">Add an AI key in Settings to get an automatic summary and ask questions about this company.</div><div class="row mt6"><button class="btn sm" data-act="settings">Open settings</button></div>`;
     const nm = shortCo(ctx.company.display);
-    return `<div data-ai="top">${aiTopHtml(ctx)}</div>
+    return `<div data-ai="top">${aiTopHtml(ctx)}</div><div data-ai="note">${noteHtml(ctx)}</div>
       <div class="chat" data-ai="chat"><h5>Ask about ${esc(nm)}</h5><div data-ai="log">${chatLogHtml(ctx)}</div>
         <form class="chatbox" data-form="chat"><textarea class="chatin" rows="1" maxlength="500" placeholder="Ask a question about ${esc(nm)}" aria-label="Ask a question about ${esc(nm)}"></textarea><button class="send" type="submit" title="Ask (Enter)" aria-label="Ask">${ICON.send}</button></form>
         <div class="chips" data-ai="chips">${chipsHtml(ctx)}</div></div>`;
@@ -4014,6 +4312,15 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     switch (act) {
       case 'close': close(); break;
       case 'xmenu': toggleXMenu(); break;
+      case 'li-go': liGo(); break;
+      case 'li-x': if (st.li) { st.liDismissed.add(st.li.key); st.liChipSeen.add(st.li.key); liPaint(); } break;
+      case 'li-save': liSave(el.dataset.k, el.dataset.n); break;
+      case 'li-osearch': liOfficerSearch(); break;
+      case 'note-open': if (ctx && f) { st.note[f.number] = Object.assign(st.note[f.number] || {}, { open: true }); const c0 = (ctx.ai.notes || {}); const T = noteTargets(ctx); const to = st.note[f.number].to != null ? st.note[f.number].to : (T[0] && ctx.liPerson ? T[0].k : '_'); if (!c0[to]) doNote(ctx); else rerenderNote(f.number); } break;
+      case 'note-close': if (f) { st.note[f.number] = Object.assign(st.note[f.number] || {}, { open: false }); rerenderNote(f.number); } break;
+      case 'note-kind': if (f) { st.note[f.number] = Object.assign(st.note[f.number] || {}, { kind: el.dataset.kind }); rerenderNote(f.number); } break;
+      case 'note-regen': if (ctx && f) doNote(ctx); break;
+      case 'note-copy': { const ta = el.closest('.notebox').querySelector('.nta'); if (ta) copyFrom(el, ta.value, 'Copied'); } break;
       case 'export': if (!el.disabled) doExport(el.dataset.fmt, el); break;
       case 'settings': toggleSettings(); break;
       case 'back': toggleSettings(false); break;
@@ -4131,6 +4438,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     ENUMS = readJSON(gv(K.enums, null));
     mount();
     updateMenuBtn();
+    liWatch();
     let down = false;
     const isOurs = (e) => !!(e && e.composedPath && e.composedPath().includes(host));
     const onDown = (e) => { if (isOurs(e)) return; down = true; hidePill(); };
@@ -4176,7 +4484,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   // Exposed for automated tests only (no secrets).
   window.__prosperTest = {
     detect, alphaKey, companyLabelFromDomain, hubspotNote: () => st.ctx && st.ctx.company ? crmNote(st.ctx.company, st.ctx.ai) : '', cleanName, findNumber,
-    aiRecord: (n) => readJSON(gv(aiKey(n), null)), exportPayload: (fmt) => exportPayload(fmt), linkify: (t) => linkify(t, st.ctx), sseMessage, aiIndex: () => aiIdx(), coSig: () => (st.ctx && st.ctx.company ? coSig(st.ctx.company) : ''), state: () => st, cleanKey, rerender: () => { if (st.ctx && st.ctx.company) renderCompany(st.ctx, false); }, numberOnPage,
+    aiRecord: (n) => readJSON(gv(aiKey(n), null)), exportPayload: (fmt) => exportPayload(fmt), linkify: (t) => linkify(t, st.ctx), sseMessage, aiIndex: () => aiIdx(), coSig: () => (st.ctx && st.ctx.company ? coSig(st.ctx.company) : ''), state: () => st, cleanKey, rerender: () => { if (st.ctx && st.ctx.company) renderCompany(st.ctx, false); }, numberOnPage, liTitleParse, liParseUrl, liSlugName, liNameMatch, liNow, liTick: () => liChanged(),
     keyInfo: (k) => { const i = keyInfo(k); return { source: i.source, len: i.len, head: i.head }; },
     settings: () => Object.assign({}, settings), sections: () => Object.assign({}, secState), ukRegNumber, comboOf: (o) => comboOf(o), shortSummary: () => (st.ctx && st.ctx.company ? shortSummary(st.ctx.company) : ''),
   };
