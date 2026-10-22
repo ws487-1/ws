@@ -128,7 +128,7 @@
 
 
   const DEFAULTS = {
-    model: 'claude-haiku-5-5', autoSummary: true, chatWeb: true, background: true, inInputs: false, scope: 'all',
+    model: 'claude-haiku-5-5', autoSummary: true, chatWeb: true, logos: true, background: true, inInputs: false, scope: 'all',
     // Interactive features (v11.2)
     chLinks: true, peopleInPanel: true, addrMaps: true, inlineMap: false, colorLinks: true, filingOpen: 'viewer',
     // Extras (v11.2)
@@ -941,7 +941,7 @@
     if (rec.chat.length > CHAT_KEEP + 10) rec.chat = rec.chat.slice(-CHAT_KEEP);
     const chat = rec.chat.filter((t) => t.a && !t.pending).slice(-CHAT_KEEP)
       .map((t) => ({ q: t.q, a: String(t.a).slice(0, 1500), web: !!t.web, needsWeb: !!t.needsWeb, sources: (t.sources || []).slice(0, 4), at: t.at, sig: t.sig, usage: t.usage }));
-    sv(aiKey(rec.n), JSON.stringify({ n: rec.n, name: rec.name, auto: rec.auto || null, web: rec.web || null, chat, card: rec.card || null }));
+    sv(aiKey(rec.n), JSON.stringify({ n: rec.n, name: rec.name, auto: rec.auto || null, web: rec.web || null, chat, card: rec.card || null, logo: rec.logo || null }));
     aiTouch(rec.n, true);
   }
   function aiClearAll() { for (const k of lv()) if (k.startsWith(K.ai)) dv(k); st.aiMem = {}; st.aiErr = {}; }
@@ -1062,6 +1062,10 @@
     const title = ((doc.querySelector('title') || {}).textContent || '').replace(/\s+/g, ' ').trim().slice(0, 140);
     const md = doc.querySelector('meta[name="description" i], meta[property="og:description"]');
     const desc = md ? String(md.getAttribute('content') || '').replace(/\s+/g, ' ').trim().slice(0, 300) : '';
+    const icons = [];
+    doc.querySelectorAll('link[rel][href]').forEach((l) => { const rel = String(l.getAttribute('rel')).toLowerCase(); if (!/icon/.test(rel) || /mask-icon/.test(rel)) return;
+      try { icons.push({ rel, href: new URL(l.getAttribute('href'), base).href, sizes: l.getAttribute('sizes') || '', type: String(l.getAttribute('type') || '').toLowerCase() }); } catch (e) { /* bad href */ } });
+    let og = ''; const om = doc.querySelector('meta[property="og:image"], meta[name="og:image"]'); if (om) { try { og = new URL(om.getAttribute('content'), base).href; } catch (e) { og = ''; } }
     const links = [];
     doc.querySelectorAll('a[href]').forEach((a) => {
       try { const u = new URL(a.getAttribute('href'), base); if (/^https?:$/.test(u.protocol)) links.push({ url: u.href.split('#')[0], text: (a.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 60) }); } catch (e) { /* bad href */ }
@@ -1070,7 +1074,8 @@
     if (doc.body) doc.body.querySelectorAll(BLOCK_TAGS).forEach((e) => e.append('\n'));
     const seen = new Set(), lines = [];
     for (let l of String(doc.body ? doc.body.textContent : '').split('\n')) { l = l.replace(/\s+/g, ' ').trim(); if (l.length < 3 || seen.has(l)) continue; seen.add(l); lines.push(l); }
-    return { title, desc, text: lines.join('\n').slice(0, 3500), links };
+    const all = lines.join('\n');
+    return { title, desc, text: all.slice(0, 3500), all: all.slice(0, 300000), links, icons, og };
   }
   async function fetchPage(url) {
     const r = await xhr({ url, timeout: 9000, anonymous: true, quiet: true, headers: { Accept: 'text/html,application/xhtml+xml' } });
@@ -1102,18 +1107,17 @@
       host = cleanDomain(String(host || ''));
       if (!host || !/\./.test(host) || tried.has(host) || SITE_DOMAIN.test(host) || FREEMAIL.test(host)) return null;
       tried.add(host);
-      for (const u of ['https://' + host + '/', 'https://www.' + host + '/']) {
-        const pg = await fetchPage(u);
-        if (pg) return !verify || siteMatches(pg, f) ? pg : null;
-      }
-      return null;
+      // bare and www forms in parallel; the first page that loads (and matches, for guesses) wins
+      return firstOf(['https://' + host + '/', 'https://www.' + host + '/'].map((u) => fetchPage(u).then((pg) => (pg && (!verify || siteMatches(pg, f)) ? pg : null))));
     };
+    const firstOf = (ps) => new Promise((done) => { let left = ps.length; if (!left) done(null);
+      ps.forEach((p) => p.then((v) => { if (v) done(v); else if (!--left) done(null); }, () => { if (!--left) done(null); })); });
     if (ctx.domain) { const pg = await tryHost(ctx.domain, false); if (pg) return { pg, how: 'selection' }; }
     if (rec.web && rec.web.site) { const pg = await tryHost(rec.web.site, false); if (pg) return { pg, how: 'saved' }; }
     const key = alphaKey(f.name).toLowerCase(), hy = shortCo(f.display).toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
     const guesses = [key + '.co.uk', key + '.com'].concat(hy && hy.includes('-') ? [hy + '.co.uk', hy + '.com'] : []).filter((g) => g.length > 6);
-    const got = await Promise.all(guesses.map((g) => tryHost(g, true)));
-    const gi = got.findIndex(Boolean); if (gi >= 0) return { pg: got[gi], how: 'guess' };
+    const hit = await firstOf(guesses.map((g) => tryHost(g, true)));
+    if (hit) return { pg: hit, how: 'guess' };
     // Last resort: one quick web search for the official site.
     step('find');
     const { res, usage } = await claudeCall({ model: AUTO_MODEL, max_tokens: 80, thinking: { type: 'disabled' },
@@ -1123,6 +1127,127 @@
     const dom = findDomain(txt.replace(/\s+/g, ' '));
     const pg = dom && !/^none$/i.test(txt.trim()) ? await tryHost(dom, false) : null;
     return { pg, how: pg ? 'search' : '', usage };
+  }
+  /* ---------- Company logo (only from a website verified as the company's own) ----------
+     Verification: the site shows the exact Companies House number (homepage, else terms/contact/privacy/legal pages),
+     or the exact registered name together with the registered-office postcode. Unverified: no logo at all. */
+  const LOGO_OK_TTL = 30 * 864e5, LOGO_NO_TTL = 7 * 864e5;
+  const firstHit = (ps) => new Promise((done) => { let left = ps.length; if (!left) done(null);
+    ps.forEach((p) => p.then((v) => { if (v) done(v); else if (!--left) done(null); }, () => { if (!--left) done(null); })); });
+  const digitsJoin = (t) => String(t || '').replace(/(\d)[ \u00a0.\-]+(?=\d)/g, '$1');
+  function numberOnPage(txt, num) {
+    const m = /^([A-Z]{2})?(\d{6,8})$/.exec(String(num || '').toUpperCase()); if (!m) return false;
+    const t = digitsJoin(txt), pre = m[1] || '', dig = m[2], core = dig.replace(/^0+/, '');
+    if (new RegExp('(?<![A-Za-z0-9])' + (pre ? pre + '[ \\u00a0]?' : '') + dig + '(?!\\d)', 'i').test(t)) return 'number';
+    // leading zeros dropped ("company number 502851"): only next to a registration keyword
+    if (!pre && core !== dig && core.length >= 5 && new RegExp('(?:compan(?:y|ies)|regist(?:ered|ration)|\\breg\\b\\.?|\\bno\\b\\.?|number|\\bcrn\\b)[^\\d\\n]{0,30}(?<!\\d)' + core + '(?!\\d)', 'i').test(t)) return 'number';
+    return false;
+  }
+  function nameAndPostcode(txt, f) {
+    const norm = (s) => String(s || '').toLowerCase().replace(/[\u2019']/g, '').replace(/\s+/g, ' ').trim();
+    const t = norm(txt), name = norm(f.name), pc = norm(f.postcode).replace(/\s/g, '');
+    if (!name || !pc || name.length < 6) return false;
+    return t.includes(name) && t.replace(/\s/g, '').includes(pc) ? 'name+postcode' : false;
+  }
+  const verifyText = (pg, f) => numberOnPage(pg.all || pg.text, f.number) || nameAndPostcode(pg.all || pg.text, f);
+  const LEGAL_RANK = [/terms|conditions/i, /legal|company-info|disclaimer|corporate/i, /privacy/i, /imprint|impressum/i, /contact/i, /about/i, /cookie/i];
+  async function verifySite(host, f) {
+    host = cleanDomain(String(host || ''));
+    if (!host || !/\./.test(host) || SITE_DOMAIN.test(host) || FREEMAIL.test(host)) return null;
+    const home = await firstHit(['https://' + host + '/', 'https://www.' + host + '/'].map((u) => fetchPage(u)));
+    if (!home) return null;
+    let how = verifyText(home, f);
+    if (!how) {
+      // the pages UK sites usually put the company number on, best first: terms, legal, privacy, imprint, contact, about, cookies
+      const h = hostOf(home.url), seen = new Set(), ranked = [];
+      for (const l of home.links) {
+        let u; try { u = new URL(l.url); } catch (e) { continue; }
+        if (u.hostname.replace(/^www\./, '') !== h || u.pathname === '/' || seen.has(u.pathname) || /\.(pdf|jpe?g|png|gif|svg|zip)$/i.test(u.pathname)) continue;
+        const hay = u.pathname + ' ' + l.text, r = LEGAL_RANK.findIndex((re) => re.test(hay));
+        if (r >= 0) { seen.add(u.pathname); ranked.push([r, u.href]); }
+      }
+      const picks = ranked.sort((a, b) => a[0] - b[0]).slice(0, 4).map((x) => x[1]);
+      const hit = await firstHit(picks.map((u) => fetchPage(u).then((pg) => (pg && verifyText(pg, f) ? pg : null))));
+      if (hit) how = verifyText(hit, f) + ' (' + new URL(hit.url).pathname + ')';
+    }
+    return how ? { home, how, site: hostOf(home.url) } : null;
+  }
+  function logoCandidates(home) {
+    const ic = home.icons || [], size = (x) => Math.max(0, ...String(x.sizes || '').split(/\s+/).map((s) => parseInt(s, 10) || 0));
+    const isSvg = (x) => /svg/.test(x.type) || /\.svg(\?|#|$)/i.test(x.href);
+    const out = [];
+    const big = ic.filter((x) => !isSvg(x) && (/apple-touch-icon/.test(x.rel) || size(x) >= 96)).sort((a, b) => (size(b) || 180) - (size(a) || 180));
+    big.forEach((x) => out.push({ url: x.href, kind: /apple/.test(x.rel) ? 'apple-touch-icon' : 'icon ' + x.sizes }));
+    ic.filter(isSvg).forEach((x) => out.push({ url: x.href, kind: 'svg icon', svg: true }));
+    if (home.og) out.push({ url: home.og, kind: 'og:image', square: true });
+    ic.filter((x) => !isSvg(x) && !big.includes(x)).sort((a, b) => size(b) - size(a)).forEach((x) => out.push({ url: x.href, kind: 'icon' }));
+    try { out.push({ url: new URL('/favicon.ico', home.url).href, kind: 'favicon.ico' }); } catch (e) { /* ignore */ }
+    const seen = new Set(); return out.filter((c) => !seen.has(c.url) && seen.add(c.url)).slice(0, 6);
+  }
+  async function decodeImage(url, svgHint) {
+    const r = await xhr({ url, responseType: 'arraybuffer', timeout: 8000, quiet: true, anonymous: true });
+    if (r.status !== 200 || !r.response) return null;
+    const bytes = new Uint8Array(r.response); if (bytes.length < 60 || bytes.length > 800000) return null;
+    const head = new TextDecoder().decode(bytes.slice(0, 300)).toLowerCase();
+    if (/<html|<!doctype html/.test(head)) return null;
+    if (svgHint || /<svg|<\?xml/.test(head)) { // SVG: rendered by an <img> (no scripts run there); a strict page CSP may block it, then the next source is used
+      return new Promise((res) => { const u = URL.createObjectURL(new Blob([bytes], { type: 'image/svg+xml' })); const im = new Image(); const end = (v) => { URL.revokeObjectURL(u); res(v); };
+        im.onload = () => end({ img: im, w: im.naturalWidth || 64, h: im.naturalHeight || 64 }); im.onerror = () => end(null); setTimeout(() => end(null), 5000); im.src = u; });
+    }
+    try { const b = await createImageBitmap(new Blob([bytes])); return { img: b, w: b.width, h: b.height }; } catch (e) { return null; }
+  }
+  function toPng64(d) {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64; const g = c.getContext('2d');
+    const k = Math.min(64 / d.w, 64 / d.h), w = Math.round(d.w * k), h = Math.round(d.h * k);
+    g.imageSmoothingQuality = 'high'; g.drawImage(d.img, Math.round((64 - w) / 2), Math.round((64 - h) / 2), w, h);
+    const url = c.toDataURL('image/png'); return url.slice(url.indexOf(',') + 1);
+  }
+  async function findLogo(ctx) {
+    const f = ctx.company, rec = ctx.ai, t0 = Date.now();
+    const known = [ctx.domain, rec.web && rec.web.site, rec.card && rec.card.website].filter(Boolean);
+    let v = null;
+    for (const h of [...new Set(known.map((x) => cleanDomain(String(x))))]) { v = await verifySite(h, f); if (v) break; }
+    if (!v) {
+      const key = alphaKey(f.name).toLowerCase(), hy = shortCo(f.display).toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      // a first word of 4+ letters is also tried ("Monzo Bank Limited" -> monzo.com); only a page showing this company's number or name + postcode counts
+      const w1 = (shortCo(f.display).toLowerCase().match(/^[a-z0-9]+/) || [''])[0];
+      const extra = w1.length >= 4 && w1 !== key && !/^(the|first|british|united|national|global|international|london|north|south|east|west)$/.test(w1) ? [w1 + '.co.uk', w1 + '.com'] : [];
+      const guesses = [...new Set([key + '.co.uk', key + '.com'].concat(hy && hy.includes('-') ? [hy + '.co.uk', hy + '.com'] : [], extra))].filter((g) => g.length > 6 && !known.includes(g));
+      v = await firstHit(guesses.map((g) => verifySite(g, f)));
+    }
+    if (!v) return { none: true, at: Date.now(), ms: Date.now() - t0 };
+    for (const c of logoCandidates(v.home)) {
+      const d = await decodeImage(c.url, c.svg);
+      if (!d || d.w < 16 || d.h < 16) continue;
+      if (c.square && (d.w / d.h < 0.8 || d.w / d.h > 1.25 || d.w < 64)) continue; // og:image only when it is clearly a square logo
+      let b; try { b = toPng64(d); } catch (e) { continue; }
+      return { site: v.site, how: v.how, src: c.url, kind: c.kind, b, at: Date.now(), ms: Date.now() - t0 };
+    }
+    return { site: v.site, how: v.how, none: true, at: Date.now(), ms: Date.now() - t0 };
+  }
+  const logoMem = new Map();
+  async function loadLogo(ctx) {
+    if (!settings.logos || !ctx.company || !ctx.ai) return;
+    const n = ctx.company.number, L = ctx.ai.logo;
+    if (L && Date.now() - L.at < (L.b ? LOGO_OK_TTL : LOGO_NO_TTL)) return wireLogo(ctx);
+    if (st.logoBusy[n]) return; st.logoBusy[n] = true;
+    let res; try { res = await findLogo(ctx); } catch (e) { res = { none: true, at: Date.now(), err: String(e && e.message || e) }; }
+    st.logoBusy[n] = false;
+    ctx.ai.logo = res; if (res.site && ctx.ai.card && !ctx.ai.card.website) ctx.ai.card.website = res.site;
+    aiSave(ctx.ai); logoMem.delete(n);
+    if (st.ctx === ctx) wireLogo(ctx);
+  }
+  function wireLogo(ctx) {
+    const el = $body && $body.querySelector('.hcard .clogo'); const L = ctx.ai && ctx.ai.logo;
+    if (!el || !L || !L.b || !settings.logos) return;
+    const n = ctx.company.number;
+    if (!logoMem.has(n)) logoMem.set(n, createImageBitmap(new Blob([b64ToBytes(L.b)], { type: 'image/png' })));
+    logoMem.get(n).then((bmp) => {
+      if (!el.isConnected) return;
+      const c = document.createElement('canvas'); c.width = 64; c.height = 64; c.getContext('2d').drawImage(bmp, 0, 0, 64, 64);
+      el.replaceChildren(c); el.classList.add('on');
+      el.title = `Logo from ${L.site} (verified: the site shows ${/^number/.test(L.how) ? 'company number ' + n : 'the registered name and office postcode'})`;
+    }, () => {});
   }
   async function runExpand(f, ctx, rec, step) {
     const t0 = Date.now();
@@ -1665,7 +1790,10 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 .genbtn .gs { font-weight: 500; font-size: 11.5px; color: var(--fg3); }
 .blk.ai { border-color: #e6ddfb; background: linear-gradient(180deg, #fcfaff 0, var(--bg) 140px); }
 .blk.ai > .bh { position: relative; } .blk.ai > .bh .bt { display: inline-flex; align-items: center; gap: 6px; }
-.blk.ai > .bh::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; border-radius: 10px 10px 0 0; background: linear-gradient(90deg, var(--ai-v), var(--ai-a)); opacity: .8; }
+.blk.ai { position: relative; }
+/* the violet/amber top edge is a real 2px top border on a pseudo-element the exact size and radius of the card, so it follows the rounded corners and tapers like a border */
+.blk.ai::before { content: ''; position: absolute; inset: -1px; border-radius: inherit; border-top: 2px solid transparent; background: linear-gradient(90deg, var(--ai-v), var(--ai-a)) border-box; opacity: .8; pointer-events: none; z-index: 1;
+  -webkit-mask: linear-gradient(#000 0 0) padding-box, linear-gradient(#000 0 0) border-box; -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) padding-box exclude, linear-gradient(#000 0 0) border-box; }
 .blk.ai:not(.closed) > .bh { border-bottom-color: #eee8fc; }
 .ai .skel { background: linear-gradient(90deg, #efe9fd 0%, #fbf1df 50%, #efe9fd 100%); background-size: 200% 100%; }
 .ldg { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 500; color: var(--ai-ink); }
@@ -1715,7 +1843,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 .anim .ldg .spark { animation: twinkle 1.6s ease-in-out infinite; }
 .anim .blk.ai .bc > div > p { animation: fade var(--d3) var(--eo) both; }
 @keyframes sheen { to { transform: translateX(260%); } }
-.anim .blk.ai.loading > .bh::before { background: linear-gradient(90deg, var(--ai-v), var(--ai-a), var(--ai-v)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; opacity: 1; }
+.anim .blk.ai.loading::before { background: linear-gradient(90deg, var(--ai-v), var(--ai-a), var(--ai-v)); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; opacity: 1; }
 @keyframes twinkle { 50% { transform: scale(.82) rotate(12deg); opacity: .75; } }
 .anim .menu { transition: opacity var(--d1) var(--eo), transform var(--d1) var(--eo), visibility 0s linear var(--d1); }
 .anim .menu.show { transition: opacity var(--d1) var(--eo), transform var(--d1) var(--eo), visibility 0s; }
@@ -1777,6 +1905,26 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
 .dym .opt.per { margin-top: 8px; border: 1px dashed var(--line2); border-radius: 8px; }
 .dym .hint { margin-top: 8px; }
 .anim .turn { animation: rise var(--d3) var(--eo) both; }
+/* b3 (2): logo, collapsed sources, summary placeholder, Load more */
+.vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; }
+.hcard .title { display: flex; align-items: center; gap: 8px; }
+.clogo { display: none; }
+.clogo.on { display: inline-flex; flex: none; width: 32px; height: 32px; padding: 3px; box-sizing: border-box; border-radius: 8px; background: #fff; border: 1px solid var(--line); overflow: hidden; }
+.clogo canvas { width: 100%; height: 100%; display: block; }
+.anim .clogo.on { animation: fade var(--d2) var(--eo) both; }
+.srcd { margin-top: 6px; font-size: 11.5px; }
+.srcd > summary { display: inline-flex; align-items: center; gap: 3px; cursor: pointer; color: var(--fg2); list-style: none; border-radius: 4px; user-select: none; }
+.srcd > summary::-webkit-details-marker { display: none; }
+.srcd > summary:hover, .srcd > summary:focus-visible { color: var(--fg); outline: none; text-decoration: underline; text-underline-offset: 2px; }
+.srcd > summary svg { width: 11px; height: 11px; transform: rotate(-90deg); transition: transform var(--d1) var(--eo); }
+.srcd[open] > summary svg { transform: none; }
+.srcd .src { margin-top: 4px; }
+.srcd .src a { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; }
+.aiwait .skel { margin: 9px 0; }
+.anim .ai .aiwait .skel { animation: aipulse 1.9s ease-in-out infinite; background-size: 100% 100%; }
+.anim .ai .aiwait .skel:nth-child(3) { animation-delay: .15s; } .anim .ai .aiwait .skel:nth-child(4) { animation-delay: .3s; }
+@keyframes aipulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+.moreb { margin-top: 8px; }
 /* b3: merged Overview, interactive entities, Expand, export menu */
 .hcard .kv.ov { margin-top: 10px; grid-template-columns: 92px 1fr; font-size: 12.25px; gap: 4px 10px; }
 .hcard .kv.ov dd .sub { font-size: 11.5px; }
@@ -1847,7 +1995,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   };
 
   let host, sroot, root, $pill, $panel, $drawer, $edge, $body, $input, $det, $mode, $toast, $menu, $sheet;
-  const st = { open: false, view: 'main', det: null, ctx: null, stack: [], req: 0, pillText: '', aiBusy: {}, aiErr: {}, aiMem: {}, aiStep: {}, xmenu: false, styleMode: 'none', fontStatus: '', diag: null, anchor: null, menu: false };
+  const st = { open: false, view: 'main', det: null, ctx: null, stack: [], req: 0, pillText: '', aiBusy: {}, aiErr: {}, aiMem: {}, aiStep: {}, logoBusy: {}, xmenu: false, styleMode: 'none', fontStatus: '', diag: null, anchor: null, menu: false };
   let secState = {};
   function loadSecState() { secState = readJSON(gv(K.sections, null)) || {}; }
   function saveSecState() { sv(K.sections, JSON.stringify(secState)); }
@@ -2259,6 +2407,9 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     addRecent(f);
     renderCompany(ctx, true);
     maybeAuto(ctx);
+    // after the main lookup, off the critical path: similar companies (1-2 CH calls), then the verified logo
+    setTimeout(() => { if (st.ctx === ctx && ctx.company === f) loadSimilar(ctx); }, 700);
+    setTimeout(() => { if (st.ctx === ctx && ctx.company === f) loadLogo(ctx); }, 1200);
   }
 
   /* ---------- renderers ---------- */
@@ -2470,7 +2621,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     const nameHtml = cv(f.display); // click copies; Companies House is one click away in the quick links and section titles
     const numHtml = cv(n);
     let html = backBar() + `<div class="card hcard">
-      <div class="title">${nameHtml}</div>
+      <div class="title"><span class="clogo" aria-hidden="true"></span>${nameHtml}</div>
       <div class="sub">${numHtml} · <span class="badge ${f.status === 'active' ? '' : 'r'}">${esc(f.statusLabel)}</span>${f.statusDetail ? ' <span class="badge r">' + esc(f.statusDetail) + '</span>' : ''}</div>
       ${ctx.personHint ? `<div class="alt">Looking for a person called ${esc(ctx.query)}? <button class="lnk" data-act="as-person">Search people</button></div>` : ''}
       ${settings.quickRow ? quickRow(ctx) : ''}
@@ -2516,6 +2667,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     setBody(html, fresh);
     if (fresh) $body.scrollTop = 0;
     wireFavicons();
+    wireLogo(ctx);
     mountMaps();
     for (const id of Object.keys(SECTION_HOOKS)) if (isSecOpenInDom(id)) onSectionOpen(id);
   }
@@ -2593,37 +2745,66 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     return `<ul class="list fl">${rows}</ul>${more}`;
   }
 
-  /* ---------- similar companies nearby (CH advanced search; lazy, cached) ---------- */
+  /* ---------- similar companies nearby (CH advanced search; loaded after the main lookup) ----------
+     GET /advanced-search/companies?sic_codes=&location=&company_status=active&size=&start_index= returns { hits, items }.
+     size and start_index page through the results (asking past the last hit returns an error), so "Load more" fetches 10 more. */
   function similarHtml(ctx) {
     const s = ctx.similar;
     if (!s || s.loading) return '<div class="skel w75"></div><div class="skel w60"></div><div class="skel w82"></div>';
     if (s.error) return `<div class="sub">Could not load (${esc(s.error)}).</div>`;
     if (!s.items.length) return '<div class="sub">No other active companies with the same SIC code nearby.</div>';
+    const more = s.more ? `<button class="btn sm moreb" data-act="similar-more"${s.busy ? ' disabled' : ''}>${s.busy ? 'Loading...' : 'Load more'}</button>` : '';
     return `<ul class="list">${s.items.map((c) => `<li class="hov"><span class="n">${companyRef(c.number, c.name)}<small>${esc(c.postcode)}${c.created ? ' · since ' + esc(fmtDate(c.created).replace(/^\d+ /, '')) : ''}</small></span></li>`).join('')}</ul>
-      <div class="hint">Active companies with SIC ${esc(s.sic)} registered in ${esc(s.area)}.</div>`;
+      ${more}${s.moreErr ? `<div class="sub">${esc(s.moreErr)}</div>` : ''}<div class="hint">Active companies with SIC ${esc(s.sic)} registered in ${esc(s.area)}${s.total > s.items.length ? ` · showing ${s.items.length} of ${s.total}` : ''}.</div>`;
+  }
+  const simItem = (c) => ({ number: c.company_number, name: titleCase(c.company_name), postcode: (c.registered_office_address || {}).postal_code || '', created: c.date_of_creation });
+  function similarPaint(ctx) {
+    if (st.ctx !== ctx) return;
+    const sec = $body.querySelector('.blk[data-sec="similar"]'); if (!sec) return;
+    sec.querySelector('.bc').innerHTML = similarHtml(ctx);
+    const c = sec.querySelector('[data-cnt]'); const n = ctx.similar.items ? String(ctx.similar.total || ctx.similar.items.length) : '';
+    if (c) c.textContent = n; else if (n) sec.querySelector('.sp').insertAdjacentHTML('afterend', `<span class="cnt new" data-cnt="similar">${n}</span>`);
+  }
+  async function loadMoreSimilar(ctx) {
+    const s = ctx.similar; if (!s || !s.more || s.busy) return;
+    s.busy = true; s.moreErr = ''; similarPaint(ctx);
+    try {
+      if (s.buf && s.buf.length >= 10 || (s.buf && s.buf.length && s.next >= s.hits)) { s.items = s.items.concat(s.buf.splice(0, 10)); s.more = s.buf.length > 0 || s.next < s.hits; s.busy = false; return similarPaint(ctx); }
+      const r = await ch(`/advanced-search/companies?sic_codes=${encodeURIComponent(s.sic)}&location=${encodeURIComponent(s.loc)}&company_status=active&size=10&start_index=${s.next}`);
+      const got = ((r && r.items) || []).filter((c) => c.company_number !== ctx.company.number && !s.items.some((x) => x.number === c.company_number));
+      s.next += ((r && r.items) || []).length || 10; s.hits = (r && r.hits) || s.hits;
+      const add = (s.buf || []).concat(got.map(simItem)).filter((x) => !s.items.some((y) => y.number === x.number));
+      s.items = s.items.concat(add.slice(0, 10)); s.buf = add.slice(10); s.more = s.buf.length > 0 || (s.next < s.hits && ((r && r.items) || []).length > 0);
+    } catch (e) { s.moreErr = 'Could not load more (' + (e.code || e.message) + ').'; }
+    s.busy = false; similarPaint(ctx);
   }
   async function loadSimilar(ctx) {
     if (!settings.similar || ctx.similar) return;
     const f = ctx.company;
+    if (!f || !f.sicCodes.length || !f.postcode) return;
     ctx.similar = { loading: true };
     const sic = f.sicCodes.filter((c) => c !== '99999').slice(0, 2).join(',');
     const outward = String(f.postcode || '').toUpperCase().split(' ')[0];
     try {
       if (!sic) throw new PErr('nosic', 'no SIC code');
-      const q = (loc) => ch(`/advanced-search/companies?sic_codes=${encodeURIComponent(sic)}&location=${encodeURIComponent(loc)}&company_status=active&size=15`);
-      let area = outward, r = outward ? await q(outward) : null;
-      let items = ((r && r.items) || []).filter((c) => c.company_number !== f.number);
-      if (items.length < 3 && f.locality) { const r2 = await q(f.locality); const more = ((r2 && r2.items) || []).filter((c) => c.company_number !== f.number && !items.some((x) => x.company_number === c.company_number)); items = items.concat(more); area = outward ? outward + ' / ' + f.locality : f.locality; }
-      ctx.similar = { sic, area, items: items.slice(0, 10).map((c) => ({ number: c.company_number, name: titleCase(c.company_name), postcode: (c.registered_office_address || {}).postal_code || '', created: c.date_of_creation })) };
+      const q = (loc) => ch(`/advanced-search/companies?sic_codes=${encodeURIComponent(sic)}&location=${encodeURIComponent(loc)}&company_status=active&size=11`);
+      const own = (r) => ((r && r.items) || []).some((c) => c.company_number === f.number) ? 1 : 0;
+      let area = outward, loc = outward, r = outward ? await q(outward) : null, hits = (r && r.hits) || 0, got = ((r && r.items) || []).length, self = own(r);
+      let items = ((r && r.items) || []).filter((c) => c.company_number !== f.number), extra = 0;
+      if (items.length < 3 && f.locality) {
+        const r2 = await q(f.locality); const more = ((r2 && r2.items) || []).filter((c) => c.company_number !== f.number && !items.some((x) => x.company_number === c.company_number));
+        extra = items.length; items = items.concat(more); area = outward ? outward + ' / ' + f.locality : f.locality; loc = f.locality;
+        hits = (r2 && r2.hits) || 0; got = ((r2 && r2.items) || []).length; self = own(r2);
+      }
+      const shown = items.slice(0, 10);
+      // paging continues on the query used last; total = everything that query matched, minus this company, plus any kept from the first query
+      const total = Math.max(shown.length, hits - self + (loc !== outward ? extra : 0));
+      const buf = items.slice(10).map(simItem);
+      ctx.similar = { sic, area, loc, items: shown.map(simItem), buf, next: got, hits, total, more: got < hits || buf.length > 0 };
     } catch (e) { ctx.similar = { error: e.code || e.message }; }
-    if (st.ctx !== ctx) return;
-    const sec = $body.querySelector('.blk[data-sec="similar"]');
-    if (sec) {
-      sec.querySelector('.bc').innerHTML = similarHtml(ctx);
-      const c = sec.querySelector('[data-cnt]'); const n = ctx.similar.items ? String(ctx.similar.items.length) : '';
-      if (c) c.textContent = n; else if (n) sec.querySelector('.sp').insertAdjacentHTML('afterend', `<span class="cnt new" data-cnt="similar">${n}</span>`);
-    }
+    similarPaint(ctx);
   }
+
 
   /* ---------- inline map (Google Maps embed; falls back to a link when the page CSP blocks frames) ---------- */
   const frameWatch = new Set();
@@ -3288,17 +3469,19 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     return `<div class="err tight mt6"><b>${esc(e.code === 'cl-nokey' ? 'AI key needed' : title)}</b><div>${esc(e.code === 'cl-nokey' ? 'Add an AI key in Settings.' : e.message || String(e))}</div></div>
       <div class="row">${needKey ? '<button class="btn sm pri" data-act="settings">Open settings</button>' : ''}<button class="btn sm" data-act="${act}">Try again</button></div>`;
   }
+  // Sources: a small collapsed dropdown ("Sources (4)"), opened on demand
+  const srcDrop = (list) => list && list.length ? `<details class="srcd"><summary>Sources (${list.length})${ICON.chev}</summary><div class="src">${list.map((x) => `<a href="${esc(x.url)}" data-act="ext" data-url="${esc(x.url)}" title="${esc(x.url)}">${esc(x.title || x.url)}</a>`).join('')}</div></details>` : '';
   function aiTopHtml(ctx) {
     const li = (x) => `<li>${linkify(x, ctx)}</li>`;
     const f = ctx.company, n = f.number, rec = ctx.ai, a = rec.auto, sig = coSig(f), er = st.aiErr[n] || {};
     let h = '';
-    if (busy(n, 'auto') && !a) h += `<div class="ldg" aria-live="polite">${ICON.spark}<span class="lt">Writing a summary from Companies House data...</span></div><div class="skel w90"></div><div class="skel w75"></div><div class="skel w82"></div>`;
+    if (busy(n, 'auto') && !a) h += `<div class="aiwait" role="status"><span class="vh">Writing the summary</span><div class="skel w90"></div><div class="skel w75"></div><div class="skel w82"></div></div>`;
     else if (er.auto && !a) h += errBox('Summary failed', er.auto, 'ai-auto');
     else if (!a) h += `<button class="genbtn" data-act="ai-auto">${ICON.spark}<span>Write summary</span></button><div class="hint">From Companies House data only. Automatic summaries are off in Settings.</div>`;
     else {
       h += a.summary.map((x) => `<p>${linkify(x, ctx)}</p>`).join('');
-      if (a.watch.length) h += `<h5>Worth checking</h5><ul>${a.watch.map(li).join('')}</ul>`;
-      if (a.openers.length) h += `<h5>Openers</h5><ul>${a.openers.map(li).join('')}</ul>`;
+      if (a.watch && a.watch.length) h += `<h5>Worth checking</h5><ul>${a.watch.map(li).join('')}</ul>`;
+      if (a.openers && a.openers.length) h += `<h5>Openers</h5><ul>${a.openers.map(li).join('')}</ul>`;
       const upd = busy(n, 'auto');
       h += `<div class="meta"><span>Summary from Companies House data · ${upd ? 'updating...' : esc(fmtAgo(a.at))}</span>${!upd && a.sig !== sig ? '<span class="stale">· Companies House data has changed since</span>' : ''}${upd ? '' : '<button class="lnk" data-act="ai-refresh" title="Write it again from the latest Companies House data">Refresh</button>'}</div>`;
       if (er.auto && !upd) h += `<div class="sub mt4">${esc(er.auto.message || String(er.auto))}</div>`;
@@ -3312,7 +3495,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       h += `<div class="webpart"><h5 class="wh">${ICON.globe}${w.site ? 'From ' + linkify(w.site, ctx) + ' and the web' : 'From the web'}</h5>${w.what.map((x) => `<p>${linkify(x, ctx)}</p>`).join('')}`;
       if (w.signals.length) h += `<h5>Recent signals</h5><ul>${w.signals.map((x) => `<li>${linkify(x.text, ctx)}${x.date ? ' <span class="sub">' + esc(x.date) + '</span>' : ''}${x.url ? ' ' + extA(x.url, 'source', 'lk-ch') : ''}</li>`).join('')}</ul>`;
       if (w.talking.length) h += `<h5>Talking points</h5><ul>${w.talking.map(li).join('')}</ul>`;
-      if (w.sources.length) h += `<h5>Sources</h5><div class="src">${w.sources.map((x) => `<a href="${esc(x.url)}" data-act="ext" data-url="${esc(x.url)}" title="${esc(x.url)}">${esc(x.title || x.url)}</a>`).join('')}</div>`;
+      h += srcDrop(w.sources);
       h += `<div class="meta"><span>${w.site ? 'Website and web search' : 'Web search'} · ${esc(fmtAgo(w.at))}${w.confidence === 'low' ? ' · low confidence' : ''}</span>${w.sig !== sig ? '<span class="stale">· Companies House data has changed since</span>' : ''}<button class="lnk" data-act="ai-web" title="Check their website and search the web again">Expand again</button></div></div>`;
     }
     if (er.web && !busy(n, 'web')) h += errBox('Expand failed', er.web, 'ai-web');
@@ -3328,7 +3511,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       else if (t.err) a = `<div class="ua err2">${esc(t.err.code === 'cl-nokey' ? 'Add an AI key in Settings to ask questions.' : t.err.message || String(t.err))} <button class="lnk" data-act="chat-retry" data-i="${i}">Try again</button></div>`;
       else {
         a = `<div class="ua"><div class="at">${linkify(t.a, ctx)}</div>`
-          + (t.sources && t.sources.length ? `<div class="src"><span class="sl">Sources</span>${t.sources.map((x) => `<a href="${esc(x.url)}" data-act="ext" data-url="${esc(x.url)}" title="${esc(x.url)}">${esc(x.title || x.url)}</a>`).join('')}</div>` : '')
+          + srcDrop(t.sources)
           + `<div class="meta"><span>${t.web ? 'Searched the web' : 'From Companies House data'} · ${esc(fmtAgo(t.at))}</span>${t.sig && t.sig !== sig ? '<span class="stale">· before the latest Companies House change</span>' : ''}<button class="lnk" data-act="cp" data-copy="${esc(t.q + '\n' + t.a)}">Copy</button></div>`
           + (t.needsWeb && !t.web ? `<button class="webbtn sm" data-act="chat-web" data-i="${i}">${ICON.globe}<span>Search the web for this</span></button>` : '')
           + '</div>';
@@ -3338,7 +3521,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   }
   function chipsHtml(ctx) {
     const a = ctx.ai.auto;
-    if (!settings.questions || !a || !a.questions.length) return '';
+    if (!settings.questions || !a || !Array.isArray(a.questions) || !a.questions.length) return '';
     const asked = new Set(ctx.ai.chat.map((t) => t.q));
     return a.questions.filter((q) => !asked.has(q)).slice(0, 3).map((q) => `<button class="qchip sug" data-act="ask" data-q="${esc(q)}">${esc(q)}</button>`).join('');
   }
@@ -3612,7 +3795,8 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
     extras: [
       ['otherRoles', 'Other directorships at a glance', 'Counts each officer\'s other active roles (loaded when Officers is open).'],
       ['parentLinks', 'Parent company links', 'Corporate PSCs and officers open that company in the panel.'],
-      ['similar', 'Similar companies nearby', 'Same SIC code in the same postcode area. Loads only when expanded.'],
+      ['similar', 'Similar companies nearby', 'Same SIC code in the same postcode area. Loaded in the background after a lookup (one or two Companies House calls); Load more adds 10 at a time.'],
+      ['logos', 'Company logos', 'Shows a small logo only when the company\'s own website is verified (it shows their Companies House number, or their exact registered name and office postcode). Otherwise no logo.'],
       ['pinsMenu', 'Pinned and recent menu', 'Clock button in the header.'],
       ['clickCopy', 'Click a value to copy it', 'Numbers, dates, SIC codes, names.'],
     ],
@@ -3821,6 +4005,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
       case 'ext': e.preventDefault(); e.stopPropagation(); openTab(el.dataset.url || el.getAttribute('href')); closeQMenus(); if (el.closest('.shm')) { st.lastShare = { via: el.dataset.share, url: el.dataset.url }; closeShare(); } break;
       case 'cp': e.preventDefault(); e.stopPropagation(); copyFrom(el.closest('.shm') ? null : el, el.dataset.copy, el.closest('.shm') ? 'Link copied' : undefined); if (el.closest('.shm')) { st.lastShare = { via: 'copy' }; closeShare(); } break;
       case 'roles': if (ctx && ctx.rolesOpen) { const l = el.dataset.link; ctx.rolesOpen[l] = !ctx.rolesOpen[l]; const o = f.officers.find((x) => x.link === l); if (o) refreshRoles(ctx, o); } break;
+      case 'similar-more': if (ctx && ctx.similar) loadMoreSimilar(ctx); break;
       case 'map-toggle': if (ctx && f) { ctx.mapOpen = !(ctx.mapOpen != null ? ctx.mapOpen : settings.inlineMap); const sc = $body.scrollTop; renderCompany(ctx, false); $body.scrollTop = sc; } break;
       case 'filing': onFilingRow(+el.dataset.i); break;
       case 'filings-all': openFilings(0); break;
@@ -3956,7 +4141,7 @@ kbd.k, .kbd { font: 600 11px ui-monospace, SFMono-Regular, Menlo, monospace; bac
   // Exposed for automated tests only (no secrets).
   window.__prosperTest = {
     detect, alphaKey, companyLabelFromDomain, hubspotNote: () => st.ctx && st.ctx.company ? crmNote(st.ctx.company, st.ctx.ai) : '', cleanName, findNumber,
-    aiRecord: (n) => readJSON(gv(aiKey(n), null)), exportPayload: (fmt) => exportPayload(fmt), linkify: (t) => linkify(t, st.ctx), sseMessage, aiIndex: () => aiIdx(), coSig: () => (st.ctx && st.ctx.company ? coSig(st.ctx.company) : ''), state: () => st, cleanKey,
+    aiRecord: (n) => readJSON(gv(aiKey(n), null)), exportPayload: (fmt) => exportPayload(fmt), linkify: (t) => linkify(t, st.ctx), sseMessage, aiIndex: () => aiIdx(), coSig: () => (st.ctx && st.ctx.company ? coSig(st.ctx.company) : ''), state: () => st, cleanKey, rerender: () => { if (st.ctx && st.ctx.company) renderCompany(st.ctx, false); }, numberOnPage,
     keyInfo: (k) => { const i = keyInfo(k); return { source: i.source, len: i.len, head: i.head }; },
     settings: () => Object.assign({}, settings), sections: () => Object.assign({}, secState), ukRegNumber, comboOf: (o) => comboOf(o), shortSummary: () => (st.ctx && st.ctx.company ? shortSummary(st.ctx.company) : ''),
   };
