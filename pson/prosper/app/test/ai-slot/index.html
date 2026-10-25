@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Prosper · AI slot</title>
+<link rel="stylesheet" href="../cards/styles.css">
+<script src="../../fonts.js"></script><script src="../cards/fonts-inject.js"></script><script src="../cards/theme.js"></script>
+<script src="../cards/fixtures.js"></script><script src="../cards/normalise.js"></script><script src="../cards/components.js"></script><script src="../cards/layouts.js"></script>
+<script src="samples.js"></script><script src="ai-slot.js"></script>
+<style>
+  /* The AI tile carries the violet/amber edge itself (no double border). Violet/amber appear only inside [data-ai]. */
+  .bento .tile:has(> .ai-v2) { padding: 0; border: 0; background: none; box-shadow: var(--sh-1); }
+  .ai-v2 { height: 100%; box-sizing: border-box; padding: 16px 18px 12px; display: flex; flex-direction: column; }
+  .ai-v2 .ai-head { margin-bottom: 8px; }
+  .ai-meta { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .ai-sample { font: 600 10.5px var(--font-sans); letter-spacing: var(--tracking-caps); text-transform: uppercase; padding: 2px 7px; border-radius: var(--r-pill); color: var(--ink-700); background: var(--surface-sunk); border: 1px dashed var(--ink-300); }
+  .ai-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 0 -18px 12px; padding: 0 14px; }
+  .ai-tabs button { border: 0; background: none; font: 500 13px var(--font-sans); color: var(--ink-600); padding: 7px 8px 9px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .ai-tabs button[aria-selected="true"] { color: var(--ink-900); border-bottom-color: var(--ink-900); }
+  .ai-body { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+  .ai-text p { margin: 0 0 8px; font-size: 14px; line-height: 1.55; color: var(--ink-800); max-width: 72ch; }
+  .ai-points { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 6px; }
+  .ai-points li { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; font-size: 13px; color: var(--ink-700); padding: 6px 10px; border-radius: var(--r-sm); background: var(--surface-2); border: 1px solid var(--line-soft); }
+  .ai-src { flex: none; font-size: 11.5px; font-weight: 500; color: var(--accent-600); text-decoration: none; }
+  .ai-src::after { content: ' ↓'; }
+  .ai-foot { margin-top: auto; padding-top: 10px; display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 11.5px; color: var(--ink-500); }
+  .ai-acts { display: flex; gap: 2px; flex: none; }
+  .ai-acts button { border: 0; background: none; color: var(--ink-500); font: 500 11.5px var(--font-sans); padding: 4px 6px; border-radius: 5px; cursor: pointer; display: inline-flex; }
+  .ai-acts button:hover { background: var(--surface-sunk); color: var(--ink-800); }
+  .ai-acts .flip svg { transform: rotate(180deg); }
+  .ai-status { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-600); margin-bottom: 12px; }
+  .ai-status .ai-spark { animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .45; transform: scale(.85); } }
+  .ai-lines.sm i { height: 8px; } .ai-lines.sm { gap: 6px; padding-top: 4px; width: 260px; }
+  .ai-empty { padding: 18px 4px; font-size: 13px; color: var(--ink-600); }
+  .ai-empty b { color: var(--ink-900); font-size: 14px; } .ai-empty p { margin: 4px 0 12px; }
+  .ai-thread { display: flex; flex-direction: column; gap: 10px; max-height: 260px; overflow: auto; padding-right: 2px; }
+  .ai-q { align-self: flex-end; max-width: 80%; background: var(--surface-sunk); color: var(--ink-900); font-size: 13.5px; padding: 7px 11px; border-radius: 12px 12px 3px 12px; }
+  .ai-a { display: flex; gap: 9px; align-items: flex-start; font-size: 13.5px; line-height: 1.55; color: var(--ink-800); max-width: 92%; }
+  .ai-a .ai-spark { flex: none; margin-top: 3px; width: 14px; height: 14px; }
+  .ai-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 12px 0 8px; }
+  .ai-chips button { font: 500 12px var(--font-sans); border: 1px solid var(--line); background: var(--surface); color: var(--ink-700); border-radius: var(--r-pill); padding: 4px 10px; cursor: pointer; }
+  .ai-chips button:hover { border-color: var(--ink-300); }
+  .ai-ask { display: flex; gap: 6px; }
+  .ai-ask input { flex: 1; height: 32px; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 0 10px; font: 400 13.5px var(--font-sans); background: var(--surface); color: var(--ink-900); }
+  .ai-ask input:focus { outline: 0; border-color: var(--accent-500); box-shadow: var(--ring); }
+  .ai-ask .btn { height: 32px; }
+  .banner { max-width: var(--w-wide); margin: 16px auto 0; padding: 10px 14px; border: 1px dashed var(--ink-300); border-radius: var(--r-md); font-size: 13px; color: var(--ink-700); background: var(--surface); }
+  .banner b { color: var(--ink-900); }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="wordmark" href="../">Prosper</a><span class="tag">AI slot mock-up</span>
+  <span class="grow"></span>
+  <select class="input" id="co" aria-label="Company"></select>
+  <div class="seg" role="group" aria-label="State" id="stateSeg">
+    <button data-s="ready">Summary</button><button data-s="ask">Ask</button><button data-s="loading">Loading</button><button data-s="nokey">No key</button><button data-s="error">Error</button>
+  </div>
+  <button class="btn ghost sm" id="themeBtn" type="button"></button>
+</div>
+<div class="banner"><b>Sample text.</b> Everything in the AI panel on this page is hand-written example text for the design. No AI service is called, and nothing you type leaves this page. In the app, Haiku writes the summary from the facts on the card.</div>
+<main class="page" id="out"></main>
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  Normalise.setEnums(window.CH_ENUMS); Theme.button($('themeBtn'));
+  const P = new URLSearchParams(location.search);
+  const st = { co: P.get('co') || '15597908', state: P.get('state') || 'ready', thread: null };
+  if (st.state === 'ask') { st.state = 'ready'; st.tab = 'ask'; } else st.tab = P.get('tab') || 'summary';
+  $('co').innerHTML = CH_INDEX.map((c) => `<option value="${c.n}">${Cards.esc(c.label)} · ${Cards.esc(c.name)}</option>`).join('');
+  const sync = () => { const u = new URL(location.href); u.searchParams.set('co', st.co); u.searchParams.set('state', st.tab === 'ask' && st.state === 'ready' ? 'ask' : st.state); u.searchParams.delete('tab'); history.replaceState(null, '', u); };
+  let vm, s;
+  Cards.ai = (v) => AISlot.panel(v, s, { tab: st.tab, state: st.state });
+  function render() {
+    vm = Normalise.company(CH_FIXTURES[st.co]); s = JSON.parse(JSON.stringify(window.AI_SAMPLES[st.co]));
+    if (st.thread && st.thread.co === st.co) s.thread = st.thread.items;
+    $('co').value = st.co;
+    $('stateSeg').querySelectorAll('button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.s === (st.tab === 'ask' && st.state === 'ready' ? 'ask' : st.state))));
+    $('out').innerHTML = Layouts.B(vm);
+    bind(); sync();
+  }
+  function rerenderPanel() { const el = document.querySelector('[data-ai]'); el.outerHTML = AISlot.panel(vm, s, { tab: st.tab, state: st.state }); bind(); sync(); }
+  function bind() {
+    const root = document.querySelector('[data-ai]'); if (!root) return;
+    root.querySelectorAll('[data-ai-tab]').forEach((b) => b.onclick = () => { st.tab = b.dataset.aiTab; if (st.state !== 'ready') st.state = 'ready'; rerenderPanel(); render(); });
+    root.querySelectorAll('[data-ai-ask]').forEach((b) => b.onclick = () => ask(b.dataset.aiAsk));
+    const f = root.querySelector('[data-ai-form]'); if (f) f.onsubmit = (e) => { e.preventDefault(); const v = f.querySelector('input').value.trim(); if (v) ask(v); };
+    const th = root.querySelector('[data-ai-thread]'); if (th) th.scrollTop = th.scrollHeight;
+  }
+  /* Offline canned replies only: match a suggested question, else a plain sample reply. */
+  function ask(q) {
+    const items = (st.thread && st.thread.co === st.co ? st.thread.items : s.thread).slice();
+    const known = Object.fromEntries(s.thread); const canned = known[q];
+    items.push([q, null]); st.thread = { co: st.co, items }; s.thread = items; rerenderPanel();
+    setTimeout(() => {
+      items[items.length - 1] = [q, canned || 'Sample reply. In the app, Haiku answers this from the facts on this card, and says so plainly when the card doesn’t hold the answer. This mock-up doesn’t call any AI service.'];
+      s.thread = items; rerenderPanel(); const i = document.querySelector('.ai-ask input'); if (i) i.focus();
+    }, P.get('instant') ? 0 : 900);
+  }
+  $('co').onchange = () => { st.co = $('co').value; st.thread = null; render(); };
+  $('stateSeg').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.s === 'ask') { st.state = 'ready'; st.tab = 'ask'; } else { st.state = b.dataset.s; if (st.state === 'ready') st.tab = 'summary'; } render(); };
+  document.addEventListener('click', (e) => { const a = e.target.closest('.ai-src'); if (!a) return; e.preventDefault(); const id = a.getAttribute('href').slice(1); const t = [...document.querySelectorAll('.tile h3, .tile-head h3')].find((h) => h.textContent.toLowerCase().startsWith(id.slice(0, 5))); if (t) { const tile = t.closest('.tile'); tile.scrollIntoView({ behavior: 'smooth', block: 'center' }); tile.style.boxShadow = 'var(--ring)'; setTimeout(() => tile.style.boxShadow = '', 1400); } });
+  render();
+})();
+</script>
+</body>
+</html>
