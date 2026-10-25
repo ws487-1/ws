@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Prosper · Visuals</title>
+<link rel="stylesheet" href="../cards/styles.css">
+<script src="../../fonts.js"></script><script src="../cards/fonts-inject.js"></script><script src="../cards/theme.js"></script>
+<script src="../cards/fixtures.js"></script><script src="accounts.js"></script>
+<script src="../cards/normalise.js"></script><script src="../cards/components.js"></script><script src="../cards/live.js"></script>
+<script src="ixbrl.js"></script><script src="viz.js"></script><script src="live-accounts.js"></script>
+<style>
+  .vz { max-width: 1240px; margin: 0 auto; padding: 24px 24px 80px; display: grid; gap: 20px; }
+  .vz .card { padding: 22px 26px; }
+  .vz .card > .section-head p { margin: 4px 0 0; color: var(--ink-500); font-size: var(--fs-sm); font-weight: 400; }
+  .vz-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; }
+  .vz-head h1 { font-size: var(--fs-2xl); letter-spacing: -.02em; }
+  svg text { font-family: var(--font-sans); }
+  .vz-net { width: 100%; height: auto; display: block; }
+  .vz-net .e1 { stroke: var(--accent-500); stroke-width: 1.6; opacity: .55; } .vz-net .e1.psc { stroke: var(--ink-500); stroke-dasharray: 4 3; }
+  .vz-net .e2 { stroke: var(--ink-300); stroke-width: 1; opacity: .8; } .vz-net .e2.old { stroke-dasharray: 2 3; opacity: .5; }
+  .vz-net .n0 rect { fill: var(--accent-700); } .vz-net .t0 { fill: var(--on-accent); font-size: 13px; font-weight: 600; } .vz-net .t0s { fill: var(--on-accent); opacity: .75; font-size: 10.5px; }
+  .vz-net .n1 circle, .vz-net .n1 rect { fill: var(--surface); stroke: var(--accent-600); stroke-width: 2.2; }
+  .vz-net .n1.psc circle, .vz-net .n1.psc rect { stroke: var(--ink-600); stroke-dasharray: 3 2; }
+  .vz-net .n1.both circle, .vz-net .n1.both rect { fill: var(--accent-100); stroke: var(--accent-700); stroke-width: 3; }
+  .vz-net .t1 { fill: var(--ink-900); font-size: 12px; font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+  .vz-net .t1s { fill: var(--ink-500); font-size: 10.5px; paint-order: stroke; stroke: var(--surface); stroke-width: 4px; stroke-linejoin: round; }
+  .vz-net .n2 circle { fill: var(--ink-600); } .vz-net .n2.gone circle { fill: var(--surface); stroke: var(--ink-400); stroke-width: 1.4; }
+  .vz-net .n2.shared circle { fill: var(--accent-600); } .vz-net .n2 { cursor: pointer; }
+  .vz-net .t2 { fill: var(--ink-700); font-size: 10.5px; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; } .vz-net .n2.gone .t2 { fill: var(--ink-400); }
+  .vz-net .n2:hover .t2 { fill: var(--accent-600); text-decoration: underline; }
+  .vz-legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: var(--fs-xs); color: var(--ink-600); margin-top: 8px; }
+  .vz-legend span { display: inline-flex; gap: 6px; align-items: center; } .vz-legend i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .lg-o { border: 2px solid var(--accent-600); } .lg-p { border: 2px dashed var(--ink-600); } .lg-b { border: 3px solid var(--accent-700); background: var(--accent-100); }
+  .lg-c { background: var(--ink-600); transform: scale(.7); } .lg-g { border: 1.5px solid var(--ink-400); transform: scale(.7); } .lg-s { background: var(--accent-600); transform: scale(.8); }
+  .vz-note { font-size: var(--fs-xs); color: var(--ink-500); margin: 8px 0 0; }
+  .vz-tl { width: 100%; height: auto; display: block; }
+  .tl-grid { stroke: var(--line-soft); } .tl-now { stroke: var(--ink-300); stroke-dasharray: 3 3; }
+  .tl-yr { fill: var(--ink-500); font-size: 11px; } .tl-yr.strong { fill: var(--ink-700); font-weight: 600; }
+  .tl-lane { fill: var(--ink-900); font-size: 13px; font-weight: 600; } .tl-sub { fill: var(--ink-500); font-size: 11px; }
+  .tl-lbl { fill: var(--ink-700); font-size: 11px; }
+  .tl-b rect { fill: var(--accent-600); } .tl-b.old rect { fill: var(--ink-300); } .tl-b.psc rect { fill: var(--accent-200); stroke: var(--accent-600); } .tl-b.old.psc rect { fill: var(--surface-sunk); stroke: var(--ink-300); }
+  .tl-b.chg rect { fill: var(--bar-warn); } .tl-b:hover rect { opacity: .8; }
+  .tl-f { fill: var(--cat, var(--ink-500)); stroke: var(--surface); stroke-width: 1.5; opacity: .9; }
+  .tl-ins { fill: var(--bad); }
+  .tl-key { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .vz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px; }
+  .vz-m .v { font-size: var(--fs-xl); font-weight: 600; color: var(--ink-900); margin-top: 4px; letter-spacing: -.01em; }
+  .vz-m .s { font-size: var(--fs-xs); color: var(--ink-500); margin-bottom: 8px; } .vz-m .up { color: var(--ok); font-weight: 600; } .vz-m .down { color: var(--bad); font-weight: 600; }
+  .vz-m svg { width: 100%; height: auto; display: block; } .vz-m rect { fill: var(--accent-200); } .vz-m rect.last { fill: var(--accent-600); } .vz-m rect.neg { fill: var(--bad-line); } .vz-m rect.neg.last { fill: var(--bad); }
+  .vz-m .ax { fill: var(--ink-500); font-size: 10.5px; } .vz-m .zero { stroke: var(--line); }
+  .vz-src { margin-top: 12px; } .vz-src table { margin-top: 10px; }
+  .status { font-size: var(--fs-sm); color: var(--ink-600); }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="wordmark" href="../">Prosper</a><span class="tag">Visuals</span><span class="grow"></span>
+  <select class="input" id="co" aria-label="Company"></select>
+  <form id="liveForm" style="display:flex;gap:6px"><input class="input" id="liveNo" placeholder="Company number" style="width:150px" aria-label="Live company number"><button class="btn">Look up</button></form>
+  <button class="btn ghost sm" id="themeBtn">Dark</button>
+  <a class="btn ghost sm" href="../cards/" title="Your key is set in the card prototype's Settings">Settings</a>
+</div>
+<main class="vz" id="out"></main>
+<script>
+(function () {
+  'use strict';
+  Normalise.setEnums(window.CH_ENUMS); Theme.button(document.getElementById('themeBtn'));
+  const $ = (id) => document.getElementById(id), esc = Cards.esc;
+  const q = new URLSearchParams(location.search);
+  const st = { co: q.get('co') || '08130873' };
+  for (const c of window.CH_INDEX) $('co').insertAdjacentHTML('beforeend', `<option value="${c.n}">${esc(c.label)} · ${esc(c.name)}</option>`);
+  const cats = ['accounts', 'confirmation-statement', 'officers', 'address', 'capital', 'mortgage', 'insolvency', 'persons-with-significant-control', 'resolution', 'incorporation'];
+  function render(raw, acc, live) {
+    const vm = Normalise.company(raw);
+    const present = new Set(vm.filings.items.map((f) => f.category));
+    $('out').innerHTML = `
+      <div class="vz-head"><div><div class="eyebrow">${live ? 'Live from Companies House' : 'Saved example'}</div><h1>${esc(vm.name)}</h1><div class="muted" style="font-size:13px;margin-top:4px">${esc(vm.number)} · ${esc(vm.status.label)} · ${esc(vm.type.label)} · incorporated ${esc(vm.createdText)}</div></div>
+        <a class="btn sm" href="../cards/?co=${esc(vm.number)}&layout=B">Open card</a></div>
+      <section class="card"><div class="section-head"><div><h2>Who's connected</h2><p>Current officers and people with significant control, and the other companies the officers are appointed to. Hover for details; click a company to open it on Companies House.</p></div></div>${Viz.network(vm)}</section>
+      <section class="card"><div class="section-head"><div><h2>Timeline</h2><p>Each line is one officer, owner or charge, from start to end. Dots are filings, coloured by type.</p></div></div>${Viz.timeline(vm)}
+        <div class="tl-key">${cats.filter((c) => present.has(c)).map((c) => `<span class="chip"><i style="width:8px;height:8px;border-radius:50%;background:var(--cat)" class="cat-${c}"></i>${esc((vm.filings.items.find((f) => f.category === c) || {}).categoryLabel || c)}</span>`).join('')}</div></section>
+      <section class="card"><div class="section-head"><div><h2>Accounts trend</h2><p>Figures read from the tagged (iXBRL) accounts on the Companies House document API. Each filing also restates the year before.</p></div></div>
+        <div id="acc">${acc ? Viz.accounts(acc, vm, IXBRL.METRICS) : '<div class="status">Reading accounts…</div>'}</div></section>`;
+    $('out').querySelectorAll('[data-co]').forEach((g) => g.addEventListener('click', () => {
+      const n = g.dataset.co; if (window.CH_FIXTURES[n]) { st.co = n; show(); } else window.open('https://find-and-update.company-information.service.gov.uk/company/' + n, '_blank', 'noopener');
+    }));
+    document.title = vm.name + ' · Prosper visuals';
+    return vm;
+  }
+  function show() {
+    $('co').value = st.co; const u = new URL(location.href); u.searchParams.set('co', st.co); history.replaceState(null, '', u);
+    render(window.CH_FIXTURES[st.co], (window.CH_ACCOUNTS || {})[st.co] || { docs: [] }, false);
+  }
+  $('co').onchange = () => { st.co = $('co').value; show(); };
+  $('liveForm').onsubmit = async (e) => {
+    e.preventDefault(); const n = $('liveNo').value.trim(); if (!n) return;
+    if (!Live.getKey()) { $('out').innerHTML = '<div class="empty">Live look-ups need your own Companies House API key. Add it under Settings in the card prototype; it is stored only in this browser.</div>'; return; }
+    $('out').innerHTML = '<div class="status">Loading from Companies House…</div>';
+    try {
+      const raw = await Live.company(n); const vm = render(raw, null, true);
+      const acc = await LiveAccounts.accounts(vm.number);
+      $('acc').innerHTML = Viz.accounts(acc, vm, IXBRL.METRICS) + (acc.blocked ? `<p class="vz-note">${acc.blocked} document${acc.blocked > 1 ? 's' : ''} couldn't be downloaded in the browser. The document store may block cross-site downloads; the list above is from the filing history.</p>` : '');
+    } catch (err) { $('out').innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
+  };
+  show();
+})();
+</script>
+</body>
+</html>
