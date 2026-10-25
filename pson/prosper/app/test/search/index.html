@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Prosper · Search</title>
+<link rel="stylesheet" href="../cards/styles.css">
+<script src="../../fonts.js"></script><script src="../cards/fonts-inject.js"></script><script src="../cards/theme.js"></script>
+<script src="../cards/fixtures.js"></script><script src="../alerts/new-fixture.js"></script>
+<script src="../cards/normalise.js"></script><script src="../cards/live.js"></script><script src="search.js"></script>
+<style>
+  body { background: var(--bg); color: var(--ink-900); font-family: var(--font-sans); margin: 0; }
+  .tb { display: flex; align-items: center; gap: 16px; padding: 10px 20px; background: var(--surface); border-bottom: 1px solid var(--line); }
+  .tb .logo { font-family: var(--font-brand); font-weight: 700; font-size: 19px; letter-spacing: -.01em; color: var(--ink-900); text-decoration: none; }
+  .trigger { flex: 1; max-width: 520px; display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); color: var(--ink-500); font: inherit; font-size: 13px; cursor: text; text-align: left; }
+  .trigger:hover { border-color: var(--ink-300); }
+  .trigger span { flex: 1; }
+  kbd { font: 500 11px/1 var(--font-sans); padding: 3px 5px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; background: var(--surface); color: var(--ink-600); }
+  .tb .sp { flex: 1; }
+  .mode { font-size: 12px; color: var(--ink-500); }
+  .mode b { color: var(--ink-800); font-weight: 600; }
+  .page { max-width: 920px; margin: 40px auto; padding: 0 20px; color: var(--ink-600); font-size: 14px; line-height: 1.55; }
+  .page h1 { font-size: 24px; color: var(--ink-900); margin: 0 0 8px; letter-spacing: -.01em; }
+  .page .demo { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .page .demo a { font-size: 12px; padding: 5px 10px; border: 1px solid var(--line); border-radius: var(--r-pill); color: var(--ink-700); text-decoration: none; background: var(--surface); }
+  .page .demo a:hover { border-color: var(--accent-500); color: var(--accent-700); }
+  /* Palette */
+  .scrim { position: fixed; inset: 0; background: var(--scrim); display: none; align-items: flex-start; justify-content: center; padding-top: 9vh; z-index: 50; }
+  .scrim.open { display: flex; }
+  .pal { width: min(820px, calc(100vw - 32px)); background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--sh-3); overflow: hidden; display: flex; flex-direction: column; max-height: 76vh; }
+  .pal .in { display: flex; align-items: center; gap: 10px; padding: 0 16px; border-bottom: 1px solid var(--line); }
+  .pal .in svg { flex: none; color: var(--ink-400); }
+  .pal input, .pal input:focus, .pal input:focus-visible { flex: 1; border: 0; outline: 0; box-shadow: none; background: none; font: 400 16px var(--font-sans); color: var(--ink-900); height: 54px; }
+  .pal input::placeholder { color: var(--ink-400); }
+  .scopes { display: flex; gap: 4px; padding: 8px 12px; border-bottom: 1px solid var(--line-soft); }
+  .scopes button { border: 0; background: none; font: 500 12px var(--font-sans); color: var(--ink-600); padding: 5px 10px; border-radius: var(--r-pill); cursor: pointer; }
+  .scopes button[aria-pressed="true"] { background: var(--accent-50); color: var(--accent-700); box-shadow: inset 0 0 0 1px var(--accent-200); }
+  .scopes button .n { color: var(--ink-400); font-weight: 400; margin-left: 3px; }
+  .body { display: grid; grid-template-columns: 1fr 280px; min-height: 0; flex: 1; }
+  .list { overflow: auto; padding: 6px 0 10px; min-height: 280px; }
+  .grp { font: 600 11px var(--font-sans); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--ink-500); padding: 12px 16px 6px; display: flex; justify-content: space-between; }
+  .grp a, .grp button { font: 500 11px var(--font-sans); letter-spacing: 0; text-transform: none; color: var(--accent-600); background: none; border: 0; cursor: pointer; padding: 0; }
+  .it { display: flex; align-items: center; gap: 12px; padding: 8px 16px; margin: 0 6px; border-radius: var(--r-sm); cursor: pointer; color: var(--ink-800); }
+  .it[aria-selected="true"] { background: var(--accent-50); box-shadow: inset 2px 0 0 var(--accent-600); }
+  .it .ic { flex: none; width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; background: var(--surface-sunk); color: var(--ink-600); font: 600 11px var(--font-sans); }
+  .it .tx { flex: 1; min-width: 0; }
+  .it .t { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .it .s { font-size: 12px; color: var(--ink-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
+  .it .r { flex: none; font-size: 11px; color: var(--ink-500); }
+  .it mark { background: none; color: var(--accent-700); font-weight: 650; }
+  .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; background: var(--ink-300); }
+  .dot.ok { background: var(--ok); } .dot.bad { background: var(--bad); } .dot.warn { background: #c27c1d; } .dot.neutral { background: var(--ink-400); }
+  .tag { font: 500 10.5px var(--font-sans); padding: 1px 6px; border-radius: var(--r-pill); background: var(--accent-50); color: var(--accent-700); margin-left: 6px; }
+  .pv { border-left: 1px solid var(--line-soft); background: var(--surface-2); padding: 16px; overflow: auto; font-size: 13px; color: var(--ink-700); }
+  .pv h4 { margin: 0 0 2px; font-size: 15px; color: var(--ink-900); line-height: 1.3; }
+  .pv .m { color: var(--ink-500); font-size: 12px; margin-bottom: 12px; }
+  .pv dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 12px; }
+  .pv dt { color: var(--ink-500); } .pv dd { margin: 0; color: var(--ink-800); }
+  .pv ul { margin: 6px 0 0; padding: 0; list-style: none; }
+  .pv li { padding: 6px 0; border-top: 1px solid var(--line-soft); }
+  .pv li small { display: block; color: var(--ink-500); }
+  .pv .go { display: inline-block; margin-top: 14px; font-weight: 500; color: var(--accent-600); text-decoration: none; }
+  .state { padding: 40px 24px; text-align: center; color: var(--ink-600); font-size: 14px; }
+  .state h3 { margin: 0 0 6px; font-size: 15px; color: var(--ink-900); }
+  .state .tips { margin-top: 14px; display: inline-flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+  .state .tips button { font: 500 12px var(--font-sans); border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-pill); padding: 4px 10px; color: var(--ink-700); cursor: pointer; }
+  .state.err { color: var(--bad); } .state.err h3 { color: var(--bad); }
+  .state.err .btn2 { margin-top: 14px; font: 500 13px var(--font-sans); border: 1px solid var(--line); background: var(--surface); border-radius: var(--r-sm); padding: 6px 12px; cursor: pointer; color: var(--ink-800); }
+  .sk { margin: 6px 22px; height: 40px; border-radius: var(--r-sm); background: linear-gradient(90deg, var(--surface-sunk), var(--line-soft), var(--surface-sunk)); background-size: 200% 100%; animation: sk 1.1s linear infinite; }
+  @keyframes sk { to { background-position: -200% 0; } }
+  @media (prefers-reduced-motion: reduce) { .sk { animation: none; } }
+  .ft { display: flex; gap: 16px; align-items: center; padding: 9px 16px; border-top: 1px solid var(--line); background: var(--surface-2); font-size: 12px; color: var(--ink-500); }
+  .ft .sp { flex: 1; }
+  .ft kbd { margin-right: 3px; }
+  @media (max-width: 760px) { .body { grid-template-columns: 1fr; } .pv { display: none; } }
+</style>
+</head>
+<body>
+<div class="tb">
+  <a class="logo" href="../">Prosper</a>
+  <button class="trigger" id="trig" type="button"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search companies, people, addresses</span><kbd id="kk">Ctrl K</kbd></button>
+  <span class="sp"></span>
+  <span class="mode" id="mode"></span>
+  <a class="btn ghost sm" href="../cards/" title="Your key is set in the card prototype's Settings">Settings</a>
+  <button class="btn ghost sm" id="themeBtn" type="button"></button>
+</div>
+<main class="page">
+  <h1>Search</h1>
+  <p>Press <kbd>Ctrl</kbd> <kbd>K</kbd> (or <kbd>⌘</kbd> <kbd>K</kbd> on a Mac), or <kbd>/</kbd>, from anywhere in Prosper. One box finds companies by name or number, officers by name, and registered addresses. Use the arrow keys to move, <kbd>Enter</kbd> to open, <kbd>Tab</kbd> to change scope and <kbd>Esc</kbd> to close.</p>
+  <p>Offline it searches the saved examples: six full company records, their officers, related companies, and 143 companies incorporated on 22 and 23 October 2026. If you add your own Companies House key in Settings, company and officer results also come live from Companies House.</p>
+  <div class="demo">
+    <a href="?q=tesco">“tesco”</a><a href="?q=john">“john” (officers)</a><a href="?q=M34">“M34” (postcode)</a><a href="?q=445790">“445790” (number)</a><a href="?q=zzqx">No results</a><a href="?state=loading&q=gymshark">Loading</a><a href="?state=error&q=gymshark">Error</a><a href="?open=1">Empty, with recent</a>
+  </div>
+</main>
+
+<div class="scrim" id="scrim" role="presentation">
+  <div class="pal" role="dialog" aria-modal="true" aria-label="Search">
+    <div class="in">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="Company name or number, officer, or address" role="combobox" aria-expanded="true" aria-controls="list" aria-autocomplete="list">
+      <kbd>Esc</kbd>
+    </div>
+    <div class="scopes" id="scopes" role="tablist"></div>
+    <div class="body">
+      <div class="list" id="list" role="listbox" aria-label="Results"></div>
+      <aside class="pv" id="pv" aria-live="polite"></aside>
+    </div>
+    <div class="ft"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>Enter</kbd> open</span><span><kbd>Tab</kbd> scope</span><span class="sp"></span><span id="src"></span></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  Normalise.setEnums(window.CH_ENUMS); Theme.button($('themeBtn'));
+  if (/Mac|iPhone|iPad/.test(navigator.platform)) $('kk').textContent = '⌘K';
+  const P = new URLSearchParams(location.search);
+  const FORCE = P.get('state');
+  const vms = window.CH_INDEX.map((c) => { const raw = window.CH_FIXTURES[c.n]; const vm = Normalise.company(raw); vm._raw = raw; return vm; });
+  const FULL = new Set(vms.map((v) => v.number));
+  const IX = SearchIndex.build({ vms, rows: window.ALERT_NEW.items });
+  const hasKey = !!Live.getKey();
+  $('mode').innerHTML = hasKey ? '<b>Live</b> · your Companies House key' : '<b>Offline</b> · saved examples';
+  $('src').textContent = hasKey ? 'Saved examples + Companies House' : 'Saved examples';
+
+  /* Recent searches: this browser only */
+  const RK = 'prosper.test.search.recent';
+  const getRecent = () => { try { return JSON.parse(localStorage.getItem(RK)) || null; } catch (e) { return null; } };
+  const setRecent = (a) => { try { localStorage.setItem(RK, JSON.stringify(a.slice(0, 6))); } catch (e) { /* blocked */ } };
+  if (!getRecent()) setRecent([
+    { kind: 'company', name: 'AIM Properties (Manchester) Limited', number: '15597908', when: Date.now() - 36e5 },
+    { kind: 'query', text: 'carillion', when: Date.now() - 864e5 },
+    { kind: 'company', name: 'Gymshark Ltd', number: '08130873', when: Date.now() - 2 * 864e5 }]);
+  const remember = (e) => { const r = (getRecent() || []).filter((x) => !(x.kind === e.kind && (x.number || x.text || x.name) === (e.number || e.text || e.name))); r.unshift(Object.assign({ when: Date.now() }, e)); setRecent(r); };
+  const ago = (t) => { const m = Math.round((Date.now() - t) / 6e4); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 1440 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'; };
+
+  const SC = [['all', 'All'], ['company', 'Companies'], ['officer', 'Officers'], ['address', 'Addresses']];
+  const st = { q: P.get('q') || '', scope: 'all', sel: 0, items: [], res: null, live: null, loading: false, error: null, seq: 0 };
+
+  const hi = (text, q) => {
+    const toks = SearchIndex.norm(q).split(' ').filter(Boolean); let h = esc(text);
+    if (!toks.length) return h;
+    const re = new RegExp('\\b(' + toks.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).sort((a, b) => b.length - a.length).join('|') + ')', 'gi');
+    return h.replace(/(<[^>]*>)|([^<]+)/g, (m, tag, txt) => tag || txt.replace(re, '<mark>$1</mark>'));
+  };
+  const hrefFor = (c) => FULL.has(c.number) ? '../cards/?co=' + c.number + '&layout=B' : 'https://find-and-update.company-information.service.gov.uk/company/' + encodeURIComponent(c.number);
+  const ICON = { company: 'Co', officer: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>', address: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>', recent: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>', number: '#' };
+
+  function row(it, i) {
+    const q = st.q; let t = '', s = '', r = '';
+    if (it.kind === 'company') { t = hi(it.name, q) + (it.isNew ? '<span class="tag">New</span>' : '') + (it.live ? '<span class="tag">Live</span>' : ''); s = `<span class="dot ${esc(it.tone || (/active/i.test(it.status) ? 'ok' : 'neutral'))}"></span>${esc(it.status || '')} · ${hi(it.number, q)}${it.sub ? ' · ' + esc(it.sub) : ''}`; r = it.created ? 'Inc. ' + esc(it.created) : ''; }
+    else if (it.kind === 'officer') { const a = it.roles.filter((x) => x.active); t = hi(it.name, q) + (it.live ? '<span class="tag">Live</span>' : ''); s = esc(it.roles.length ? it.roles[0].role + (it.roles[0].active ? '' : ' (former)') + ' · ' + it.roles[0].company + (it.roles.length > 1 ? ' + ' + (it.roles.length - 1) + ' more' : '') : it.sub || ''); r = it.born ? 'Born ' + esc(it.born) : ''; }
+    else if (it.kind === 'address') { t = hi(it.text, q); s = it.cos.length === 1 ? esc(it.cos[0].name) : it.cos.length + ' companies registered here'; r = ''; }
+    else if (it.kind === 'number') { t = it.hit ? 'Open ' + esc(it.hit.name) : 'Look up company number ' + esc(it.number); s = it.hit ? 'Company number ' + esc(it.number) : (hasKey ? 'Fetch from Companies House' : 'Not in the saved examples · add a key in Settings to look it up'); }
+    else if (it.kind === 'recent') { const e = it.e; t = e.kind === 'query' ? '“' + esc(e.text) + '”' : esc(e.name); s = e.kind === 'query' ? 'Search' : 'Company · ' + esc(e.number); r = ago(e.when); }
+    const ic = it.kind === 'recent' ? ICON.recent : ICON[it.kind];
+    return `<div class="it" role="option" id="o${i}" data-i="${i}" aria-selected="${i === st.sel}"><span class="ic">${ic}</span><span class="tx"><div class="t">${t}</div><div class="s">${s}</div></span><span class="r">${r}</span></div>`;
+  }
+
+  function preview(it) {
+    if (!it) return '<div class="m">Nothing selected.</div>';
+    if (it.kind === 'recent') it = it.e.kind === 'company' ? (IX.byNum.get(it.e.number) || { kind: 'company', name: it.e.name, number: it.e.number }) : { kind: 'q', text: it.e.text };
+    if (it.kind === 'q') return `<h4>“${esc(it.text)}”</h4><div class="m">Run this search again.</div>`;
+    if (it.kind === 'number') it = it.hit || { kind: 'company', name: 'Company ' + it.number, number: it.number };
+    if (it.kind === 'company') {
+      const vm = vms.find((v) => v.number === it.number);
+      if (vm) return `<h4>${esc(SearchIndex.tidy(vm.name))}</h4><div class="m"><span class="dot ${esc(vm.status.tone)}"></span>${esc(vm.status.label)} · ${esc(vm.number)}</div><dl><dt>Type</dt><dd>${esc(vm.type.label)}</dd><dt>Incorporated</dt><dd>${esc(vm.createdText)}</dd><dt>Address</dt><dd>${esc(vm.address.oneLine)}</dd><dt>Industry</dt><dd>${esc((vm.sic[0] || {}).desc || '—')}</dd><dt>Officers</dt><dd>${vm.officers.active.length} active</dd></dl><a class="go" href="${hrefFor(it)}">Open company card →</a>`;
+      return `<h4>${esc(it.name)}</h4><div class="m">${esc(it.status || '')} · ${esc(it.number)}</div><dl>${it.created ? `<dt>Incorporated</dt><dd>${esc(it.created)}</dd>` : ''}${it.sub ? `<dt>Area</dt><dd>${esc(it.sub)}</dd>` : ''}</dl><p class="m" style="margin-top:12px">Not one of the saved examples. Opens on Companies House.</p><a class="go" href="${hrefFor(it)}" target="_blank" rel="noopener">Open on Companies House ↗</a>`;
+    }
+    if (it.kind === 'officer') return `<h4>${esc(it.name)}</h4><div class="m">${it.born ? 'Born ' + esc(it.born) : 'Officer'}</div><ul>${it.roles.slice(0, 6).map((r) => `<li>${esc(r.role)}${r.active ? '' : ' (former)'}<small>${esc(SearchIndex.tidy(r.company))} · ${esc(r.number)}${r.since ? ' · since ' + esc(r.since) : ''}</small></li>`).join('') || `<li>${esc(it.sub || '')}</li>`}</ul>`;
+    if (it.kind === 'address') return `<h4>${esc(it.text)}</h4><div class="m">${it.cos.length} compan${it.cos.length === 1 ? 'y' : 'ies'} registered here</div><ul>${it.cos.slice(0, 8).map((c) => `<li>${esc(c.name)}<small>${esc(c.number)}</small></li>`).join('')}</ul>${it.cos.length > 1 ? '<p class="m" style="margin-top:12px">Several companies at one address is often a formation agent or accountant’s office.</p>' : ''}`;
+    return '';
+  }
+
+  function render() {
+    const L = $('list'); let html = ''; st.items = [];
+    const counts = st.res ? { all: st.res.total + liveCount(), company: st.res.groups.company.length + (st.live ? st.live.company.length : 0), officer: st.res.groups.officer.length + (st.live ? st.live.officer.length : 0), address: st.res.groups.address.length } : null;
+    $('scopes').innerHTML = SC.map(([k, l]) => `<button role="tab" data-s="${k}" aria-pressed="${st.scope === k}">${l}${counts && st.q ? `<span class="n">${counts[k] > 99 ? '99+' : counts[k]}</span>` : ''}</button>`).join('');
+    if (st.error) { L.innerHTML = `<div class="state err"><h3>Search isn’t working right now</h3>${esc(st.error)}<br><button class="btn2" id="retry">Try again</button></div>`; $('pv').innerHTML = '<div class="m">Saved examples are still searchable offline.</div>'; $('retry').onclick = () => { st.error = null; run(true); }; return; }
+    if (!st.q.trim()) {
+      const rec = getRecent() || [];
+      if (rec.length) { html += `<div class="grp">Recent<button id="clr">Clear</button></div>`; rec.forEach((e) => { st.items.push({ kind: 'recent', e }); html += row(st.items[st.items.length - 1], st.items.length - 1); }); }
+      html += `<div class="state" style="padding:24px"><h3>${rec.length ? 'Or try' : 'Search Prosper'}</h3>Names, company numbers (e.g. 08130873), people, or a postcode.<div class="tips">${['Tesco', '15597908', 'Ken Murphy', 'M34', 'Great Portland Street'].map((t) => `<button data-t="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>`;
+      L.innerHTML = html; bindTips(); const c = $('clr'); if (c) c.onclick = (ev) => { ev.stopPropagation(); setRecent([]); render(); };
+      sel(Math.min(st.sel, st.items.length - 1)); return;
+    }
+    if (st.loading && !st.res.total) { L.innerHTML = '<div class="grp">Searching…</div>' + '<div class="sk"></div>'.repeat(5); $('pv').innerHTML = ''; return; }
+    const g = st.res.groups, lv = st.live || { company: [], officer: [] };
+    if (st.res.number && (st.scope === 'all' || st.scope === 'company')) { st.items.push(st.res.number); html += '<div class="grp">Company number</div>' + row(st.res.number, 0); }
+    const sect = (k, title, list, cap) => { if (!list.length || !(st.scope === 'all' || st.scope === k)) return; const max = st.scope === 'all' ? cap : 60; html += `<div class="grp">${title}${list.length > max ? `<button data-s="${k}">All ${list.length} →</button>` : ''}</div>`; list.slice(0, max).forEach((it) => { st.items.push(it); html += row(it, st.items.length - 1); }); };
+    const dedupe = (a, b, key) => { const seen = new Set(a.map((x) => x[key])); return a.concat(b.filter((x) => !seen.has(x[key]))); };
+    sect('company', 'Companies', dedupe(g.company, lv.company, 'number'), 5);
+    sect('officer', 'Officers', g.officer.concat(lv.officer), 4);
+    sect('address', 'Addresses', g.address, 3);
+    if (st.loading) html += '<div class="grp">Checking Companies House…</div><div class="sk"></div><div class="sk"></div>';
+    if (!st.items.length && !st.loading) {
+      const sc = st.scope !== 'all' ? ` in ${SC.find((x) => x[0] === st.scope)[1].toLowerCase()}` : '';
+      html = `<div class="state"><h3>No matches for “${esc(st.q)}”${sc}</h3>Check the spelling, try fewer words, or search by company number.${st.scope !== 'all' ? '<div class="tips"><button data-s="all">Search everything</button></div>' : ''}${hasKey ? '' : '<br><span style="font-size:12px;color:var(--ink-500)">Offline, only the saved examples are searched. Add your Companies House key in Settings to search the whole register.</span>'}</div>`;
+    }
+    L.innerHTML = html; bindTips(); sel(Math.min(st.sel, Math.max(0, st.items.length - 1)));
+  }
+  const liveCount = () => st.live ? st.live.company.length + st.live.officer.length : 0;
+  function bindTips() { $('list').querySelectorAll('[data-t]').forEach((b) => b.onclick = () => { $('q').value = b.dataset.t; onInput(); $('q').focus(); }); $('list').querySelectorAll('[data-s]').forEach((b) => b.onclick = () => setScope(b.dataset.s)); }
+  function sel(i) {
+    st.sel = i < 0 ? 0 : i;
+    $('list').querySelectorAll('.it').forEach((el) => el.setAttribute('aria-selected', String(+el.dataset.i === st.sel)));
+    const el = $('o' + st.sel); if (el) { el.scrollIntoView({ block: 'nearest' }); $('q').setAttribute('aria-activedescendant', 'o' + st.sel); }
+    $('pv').innerHTML = st.items.length ? preview(st.items[st.sel]) : '<div class="m">Results show a preview here.</div>';
+  }
+  function setScope(k) { st.scope = k; st.sel = 0; st.res = SearchIndex.query(IX, st.q, 'all'); render(); }
+
+  async function liveSearch(q, seq) {
+    const API = 'https://api.company-information.service.gov.uk', H = { Authorization: 'Basic ' + btoa(Live.getKey() + ':') };
+    const get = async (p) => { const r = await fetch(API + p, { headers: H }); if (r.status === 401) throw new Error('Companies House rejected your key (401). Check it in Settings.'); if (r.status === 429) throw new Error('Companies House is rate-limiting requests. Wait a minute and try again.'); if (!r.ok) throw new Error('Companies House returned an error (' + r.status + ').'); return r.json(); };
+    const [c, o] = await Promise.all([get('/search/companies?items_per_page=10&q=' + encodeURIComponent(q)), get('/search/officers?items_per_page=8&q=' + encodeURIComponent(q))]);
+    if (seq !== st.seq) return;
+    st.live = {
+      company: (c.items || []).map((x) => ({ kind: 'company', live: true, name: SearchIndex.tidy(x.title), number: x.company_number, status: (x.company_status || '').replace(/^./, (m) => m.toUpperCase()), tone: x.company_status === 'active' ? 'ok' : 'neutral', sub: x.address && [x.address.locality, x.address.postal_code].filter(Boolean).join(' '), created: x.date_of_creation })),
+      officer: (o.items || []).map((x) => ({ kind: 'officer', live: true, name: SearchIndex.tidy(x.title), born: x.date_of_birth ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][x.date_of_birth.month - 1] + ' ' + x.date_of_birth.year : '', roles: [], sub: (x.appointment_count || 0) + ' appointments · ' + (x.address_snippet || '') }))
+    };
+  }
+  let timer = null;
+  function run(now) {
+    const q = st.q, seq = ++st.seq;
+    st.res = SearchIndex.query(IX, q, 'all'); st.live = null; st.error = null; st.sel = 0;
+    const needLive = hasKey && q.trim().length >= 2;
+    if (FORCE === 'loading') { st.res = { total: 0, groups: { company: [], officer: [], address: [] } }; st.loading = true; render(); return; }
+    if (FORCE === 'error' && q.trim()) { st.error = 'We couldn’t reach Companies House (network error). Check your connection, then try again.'; render(); return; }
+    st.loading = needLive; render();
+    if (!needLive) return;
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      try { await liveSearch(q, seq); } catch (e) { if (seq === st.seq) st.error = e.message || 'Something went wrong.'; }
+      if (seq === st.seq) { st.loading = false; render(); }
+    }, now ? 0 : 250);
+  }
+  function onInput() { st.q = $('q').value; run(false); }
+
+  function openItem(it, newTab) {
+    if (!it) return;
+    if (it.kind === 'recent') { const e = it.e; if (e.kind === 'query') { $('q').value = e.text; onInput(); return; } it = { kind: 'company', name: e.name, number: e.number }; }
+    if (it.kind === 'number') it = it.hit || { kind: 'company', name: 'Company ' + it.number, number: it.number };
+    if (it.kind === 'company') { remember({ kind: 'company', name: it.name, number: it.number }); go(hrefFor(it), newTab || !FULL.has(it.number)); return; }
+    if (st.q.trim()) remember({ kind: 'query', text: st.q.trim() });
+    if (it.kind === 'officer') { const r = it.roles.find((x) => FULL.has(x.number)); if (r) go('../cards/?co=' + r.number + '&layout=B#officers', newTab); else { $('q').value = it.name; onInput(); } return; }
+    if (it.kind === 'address') { $('q').value = it.postcode || it.text; setScope('company'); $('q').value = it.postcode || it.text; onInput(); }
+  }
+  const go = (u, newTab) => { if (newTab) window.open(u, '_blank', 'noopener'); else location.href = u; };
+
+  const open = () => { $('scrim').classList.add('open'); $('q').value = st.q; run(true); setTimeout(() => { const i = $('q'); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 0); };
+  const close = () => { $('scrim').classList.remove('open'); $('trig').focus(); };
+  $('trig').onclick = open;
+  $('scrim').addEventListener('mousedown', (e) => { if (e.target === $('scrim')) close(); });
+  $('q').addEventListener('input', onInput);
+  $('list').addEventListener('mousemove', (e) => { const el = e.target.closest('.it'); if (el && +el.dataset.i !== st.sel) sel(+el.dataset.i); });
+  $('list').addEventListener('click', (e) => { const el = e.target.closest('.it'); if (el) openItem(st.items[+el.dataset.i], e.metaKey || e.ctrlKey); });
+  $('scopes').addEventListener('click', (e) => { const b = e.target.closest('[data-s]'); if (b) { setScope(b.dataset.s); $('q').focus(); } });
+  $('q').addEventListener('keydown', (e) => {
+    const n = st.items.length;
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (n) sel((st.sel + 1) % n); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); if (n) sel((st.sel - 1 + n) % n); }
+    else if (e.key === 'Home' && e.ctrlKey) { sel(0); } else if (e.key === 'End' && e.ctrlKey) { sel(n - 1); }
+    else if (e.key === 'Enter') { e.preventDefault(); openItem(st.items[st.sel], e.metaKey || e.ctrlKey); }
+    else if (e.key === 'Tab') { e.preventDefault(); const i = SC.findIndex((x) => x[0] === st.scope); setScope(SC[(i + (e.shiftKey ? SC.length - 1 : 1)) % SC.length][0]); }
+    else if (e.key === 'Escape') { e.preventDefault(); if ($('q').value) { $('q').value = ''; onInput(); } else close(); }
+  });
+  document.addEventListener('keydown', (e) => {
+    const open_ = $('scrim').classList.contains('open');
+    if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey)) { e.preventDefault(); open_ ? close() : open(); }
+    else if (e.key === '/' && !open_ && !/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) { e.preventDefault(); open(); }
+  });
+  if (P.get('open') !== '0') open();
+})();
+</script>
+</body>
+</html>
