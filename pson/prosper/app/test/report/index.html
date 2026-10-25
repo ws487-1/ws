@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Prosper · Company report</title>
+<link rel="stylesheet" href="../cards/styles.css">
+<script src="../../fonts.js"></script><script src="../cards/fonts-inject.js"></script>
+<script src="../cards/fixtures.js"></script><script src="../visuals/accounts.js"></script>
+<script src="../cards/normalise.js"></script><script src="../cards/components.js"></script><script src="../cards/live.js"></script>
+<script src="../visuals/ixbrl.js"></script><script src="../health/health.js"></script>
+<style>
+  /* Report is always light: it's a document. */
+  body { background: #e9eaee; }
+  .bar-tools { position: sticky; top: 0; z-index: 5; }
+  .sheet { width: 210mm; min-height: 297mm; margin: 24px auto 60px; background: #fff; color: #1d1f24; box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 8px 30px rgba(0,0,0,.08); padding: 16mm 16mm 14mm; font-size: 9.5pt; line-height: 1.45; }
+  .r-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12mm; border-bottom: 1.5pt solid #1d1f24; padding-bottom: 4mm; }
+  .r-brand { font-family: 'DM Sans', var(--font-sans); font-weight: 700; font-size: 11pt; letter-spacing: -.01em; }
+  .r-meta { text-align: right; font-size: 8pt; color: #5b606b; }
+  .r-name { font-size: 20pt; font-weight: 700; letter-spacing: -.02em; margin: 5mm 0 1mm; line-height: 1.15; }
+  .r-sub { color: #5b606b; font-size: 9pt; }
+  .r-sub b { color: #1d1f24; font-weight: 600; }
+  .r-status { display: inline-block; padding: 0 2mm; border: .75pt solid currentColor; border-radius: 2mm; font-size: 8pt; font-weight: 600; margin-right: 2mm; }
+  .r-status.ok { color: #1e7a4a; } .r-status.bad { color: #b42318; } .r-status.warn { color: #a15c07; } .r-status.neutral { color: #5b606b; }
+  .r-facts { display: grid; grid-template-columns: repeat(4, 1fr); border: .75pt solid #d9dbe0; border-radius: 2mm; margin-top: 5mm; }
+  .r-facts > div { padding: 2.5mm 3mm; border-right: .75pt solid #e6e7eb; border-bottom: .75pt solid #e6e7eb; }
+  .r-facts > div:nth-child(4n) { border-right: 0; } .r-facts > div:nth-last-child(-n+4) { border-bottom: 0; }
+  .r-facts .l { font-size: 7pt; text-transform: uppercase; letter-spacing: .06em; color: #7a7f8a; font-weight: 600; }
+  .r-facts .v { font-size: 11pt; font-weight: 600; margin-top: .5mm; font-variant-numeric: tabular-nums; }
+  .r-facts .s { font-size: 7.5pt; color: #7a7f8a; }
+  .r-facts .bad .v { color: #b42318; }
+  h2.r-h { font-size: 10.5pt; font-weight: 700; margin: 6mm 0 2mm; padding-bottom: 1mm; border-bottom: .75pt solid #d9dbe0; display: flex; justify-content: space-between; align-items: baseline; break-after: avoid; }
+  h2.r-h small { font-weight: 400; color: #7a7f8a; font-size: 8pt; }
+  .r-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; }
+  table.r-t { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  .r-t th { text-align: left; font-weight: 600; color: #5b606b; font-size: 7.5pt; text-transform: uppercase; letter-spacing: .04em; padding: 1.2mm 2mm 1.2mm 0; border-bottom: .75pt solid #d9dbe0; }
+  .r-t td { padding: 1.4mm 2mm 1.4mm 0; border-bottom: .5pt solid #eceef1; vertical-align: top; }
+  .r-t tr { break-inside: avoid; } .r-t .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .r-t .m { color: #7a7f8a; }
+  dl.r-dl { display: grid; grid-template-columns: 30mm 1fr; gap: 1.2mm 3mm; margin: 0; } .r-dl dt { color: #7a7f8a; } .r-dl dd { margin: 0; }
+  .r-health { display: grid; grid-template-columns: 42mm 1fr; gap: 5mm; align-items: start; border: .75pt solid #d9dbe0; border-radius: 2mm; padding: 3mm 4mm; break-inside: avoid; }
+  .r-health .lv { font-size: 12pt; font-weight: 700; } .r-health .lv i { display: inline-block; width: 3mm; height: 3mm; border-radius: 50%; margin-right: 2mm; background: var(--t); }
+  .r-health ul { margin: 0; padding-left: 4mm; } .r-health li { margin: .6mm 0; }
+  .t-ok { --t: #1e7a4a; } .t-warn { --t: #c27a12; } .t-bad { --t: #b42318; } .t-neutral, .t-info { --t: #7a7f8a; }
+  .r-note { font-size: 7.5pt; color: #7a7f8a; margin-top: 1.5mm; }
+  .r-foot { margin-top: 8mm; padding-top: 2.5mm; border-top: .75pt solid #d9dbe0; font-size: 7.5pt; color: #7a7f8a; display: flex; justify-content: space-between; gap: 6mm; }
+  .r-empty { color: #7a7f8a; font-style: italic; }
+  @page { size: A4; margin: 12mm 12mm 14mm; @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 7.5pt Inter, sans-serif; color: #7a7f8a; } @bottom-left { content: "Prosper company report · Companies House public data"; font: 7.5pt Inter, sans-serif; color: #7a7f8a; } }
+  @media print {
+    body { background: #fff; } .no-print { display: none !important; }
+    .sheet { width: auto; min-height: 0; margin: 0; padding: 0; box-shadow: none; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+<div class="topbar no-print bar-tools">
+  <a class="wordmark" href="../">Prosper</a><span class="tag">Report</span><span class="grow"></span>
+  <select class="input" id="co" aria-label="Company"></select>
+  <form id="liveForm" style="display:flex;gap:6px"><input class="input" id="liveNo" placeholder="Company number" style="width:150px" aria-label="Live company number"><button class="btn">Look up</button></form>
+  <a class="btn ghost sm" href="../cards/" title="Your key is set in the card prototype's Settings">Settings</a>
+  <button class="btn primary" id="print">Print or save as PDF</button>
+</div>
+<article class="sheet" id="out"></article>
+<script>
+(function () {
+  'use strict';
+  Normalise.setEnums(window.CH_ENUMS);
+  const $ = (id) => document.getElementById(id), esc = Cards.esc;
+  const q = new URLSearchParams(location.search);
+  const st = { co: q.get('co') || '15597908' };
+  for (const c of window.CH_INDEX) $('co').insertAdjacentHTML('beforeend', `<option value="${c.n}">${esc(c.label)} · ${esc(c.name)}</option>`);
+  const series = (acc) => IXBRL.merge(((acc && acc.docs) || []).filter((d) => d.periods && d.periods.length).map((d) => ({ filed: d.date, periods: d.periods })));
+  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const money = (v) => (v < 0 ? '−' : '') + '£' + Math.abs(v).toLocaleString('en-GB');
+  const tbl = (head, rows, empty) => rows.length ? `<table class="r-t"><thead><tr>${head.map((h) => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>` : `<div class="r-empty">${esc(empty)}</div>`;
+
+  function render(raw, acc, live) {
+    const vm = Normalise.company(raw), ser = series(acc), h = Health.assess(raw, vm, ser);
+    const fetched = raw.fetched ? new Date(raw.fetched).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : today;
+    const offs = vm.officers.active, maxO = 14;
+    const owners = vm.ownership.current;
+    const chg = vm.charges.items.filter((c) => c.outstanding), chgDone = vm.charges.items.length - chg.length;
+    const fil = vm.filings.items.slice(0, 10);
+    const fin = ser.slice(-2);
+    const finKeys = [['turnover', 'Turnover'], ['profit', 'Profit after tax'], ['netAssets', 'Net assets'], ['cash', 'Cash'], ['employees', 'Employees']].filter(([k]) => fin.some((p) => typeof p.values[k] === 'number'));
+    const top = h.signals.filter((s) => s.points > 0).sort((a, b) => b.points - a.points).slice(0, 4);
+    $('out').innerHTML = `
+      <header class="r-top"><div class="r-brand">Prosper</div><div class="r-meta">Company report · ${esc(today)}<br>Data from Companies House, retrieved ${esc(fetched)}${live ? ' (live)' : ''}</div></header>
+      <h1 class="r-name">${esc(vm.name)}</h1>
+      <div class="r-sub"><span class="r-status ${esc(vm.status.tone)}">${esc(vm.status.label)}</span>Company number <b>${esc(vm.number)}</b> · ${esc(vm.type.label)} · ${esc(vm.jurisdiction)} · incorporated <b>${esc(vm.createdText)}</b>${vm.ceasedText ? ` · closed ${esc(vm.ceasedText)}` : ''}${vm.status.detail ? ` · ${esc(vm.status.detail)}` : ''}</div>
+      <div class="r-facts">${vm.keyFacts.map((f) => `<div class="${esc(f.tone || '')}"><div class="l">${esc(f.label)}</div><div class="v">${esc(f.value)}</div><div class="s">${esc(f.sub || '')}&nbsp;</div></div>`).join('')}</div>
+
+      <div class="r-cols">
+        <section><h2 class="r-h">Registered details</h2><dl class="r-dl">
+          <dt>Registered office</dt><dd>${esc(vm.address.oneLine || '—')}</dd>
+          <dt>Nature of business</dt><dd>${vm.sic.length ? vm.sic.map((s) => `${esc(s.code)} ${esc(s.desc)}`).join('<br>') : '—'}</dd>
+          ${vm.previousNames.length ? `<dt>Previous names</dt><dd>${vm.previousNames.slice(0, 4).map((p) => `${esc(p.name)} <span class="m">(to ${esc(p.to)})</span>`).join('<br>')}${vm.previousNames.length > 4 ? `<br><span class="m">+${vm.previousNames.length - 4} more</span>` : ''}</dd>` : ''}
+          <dt>Year end</dt><dd>${esc(vm.accounts.refDate || '—')}</dd></dl></section>
+        <section><h2 class="r-h">Deadlines</h2>${vm.deadlines.length ? `<dl class="r-dl">${vm.deadlines.map((d) => `<dt>${esc(d.label)}</dt><dd><b class="${d.tone === 'bad' ? 't-bad' : ''}" style="${d.tone === 'bad' ? 'color:var(--t)' : ''}">${esc(d.dueText)}</b> <span class="m">${esc(d.relText)}${d.note ? ', ' + esc(d.note) : ''}</span></dd>`).join('')}</dl>` : `<div class="r-empty">${vm.status.active ? 'No upcoming deadlines on record.' : 'No filing deadlines apply.'}</div>`}
+          ${vm.accounts.overdue && vm.status.active ? '<div class="r-note" style="color:#b42318">Accounts are overdue.</div>' : ''}${vm.confirmation.overdue && vm.status.active ? '<div class="r-note" style="color:#b42318">Confirmation statement is overdue.</div>' : ''}</section>
+      </div>
+
+      <h2 class="r-h">Health read <small>Rules-based reading of the public record, not a credit score</small></h2>
+      <div class="r-health t-${esc(h.tone)}"><div><div class="lv"><i></i>${esc(h.label)}</div><div class="m" style="color:#7a7f8a">${h.score == null ? 'Not scored' : h.score + ' of 100 concern points'}</div></div>
+        <div><div style="font-weight:600">${esc(h.headline)}</div>${top.length ? `<ul>${top.map((s) => `<li><b>${esc(s.title)}</b> (+${s.points}): ${esc(s.finding)}</li>`).join('')}</ul>` : '<div class="m">No signals scored points.</div>'}</div></div>
+
+      ${finKeys.length ? `<h2 class="r-h">Financials <small>From tagged (iXBRL) accounts filed at Companies House</small></h2>${tbl(['', ...fin.map((p) => 'Year to ' + esc(new Date(p.end).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })))], finKeys.map(([k, l]) => `<tr><td>${l}</td>${fin.map((p) => `<td class="num">${typeof p.values[k] === 'number' ? esc(k === 'employees' ? p.values[k].toLocaleString('en-GB') : money(p.values[k])) : '—'}</td>`).join('')}</tr>`), '')}${fin.length && ((raw.profile.accounts || {}).last_accounts || {}).made_up_to > fin[fin.length - 1].end ? '<div class="r-note">These are the latest figures that can be read automatically. Later accounts were filed as PDF.</div>' : ''}` : ''}
+
+      <h2 class="r-h">Officers <small>${vm.officers.counts.active} current, ${vm.officers.counts.resigned} former</small></h2>
+      ${tbl(['Name', 'Role', 'Appointed', 'Born', 'Nationality', 'Lives in'], offs.slice(0, maxO).map((p) => `<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.roleLabel)}</td><td class="num">${esc(p.appointed)}</td><td class="num">${esc(p.born || '—')}</td><td>${esc(p.nationality || '—')}</td><td>${esc(p.residence || '—')}</td></tr>`), 'No current officers on record.')}
+      ${offs.length > maxO ? `<div class="r-note">+${offs.length - maxO} more current officers.</div>` : ''}
+
+      <h2 class="r-h">People with significant control <small>${owners.length} current</small></h2>
+      ${owners.length ? tbl(['Name', 'Type', 'Control', 'Notified'], owners.map((p) => `<tr><td><b>${esc(p.name)}</b></td><td>${esc(p.kindLabel)}</td><td>${p.controls.map(esc).join('<br>')}</td><td class="num">${esc(p.notified)}</td></tr>`), '') : `<div class="r-empty">${esc(vm.ownership.explanation || 'None on record.')}</div>`}
+
+      <h2 class="r-h">Charges <small>${vm.charges.total ? `${vm.charges.outstanding} outstanding of ${vm.charges.total}` : 'none registered'}</small></h2>
+      ${vm.charges.total ? tbl(['Lender', 'Created', 'Status', 'Covers'], chg.slice(0, 10).map((c) => `<tr><td><b>${esc(c.entitled.join(', ') || c.title)}</b>${c.moreEntitled ? ' and others' : ''}</td><td class="num">${esc(c.created)}</td><td>${esc(c.statusLabel)}</td><td>${c.coversAll ? 'All assets' : esc((c.description || '').slice(0, 90)) || '—'}</td></tr>`), 'No outstanding charges.') + (chgDone ? `<div class="r-note">${chgDone} satisfied charge${chgDone > 1 ? 's' : ''} not listed.</div>` : '') : '<div class="r-empty">No charges registered.</div>'}
+
+      ${vm.insolvency.cases && vm.insolvency.cases.length ? `<h2 class="r-h">Insolvency</h2>${tbl(['Case', 'Dates', 'Practitioners'], vm.insolvency.cases.map((c) => `<tr><td><b>${esc(c.type)}</b></td><td>${(c.dates || []).map((d) => `${esc(d.label)} ${esc(d.date)}`).join('<br>')}</td><td>${(c.practitioners || []).slice(0, 3).map((p) => esc(p.name)).join('<br>')}</td></tr>`), '')}` : ''}
+
+      <h2 class="r-h">Recent filings <small>latest ${fil.length} of ${vm.filings.total.toLocaleString('en-GB')}</small></h2>
+      ${tbl(['Date', 'Type', 'Description'], fil.map((f) => `<tr><td class="num">${esc(f.date)}</td><td>${esc(f.categoryLabel)}</td><td>${esc(f.title)}</td></tr>`), 'No filings on record.')}
+
+      <footer class="r-foot"><span>Source: Companies House public register (find-and-update.company-information.service.gov.uk/company/${esc(vm.number)}). Contains public sector information licensed under the Open Government Licence v3.0.</span><span style="white-space:nowrap">Prepared with Prosper</span></footer>`;
+    document.title = vm.name + ' · Company report';
+  }
+  function show() {
+    $('co').value = st.co; const u = new URL(location.href); u.searchParams.set('co', st.co); history.replaceState(null, '', u);
+    render(window.CH_FIXTURES[st.co], (window.CH_ACCOUNTS || {})[st.co], false);
+  }
+  $('co').onchange = () => { st.co = $('co').value; show(); };
+  $('print').onclick = () => window.print();
+  $('liveForm').onsubmit = async (e) => {
+    e.preventDefault(); const n = $('liveNo').value.trim(); if (!n) return;
+    if (!Live.getKey()) { $('out').innerHTML = '<div class="r-empty">Live look-ups need your own Companies House API key. Add it under Settings in the card prototype; it is stored only in this browser.</div>'; return; }
+    $('out').innerHTML = '<div class="r-empty">Loading from Companies House…</div>';
+    try { const raw = await Live.company(n); raw.fetched = new Date().toISOString(); render(raw, null, true); } catch (err) { $('out').innerHTML = `<div class="r-empty">${esc(err.message)}</div>`; }
+  };
+  show();
+})();
+</script>
+</body>
+</html>
