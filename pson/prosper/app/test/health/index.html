@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Prosper · Health</title>
+<link rel="stylesheet" href="../cards/styles.css">
+<script src="../../fonts.js"></script><script src="../cards/fonts-inject.js"></script><script src="../cards/theme.js"></script>
+<script src="../cards/fixtures.js"></script><script src="../visuals/accounts.js"></script>
+<script src="../cards/normalise.js"></script><script src="../cards/components.js"></script><script src="../cards/live.js"></script>
+<script src="../visuals/ixbrl.js"></script><script src="../visuals/live-accounts.js"></script><script src="health.js"></script>
+<style>
+  .hl { max-width: 1080px; margin: 0 auto; padding: 24px 24px 80px; display: grid; gap: 20px; }
+  .hl .card { padding: 22px 26px; }
+  .hl-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; }
+  .hl-head h1 { font-size: var(--fs-2xl); letter-spacing: -.02em; }
+  .hero { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 28px; align-items: center; }
+  .hero .lvl { font-size: 30px; font-weight: 700; letter-spacing: -.02em; color: var(--ink-900); display: flex; gap: 12px; align-items: center; }
+  .hero .lvl i { width: 14px; height: 14px; border-radius: 50%; background: var(--t); display: inline-block; }
+  .hero .hd { font-size: var(--fs-lg); color: var(--ink-800); margin-top: 8px; font-weight: 500; }
+  .hero .sm { color: var(--ink-500); font-size: var(--fs-sm); margin-top: 4px; }
+  .gauge { margin-top: 18px; }
+  .gauge .bar { position: relative; height: 10px; border-radius: 99px; display: grid; grid-template-columns: 15fr 25fr 60fr; gap: 3px; }
+  .gauge .bar span { border-radius: 99px; } .gauge .bar span:nth-child(1) { background: var(--ok-line); } .gauge .bar span:nth-child(2) { background: var(--warn-line); } .gauge .bar span:nth-child(3) { background: var(--bad-line); }
+  .gauge .mk { position: absolute; top: -5px; width: 4px; height: 20px; border-radius: 2px; background: var(--ink-900); box-shadow: 0 0 0 2px var(--surface); transform: translateX(-50%); }
+  .gauge .ax { display: grid; grid-template-columns: 15fr 25fr 60fr; font-size: var(--fs-xs); color: var(--ink-500); margin-top: 6px; }
+  .tally { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .tally .tile .v { font-size: var(--fs-xl); font-weight: 600; color: var(--ink-900); }
+  .sig { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 4px 14px; padding: 16px 0; border-top: 1px solid var(--line-soft); }
+  .sig:first-of-type { border-top: 0; }
+  .sig .ic { width: 12px; height: 12px; border-radius: 50%; margin-top: 5px; background: var(--t); box-shadow: 0 0 0 4px var(--tb); }
+  .sig h3 { font-size: var(--fs-md); font-weight: 600; color: var(--ink-900); margin: 0; }
+  .sig .f { color: var(--ink-700); font-size: var(--fs-sm); margin-top: 3px; line-height: 1.5; }
+  .sig .pts { font-size: var(--fs-sm); font-weight: 600; color: var(--ink-600); font-variant-numeric: tabular-nums; white-space: nowrap; padding-top: 2px; }
+  .sig details { grid-column: 2 / 4; margin-top: 4px; }
+  .sig details summary { cursor: pointer; font-size: var(--fs-xs); color: var(--accent-600); font-weight: 500; list-style: none; }
+  .sig details summary::before { content: '▸ '; } .sig details[open] summary::before { content: '▾ '; }
+  .sig .rule { font-size: var(--fs-sm); color: var(--ink-600); background: var(--surface-sunk); border-radius: var(--r-md); padding: 10px 12px; margin-top: 8px; line-height: 1.5; }
+  .sig ul { margin: 8px 0 0; padding-left: 18px; font-size: var(--fs-sm); color: var(--ink-700); } .sig li { margin: 2px 0; }
+  .t-ok { --t: var(--ok); --tb: var(--ok-bg); } .t-info { --t: var(--neutral); --tb: var(--neutral-bg); } .t-warn { --t: var(--warn); --tb: var(--warn-bg); } .t-bad { --t: var(--bad); --tb: var(--bad-bg); } .t-neutral { --t: var(--ink-500); --tb: var(--neutral-bg); }
+  .fine { font-size: var(--fs-xs); color: var(--ink-500); line-height: 1.6; }
+  .fine ul { margin: 6px 0 0; padding-left: 18px; }
+  .status { font-size: var(--fs-sm); color: var(--ink-600); }
+  @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="wordmark" href="../">Prosper</a><span class="tag">Health</span><span class="grow"></span>
+  <select class="input" id="co" aria-label="Company"></select>
+  <form id="liveForm" style="display:flex;gap:6px"><input class="input" id="liveNo" placeholder="Company number" style="width:150px" aria-label="Live company number"><button class="btn">Look up</button></form>
+  <button class="btn ghost sm" id="themeBtn">Dark</button>
+  <a class="btn ghost sm" href="../cards/" title="Your key is set in the card prototype's Settings">Settings</a>
+</div>
+<main class="hl" id="out"></main>
+<script>
+(function () {
+  'use strict';
+  Normalise.setEnums(window.CH_ENUMS); Theme.button(document.getElementById('themeBtn'));
+  const $ = (id) => document.getElementById(id), esc = Cards.esc;
+  const q = new URLSearchParams(location.search);
+  const st = { co: q.get('co') || '15597908' };
+  for (const c of window.CH_INDEX) $('co').insertAdjacentHTML('beforeend', `<option value="${c.n}">${esc(c.label)} · ${esc(c.name)}</option>`);
+  const series = (acc) => IXBRL.merge(((acc && acc.docs) || []).filter((d) => d.periods && d.periods.length).map((d) => ({ filed: d.date, periods: d.periods })));
+  function render(raw, acc, live) {
+    const vm = Normalise.company(raw), h = Health.assess(raw, vm, series(acc));
+    const n = (t) => h.signals.filter((s) => s.tone === t).length;
+    const pos = h.score == null ? null : Math.min(100, h.score);
+    $('out').innerHTML = `
+      <div class="hl-head"><div><div class="eyebrow">${live ? 'Live from Companies House' : 'Saved example'}</div><h1>${esc(vm.name)}</h1><div class="muted" style="font-size:13px;margin-top:4px">${esc(vm.number)} · ${esc(vm.status.label)} · ${esc(vm.type.label)} · incorporated ${esc(vm.createdText)}</div></div>
+        <div style="display:flex;gap:8px"><a class="btn sm" href="../visuals/?co=${esc(vm.number)}">Visuals</a><a class="btn sm" href="../cards/?co=${esc(vm.number)}&layout=B">Open card</a></div></div>
+      <section class="card hero">
+        <div><div class="eyebrow">How risky does this look?</div>
+          <div class="lvl t-${h.tone}"><i></i>${esc(h.label)}</div>
+          <div class="hd">${esc(h.headline)}</div><div class="sm">${esc(h.summary)}</div>
+          ${pos == null ? '' : `<div class="gauge" aria-label="Concern score ${pos} out of 100"><div class="bar"><span></span><span></span><span></span><b class="mk" style="left:${Math.max(1, pos)}%"></b></div><div class="ax"><span>Low</span><span>Some</span><span>High concern</span></div></div>`}
+        </div>
+        <div class="tally">
+          <div class="tile"><div class="eyebrow">Concern points</div><div class="v num">${pos == null ? '—' : pos + '<span class="muted" style="font-size:13px;font-weight:400"> / 100</span>'}</div></div>
+          <div class="tile"><div class="eyebrow">Clear</div><div class="v num">${n('ok')}</div></div>
+          <div class="tile"><div class="eyebrow">Worth checking</div><div class="v num">${n('warn') + n('info')}</div></div>
+          <div class="tile"><div class="eyebrow">Serious</div><div class="v num">${n('bad')}</div></div>
+        </div>
+      </section>
+      <section class="card"><div class="section-head"><div><h2>What was checked</h2><p class="muted" style="margin:4px 0 0;font-size:13px">Every signal comes from the public register. Open “How it's scored” to see the exact rule.</p></div></div>
+        ${h.signals.slice().sort((a, b) => b.points - a.points || ({ bad: 0, warn: 1, info: 2, ok: 3 }[a.tone] - { bad: 0, warn: 1, info: 2, ok: 3 }[b.tone])).map((s, i) => `
+          <div class="sig t-${s.tone}"><span class="ic"></span><div><h3>${esc(s.title)}</h3><div class="f">${esc(s.finding)}</div></div><div class="pts">${s.points ? '+' + s.points : '0'}</div>
+            <details${i === 0 && s.points ? ' open' : ''}><summary>How it's scored${s.evidence.length ? ' · ' + s.evidence.length + ' item' + (s.evidence.length > 1 ? 's' : '') + ' on record' : ''}</summary><div class="rule">${esc(s.rule)}</div>${s.evidence.length ? `<ul>${s.evidence.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>` : ''}</details></div>`).join('')}
+      </section>
+      <section class="card fine"><b style="color:var(--ink-700)">What this is, and isn't.</b> It's a plain reading of the Companies House record, scored with fixed rules: 0 to 14 points is low concern, 15 to 39 some concern, 40 or more high concern. It isn't a credit score, it doesn't see bank accounts, court judgments (CCJs) or trading, and it says nothing about the people involved. Filing dates are checked against the usual deadlines, and Companies House can allow extensions.
+        <ul><li>Filing history checked: ${vm.filings.loaded < vm.filings.total ? 'the latest ' + vm.filings.loaded + ' of ' + vm.filings.total.toLocaleString('en-GB') : 'all ' + vm.filings.total} filings.</li><li>Accounts figures: ${series(acc).length ? 'read from tagged (iXBRL) accounts' : 'none machine-readable'}.</li></ul></section>`;
+    document.title = vm.name + ' · Prosper health';
+  }
+  function show() {
+    $('co').value = st.co; const u = new URL(location.href); u.searchParams.set('co', st.co); history.replaceState(null, '', u);
+    render(window.CH_FIXTURES[st.co], (window.CH_ACCOUNTS || {})[st.co], false);
+  }
+  $('co').onchange = () => { st.co = $('co').value; show(); };
+  $('liveForm').onsubmit = async (e) => {
+    e.preventDefault(); const n = $('liveNo').value.trim(); if (!n) return;
+    if (!Live.getKey()) { $('out').innerHTML = '<div class="empty">Live look-ups need your own Companies House API key. Add it under Settings in the card prototype; it is stored only in this browser.</div>'; return; }
+    $('out').innerHTML = '<div class="status">Loading from Companies House…</div>';
+    try {
+      const raw = await Live.company(n); render(raw, null, true);
+      const acc = await LiveAccounts.accounts(raw.profile.company_number).catch(() => null); if (acc) render(raw, acc, true);
+    } catch (err) { $('out').innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
+  };
+  show();
+})();
+</script>
+</body>
+</html>
