@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Prosper · Daily digest</title>
+<link rel="stylesheet" href="../cards/styles.css">
+<script src="../../fonts.js"></script><script src="../cards/fonts-inject.js"></script><script src="../cards/theme.js"></script>
+<script src="../cards/fixtures.js"></script><script src="new-fixture.js"></script>
+<script src="../cards/normalise.js"></script><script src="../cards/components.js"></script><script src="digest.js"></script>
+<style>
+  .al { max-width: 1280px; margin: 0 auto; padding: 24px 24px 80px; display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 24px; align-items: start; }
+  .al aside { position: sticky; top: 76px; display: grid; gap: 16px; }
+  .al .card { padding: 18px 20px; }
+  .al h2 { font-size: var(--fs-md); margin-bottom: 10px; }
+  .al label.row { display: flex; gap: 10px; align-items: flex-start; font-size: var(--fs-sm); padding: 5px 0; color: var(--ink-800); cursor: pointer; }
+  .al label.row small { display: block; color: var(--ink-500); font-size: var(--fs-xs); }
+  .al .fld { display: grid; gap: 4px; font-size: var(--fs-xs); color: var(--ink-500); margin-bottom: 10px; }
+  .al .seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+  .al .seg button { border: 0; white-space: nowrap; background: var(--surface); padding: 6px 10px; font: inherit; font-size: var(--fs-xs); color: var(--ink-600); cursor: pointer; } .al .seg button.on { background: var(--accent-700); color: var(--on-accent); }
+  .demo { font-size: var(--fs-xs); color: var(--ink-600); background: var(--surface-sunk); border-radius: var(--r-md); padding: 10px 12px; line-height: 1.5; }
+  .inbox { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; box-shadow: var(--sh-1); }
+  .inbox .meta { padding: 14px 20px; border-bottom: 1px solid var(--line-soft); display: grid; grid-template-columns: 70px 1fr auto; gap: 4px 12px; font-size: var(--fs-sm); }
+  .inbox .meta dt { color: var(--ink-500); } .inbox .meta dd { margin: 0; color: var(--ink-900); } .inbox .meta .subj { font-weight: 600; }
+  .inbox .tools { display: flex; gap: 8px; align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--line-soft); background: var(--surface-sunk); }
+  .frame-wrap { background: #f4f5f7; display: flex; justify-content: center; }
+  iframe { border: 0; width: 100%; height: 1400px; display: block; background: #f4f5f7; transition: width .2s; }
+  iframe.mobile { width: 390px; }
+  pre.txt { margin: 0; padding: 20px; font: 12.5px/1.55 ui-monospace, Menlo, monospace; white-space: pre-wrap; color: var(--ink-800); }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <a class="wordmark" href="../">Prosper</a><span class="tag">Daily digest</span><span class="grow"></span>
+  <span class="pill plain">Demo · nothing is sent</span>
+  <button class="btn ghost sm" id="themeBtn">Dark</button>
+</div>
+<main class="al">
+  <aside>
+    <section class="card"><h2>Digest</h2>
+      <div class="fld">Delivered<b style="color:var(--ink-900);font-size:var(--fs-sm)">Every day at 7:00 (UK time)</b></div>
+      <div class="fld">Preview date<input class="input" type="date" id="date" value="2026-10-24"></div>
+      <div class="fld">Watched changes window<div class="seg" id="win"><button data-w="1">Yesterday</button><button data-w="7">7 days</button><button data-w="30">30 days</button><button data-w="90">90 days</button></div></div>
+      <div class="demo">The saved examples were captured on 25 Oct 2026, so the preview looks back 90 days to show real changes. The live digest would cover only the day before.</div>
+    </section>
+    <section class="card"><h2>Watched companies</h2><div id="watch"></div></section>
+    <section class="card"><h2>Saved searches</h2><div id="srch"></div><div class="demo" style="margin-top:8px">New companies are real incorporations from 22 and 23 Oct 2026 (Companies House advanced search).</div></section>
+  </aside>
+  <section>
+    <div class="inbox">
+      <dl class="meta"><dt>From</dt><dd>Prosper &lt;digest@prosper.example&gt;</dd><dd class="muted" id="when"></dd><dt>Subject</dt><dd class="subj" id="subj"></dd><dd></dd><dt>Preview</dt><dd class="muted" id="pre" style="grid-column:2/4"></dd></dl>
+      <div class="tools"><div class="seg" id="view"><button data-v="desktop" class="on">Desktop</button><button data-v="mobile">Mobile</button><button data-v="text">Plain text</button></div><span class="grow" style="flex:1"></span><button class="btn sm" id="dl">Download .html</button></div>
+      <div class="frame-wrap" id="fw"><iframe id="frame" title="Email preview" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe></div>
+    </div>
+  </section>
+</main>
+<script>
+(function () {
+  'use strict';
+  Normalise.setEnums(window.CH_ENUMS); Theme.button(document.getElementById('themeBtn'));
+  const $ = (id) => document.getElementById(id), esc = Cards.esc;
+  const q = new URLSearchParams(location.search);
+  const st = { win: +(q.get('win') || 90), view: q.get('view') || 'desktop', watch: new Set(window.CH_INDEX.map((c) => c.n)), srch: new Set([0, 1]), last: null };
+  const SEARCHES = [
+    { name: 'Greater Manchester (M postcodes)', desc: 'Any industry', match: (i) => /^M\d/.test((i.address || {}).postal_code || '') },
+    { name: 'Software and IT (SIC 620xx)', desc: 'Anywhere in the UK', match: (i) => i.sic.some((s) => /^620/.test(s)) },
+    { name: 'Property (SIC 68xxx)', desc: 'Anywhere in the UK', match: (i) => i.sic.some((s) => /^68/.test(s)) },
+  ];
+  const vms = Object.fromEntries(window.CH_INDEX.map((c) => [c.n, { raw: window.CH_FIXTURES[c.n], vm: Normalise.company(window.CH_FIXTURES[c.n]) }]));
+  $('watch').innerHTML = window.CH_INDEX.map((c) => `<label class="row"><input type="checkbox" data-n="${c.n}" checked><span>${esc(vms[c.n].vm.name)}<small>${esc(c.n)} · ${esc(vms[c.n].vm.status.label)}</small></span></label>`).join('');
+  $('srch').innerHTML = SEARCHES.map((s, i) => `<label class="row"><input type="checkbox" data-i="${i}" ${st.srch.has(i) ? 'checked' : ''}><span>${esc(s.name)}<small>${esc(s.desc)}</small></span></label>`).join('');
+  const appUrl = new URL('../', location.href).href;
+  function run() {
+    document.querySelectorAll('#win button').forEach((b) => b.classList.toggle('on', +b.dataset.w === st.win));
+    document.querySelectorAll('#view button').forEach((b) => b.classList.toggle('on', b.dataset.v === st.view));
+    const d = Digest.build({ date: $('date').value || '2026-10-24', windowDays: st.win, watched: [...st.watch].map((n) => vms[n]), searches: SEARCHES.filter((_, i) => st.srch.has(i)), newItems: window.ALERT_NEW.items, sic: window.ALERT_NEW.sic, appUrl });
+    st.last = d;
+    $('subj').textContent = d.subject; $('pre').textContent = d.preheader;
+    $('when').textContent = new Date(($('date').value || '2026-10-24') + 'T07:00:00').toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ' (UK time)';
+    if (st.view === 'text') { $('fw').innerHTML = `<pre class="txt">${esc(d.text)}</pre>`; return; }
+    if (!$('frame')) $('fw').innerHTML = '<iframe id="frame" title="Email preview" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe>';
+    const f = $('frame'); f.className = st.view === 'mobile' ? 'mobile' : ''; f.srcdoc = d.html;
+    const fit = () => { try { f.style.height = '200px'; f.style.height = (f.contentDocument.documentElement.scrollHeight + 4) + 'px'; } catch (e) { /* sandboxed */ } };
+    f.onload = () => { fit(); setTimeout(fit, 250); };
+  }
+  $('win').onclick = (e) => { if (e.target.dataset.w) { st.win = +e.target.dataset.w; run(); } };
+  $('view').onclick = (e) => { if (e.target.dataset.v) { st.view = e.target.dataset.v; run(); } };
+  $('date').onchange = run;
+  $('watch').onchange = (e) => { const n = e.target.dataset.n; e.target.checked ? st.watch.add(n) : st.watch.delete(n); run(); };
+  $('srch').onchange = (e) => { const i = +e.target.dataset.i; e.target.checked ? st.srch.add(i) : st.srch.delete(i); run(); };
+  $('dl').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([st.last.html], { type: 'text/html' })); a.download = 'prosper-digest-' + ($('date').value || '') + '.html'; a.click(); };
+  run();
+})();
+</script>
+</body>
+</html>
