@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Prosper · Company card prototype</title>
+<link rel="stylesheet" href="styles.css">
+<script src="../../fonts.js"></script>
+<script src="fixtures.js"></script>
+<script src="normalise.js"></script>
+<script src="components.js"></script>
+<script src="layouts.js"></script>
+<script src="live.js"></script>
+</head>
+<body>
+<div class="topbar">
+  <a class="wordmark" href="../">Prosper</a><span class="tag">Company card prototype</span>
+  <span class="grow"></span>
+  <select class="input" id="co" aria-label="Company"></select>
+  <form id="liveForm" style="display:flex;gap:6px"><input class="input" id="liveNo" placeholder="Company number" style="width:150px" aria-label="Live company number"><button class="btn">Look up</button></form>
+  <div class="seg" role="group" aria-label="Layout" id="lay">
+    <button data-l="A" aria-pressed="false">A · Stacked</button><button data-l="B" aria-pressed="false">B · Bento</button><button data-l="C" aria-pressed="false">C · Tabbed</button>
+  </div>
+  <button class="btn ghost sm" id="settingsBtn">Settings</button>
+</div>
+<main class="page" id="out"></main>
+<div class="dialog" id="settings" hidden><div class="card">
+  <h3 style="font-size:16px;margin-bottom:6px">Settings</h3>
+  <p class="muted" style="font-size:13px;margin:0 0 14px">Your Companies House API key is used for live look-ups. It is stored only in this browser and shared with the Prosper app on this site. Without a key the prototype shows saved example companies.</p>
+  <input class="input" id="keyIn" type="password" autocomplete="off" placeholder="Companies House API key" style="width:100%">
+  <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px"><button class="btn ghost" id="keyClear">Remove key</button><button class="btn" id="keyCancel">Cancel</button><button class="btn primary" id="keySave">Save</button></div>
+</div></div>
+<script>
+(function () {
+  'use strict';
+  // Embedded fonts (Inter text, DM Sans 700 wordmark), same files as the app.
+  try {
+    const css = [];
+    const f = interFonts(); for (const w in f) css.push(`@font-face{font-family:'Inter';font-weight:${w};font-display:swap;src:url(data:font/woff2;base64,${f[w]}) format('woff2')}`);
+    css.push(`@font-face{font-family:'DM Sans Display';font-weight:700;src:url(data:font/woff2;base64,${dmDisplayFont()}) format('woff2')}`);
+    const s = document.createElement('style'); s.textContent = css.join('\n'); document.head.appendChild(s);
+  } catch (e) { /* system fonts */ }
+  Normalise.setEnums(window.CH_ENUMS);
+  const $ = (id) => document.getElementById(id);
+  const q = new URLSearchParams(location.search);
+  const st = { co: q.get('co') || '00445790', layout: (q.get('layout') || 'A').toUpperCase(), raw: null };
+  $('co').innerHTML = CH_INDEX.map((c) => `<option value="${c.n}">${Cards.esc(c.label)} · ${Cards.esc(c.name)}</option>`).join('');
+  const sync = () => { const u = new URL(location.href); u.searchParams.set('co', st.co); u.searchParams.set('layout', st.layout); history.replaceState(null, '', u); };
+  function render() {
+    const raw = st.raw || CH_FIXTURES[st.co]; if (!raw) { $('out').innerHTML = '<div class="empty">Unknown company.</div>'; return; }
+    const vm = Normalise.company(raw);
+    $('out').innerHTML = Layouts[st.layout](vm);
+    document.title = vm.name + ' · Prosper card ' + st.layout;
+    for (const b of $('lay').children) b.setAttribute('aria-pressed', String(b.dataset.l === st.layout));
+    if (CH_FIXTURES[st.co]) $('co').value = st.co;
+    wireTabs(); sync();
+  }
+  function wireTabs() {
+    const nav = document.querySelector('[data-tabs]'); if (!nav) return;
+    const links = [...nav.querySelectorAll('a')];
+    const obs = new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting) for (const l of links) l.classList.toggle('on', l.getAttribute('href') === '#' + e.target.id); }, { rootMargin: '-120px 0px -60% 0px' });
+    links.forEach((l) => { const t = document.querySelector(l.getAttribute('href')); if (t) obs.observe(t); });
+  }
+  $('co').onchange = () => { st.co = $('co').value; st.raw = null; render(); };
+  $('lay').onclick = (e) => { const l = e.target.dataset.l; if (l) { st.layout = l; render(); } };
+  $('liveForm').onsubmit = async (e) => {
+    e.preventDefault(); const n = $('liveNo').value.trim(); if (!n) return;
+    if (!Live.getKey()) { $('settings').hidden = false; return; }
+    $('out').innerHTML = '<div class="empty">Loading from Companies House…</div>';
+    try { st.raw = await Live.company(n); st.co = st.raw.profile.company_number; render(); } catch (err) { $('out').innerHTML = `<div class="empty">${Cards.esc(err.message)}</div>`; }
+  };
+  $('settingsBtn').onclick = () => { $('keyIn').value = ''; $('keyIn').placeholder = Live.getKey() ? 'Key saved (enter a new one to replace it)' : 'Companies House API key'; $('settings').hidden = false; };
+  $('keyCancel').onclick = () => { $('settings').hidden = true; };
+  $('keySave').onclick = () => { if ($('keyIn').value.trim()) Live.setKey($('keyIn').value); $('settings').hidden = true; };
+  $('keyClear').onclick = () => { Live.setKey(''); $('settings').hidden = true; };
+  render();
+})();
+</script>
+</body>
+</html>

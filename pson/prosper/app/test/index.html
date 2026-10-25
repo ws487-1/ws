@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex">
+<title>Prosper · Prototypes</title>
+<link rel="stylesheet" href="cards/styles.css">
+<script src="../fonts.js"></script><script src="cards/fonts-inject.js"></script>
+<style>
+  .wrap { max-width: 860px; margin: 0 auto; padding: 48px 24px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+  .grid a.tile { display: block; color: inherit; transition: box-shadow var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+  .grid a.tile:hover { text-decoration: none; box-shadow: var(--sh-2); border-color: var(--ink-200); }
+  .grid h3 { font-size: var(--fs-md); margin-bottom: 4px; } .grid p { margin: 0; font-size: var(--fs-sm); color: var(--ink-600); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="wordmark">Prosper</div>
+  <h1 style="font-size:24px;margin-top:20px">Prototypes</h1>
+  <p class="muted">Work-in-progress experiments. These are not the live app and may change or disappear. The app itself is at <a href="../">wills.im/pson/prosper/app/</a>.</p>
+  <div class="grid">
+    <a class="tile" href="cards/"><h3>Company card</h3><p>One company, one card: all the Companies House data in three layout options (stacked, bento, tabbed).</p></a>
+    <a class="tile" href="design/"><h3>Design system</h3><p>Colour, type, spacing, radius and shadow tokens, components, light and dark themes.</p></a>
+    <a class="tile" href="visuals/"><h3>Visuals</h3><p>Officer and ownership network, filing timeline and accounts trend.</p></a>
+    <a class="tile" href="health/"><h3>Company health</h3><p>A plain-English read of how risky a company looks, with each signal explained.</p></a>
+    <a class="tile" href="new-companies/"><h3>New companies</h3><p>Recently incorporated companies.</p></a>
+    <a class="tile" href="tools/"><h3>Tools</h3><p>Free SEO and lookup tools.</p></a>
+    <a class="tile" href="contacts/"><h3>Contact details</h3><p>Contact-details pipeline experiments.</p></a>
+  </div>
+</div>
+</body>
+</html>
