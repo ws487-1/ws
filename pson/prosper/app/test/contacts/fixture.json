@@ -1,0 +1,600 @@
+{
+ "ranOn": "2026-10-25",
+ "note": "Test run of pipeline/contacts.js on real small UK companies. Websites marked “web search” were found by a manual search standing in for stage 3.",
+ "results": [
+  {
+   "company": {
+    "number": "11019980",
+    "name": "STRETTO ARCHITECTS LIMITED",
+    "status": "active",
+    "type": "ltd",
+    "incorporated": "2017-10-18",
+    "sic": [
+     "71111"
+    ],
+    "office": {
+     "line1": "Georges House 9-10 Bath Street",
+     "line2": "Redcliffe",
+     "town": "Bristol",
+     "postcode": "BS1 6HL",
+     "premises": ""
+    },
+    "source": "https://find-and-update.company-information.service.gov.uk/company/11019980"
+   },
+   "website": {
+    "website": "https://www.strettoarchitects.co.uk/",
+    "confidence": "Confirmed",
+    "proofs": [
+     "legal name “STRETTO ARCHITECTS LIMITED” (/about-us)",
+     "registered office postcode BS1 6HL (/about-us)"
+    ],
+    "brandOnly": false,
+    "pagesRead": [
+     "https://www.strettoarchitects.co.uk/",
+     "https://www.strettoarchitects.co.uk/about-us"
+    ],
+    "phones": [
+     {
+      "value": "0117 456 9300",
+      "source": "https://www.strettoarchitects.co.uk/about-us"
+     }
+    ],
+    "emails": [
+     {
+      "value": "contact@strettoarchitects.co.uk",
+      "source": "https://www.strettoarchitects.co.uk/about-us",
+      "sameDomain": true
+     }
+    ],
+    "addresses": [
+     {
+      "value": "9-10 Bath Street, Redcliffe, Bristol, BS1 6HL",
+      "postcode": "BS1 6HL",
+      "source": "https://www.strettoarchitects.co.uk/about-us"
+     }
+    ],
+    "personalSkipped": 0,
+    "foundBy": "domain guess"
+   },
+   "stagesRun": [
+    "companies-house",
+    "website"
+   ],
+   "checkedAt": "2026-10-25T15:02:08.385Z"
+  },
+  {
+   "company": {
+    "number": "10177605",
+    "name": "STUDIO KUNZE LIMITED",
+    "status": "active",
+    "type": "ltd",
+    "incorporated": "2016-05-12",
+    "sic": [
+     "74100"
+    ],
+    "office": {
+     "line1": "21 Dawson Terrace",
+     "line2": "",
+     "town": "Brighton",
+     "postcode": "BN2 0EL",
+     "premises": ""
+    },
+    "source": "https://find-and-update.company-information.service.gov.uk/company/10177605"
+   },
+   "website": {
+    "website": "https://www.studiokunze.com/",
+    "confidence": "Unverified",
+    "proofs": [],
+    "brandOnly": true,
+    "pagesRead": [
+     "https://www.studiokunze.com/",
+     "https://www.studiokunze.com/",
+     "https://www.studiokunze.com/about"
+    ],
+    "phones": [],
+    "emails": [
+     {
+      "value": "info@studiokunze.com",
+      "source": "https://www.studiokunze.com/about",
+      "sameDomain": true
+     }
+    ],
+    "addresses": [
+     {
+      "value": "Studio 4, 20 Regent Street, Brighton, BN1 1UX",
+      "postcode": "BN1 1UX",
+      "source": "https://www.studiokunze.com/about"
+     }
+    ],
+    "personalSkipped": 0,
+    "foundBy": "domain guess"
+   },
+   "stagesRun": [
+    "companies-house",
+    "website"
+   ],
+   "checkedAt": "2026-10-25T15:02:11.730Z"
+  },
+  {
+   "company": {
+    "number": "10744135",
+    "name": "OLD SCHOOL LTD",
+    "status": "active",
+    "type": "ltd",
+    "incorporated": "2017-04-27",
+    "sic": [
+     "56101"
+    ],
+    "office": {
+     "line1": "62 Low Petergate",
+     "line2": "",
+     "town": "York",
+     "postcode": "YO1 7HZ",
+     "premises": ""
+    },
+    "source": "https://find-and-update.company-information.service.gov.uk/company/10744135"
+   },
+   "website": {
+    "website": "https://www.oldschool.com/",
+    "confidence": "Unverified",
+    "proofs": [],
+    "brandOnly": true,
+    "pagesRead": [
+     "https://www.oldschool.com/",
+     "https://www.oldschool.com/pages/contact",
+     "https://www.oldschool.com/policies/privacy-policy",
+     "https://www.oldschool.com/policies/terms-of-service"
+    ],
+    "phones": [],
+    "emails": [
+     {
+      "value": "sales@oldschool.com",
+      "source": "https://www.oldschool.com/policies/privacy-policy",
+      "sameDomain": true
+     }
+    ],
+    "addresses": [],
+    "personalSkipped": 0,
+    "foundBy": "domain guess"
+   },
+   "stagesRun": [
+    "companies-house",
+    "website"
+   ],
+   "checkedAt": "2026-10-25T15:02:20.349Z"
+  },
+  {
+   "company": {
+    "number": "10965696",
+    "name": "PRACTICE PILOT LTD",
+    "status": "active",
+    "type": "ltd",
+    "incorporated": "2017-09-15",
+    "sic": [
+     "86230"
+    ],
+    "office": {
+     "line1": "Suite G2 The Business Centre",
+     "line2": "Cardiff House, Cardiff Road",
+     "town": "Barry",
+     "postcode": "CF63 2AW",
+     "premises": ""
+    },
+    "source": "https://find-and-update.company-information.service.gov.uk/company/10965696"
+   },
+   "website": {
+    "website": "https://practicepilot.co.uk/",
+    "confidence": "Unverified",
+    "proofs": [],
+    "brandOnly": true,
+    "pagesRead": [
+     "https://practicepilot.co.uk/",
+     "https://practicepilot.co.uk/contact/",
+     "https://practicepilot.co.uk/contact/",
+     "https://practicepilot.co.uk/about/"
+    ],
+    "phones": [],
+    "emails": [
+     {
+      "value": "hello@practicepilot.co.uk",
+      "source": "https://practicepilot.co.uk/",
+      "sameDomain": true
+     },
+     {
+      "value": "info@practicepilot.co.uk",
+      "source": "https://practicepilot.co.uk/",
+      "sameDomain": true
+     }
+    ],
+    "addresses": [],
+    "personalSkipped": 0,
+    "foundBy": "domain guess"
+   },
+   "stagesRun": [
+    "companies-house",
+    "website"
+   ],
+   "checkedAt": "2026-10-25T15:02:28.569Z"
+  },
+  {
+   "company": {
+    "number": "09749821",
+    "name": "SUPREME HEATING SOLUTIONS LTD",
+    "status": "active",
+    "type": "ltd",
+    "incorporated": "2015-08-26",
+    "sic": [
+     "43220"
+    ],
+    "office": {
+     "line1": "25-29 Sandy Way Yeadon",
+     "line2": "",
+     "town": "Leeds",
+     "postcode": "LS19 7EW",
+     "premises": ""
+    },
+    "source": "https://find-and-update.company-information.service.gov.uk/company/09749821"
+   },
+   "website": null,
+   "stagesRun": [
+    "companies-house",
+    "website"
+   ],
+   "checkedAt": "2026-10-25T15:02:36.058Z"
+  },
+  {
+   "company": {
+    "number": "08802579",
+    "name": "EMMETT RUSSELL ARCHITECTS LTD",
+    "status": "active",
+    "type": "ltd",
+    "incorporated": "2013-12-04",
+    "sic": [
+     "71111"
+    ],
+    "office": {
+     "line1": "1 St Andrews Road",
+     "line2": "Montpelier",
+     "town": "Bristol",
+     "postcode": "BS6 5EH",
+     "premises": ""
+    },
+    "source": "https://find-and-update.company-information.service.gov.uk/company/08802579"
+   },
+   "website": {
+    "website": "https://emmettrussell.co.uk/",
+    "confidence": "Likely",
+    "proofs": [
+     "registered office postcode BS6 5EH (/office/)"
+    ],
+    "brandOnly": false,
+    "pagesRead": [
+     "https://emmettrussell.co.uk/",
+     "https://emmettrussell.co.uk/office/"
+    ],
+    "phones": [
+     {
+      "value": "0117 907 0492",
+      "source": "https://emmettrussell.co.uk/office/"
+     }
+    ],
+    "emails": [
+     {
+      "value": "mail@emmettrussell.co.uk",
+      "source": "https://emmettrussell.co.uk/office/",
+      "sameDomain": true
+     }
+    ],
+    "addresses": [
+     {
+      "value": "Studio 6, 1 St Andrews Road, Montpelier, Bristol BS6 5EH",
+      "postcode": "BS6 5EH",
+      "source": "https://emmettrussell.co.uk/office/"
+     }
+    ],
+    "personalSkipped": 0,
+    "foundBy": "web search (manual stand-in for stage 3)"
+   },
+   "stagesRun": [
+    "companies-house",
+    "website"
+   ],
+   "checkedAt": "2026-10-25T15:02:54.849Z"
+  },
+  {
+   "company": {
+    "number": "08640892",
+    "name": "SMITH MALONEY HILLIER ARCHITECTS LIMITED",
+    "status": "active",
+    "type": "ltd",
+    "incorporated": "2013-08-06",
+    "sic": [
+     "71111"
+    ],
+    "office": {
+     "line1": "B1 Vantage Park, Old Gloucester Road",
+     "line2": "Hambrook",
+     "town": "Bristol",
+     "postcode": "BS16 1GW",
+     "premises": ""
+    },
+    "source": "https://find-and-update.company-information.service.gov.uk/company/08640892"
+   },
+   "website": {
+    "website": "https://www.smithmaloneyhillier.co.uk/",
+    "confidence": "Unverified",
+    "proofs": [],
+    "brandOnly": true,
+    "pagesRead": [
+     "https://www.smithmaloneyhillier.co.uk/",
+     "https://www.smithmaloneyhillier.co.uk/contact",
+     "https://www.smithmaloneyhillier.co.uk/studio"
+    ],
+    "phones": [
+     {
+      "value": "0117 214 0575",
+      "source": "https://www.smithmaloneyhillier.co.uk/"
+     }
+    ],
+    "emails": [
+     {
+      "value": "info@smithmaloneyhillier.co.uk",
+      "source": "https://www.smithmaloneyhillier.co.uk/",
+      "sameDomain": true
+     }
+    ],
+    "addresses": [
+     {
+      "value": "30 Vicarage Street, Frome, BA11 1PU",
+      "postcode": "BA11 1PU",
+      "source": "https://www.smithmaloneyhillier.co.uk/"
+     }
+    ],
+    "personalSkipped": 0,
+    "foundBy": "web search (manual stand-in for stage 3)"
+   },
+   "stagesRun": [
+    "companies-house",
+    "website"
+   ],
+   "checkedAt": "2026-10-25T15:02:59.454Z"
+  },
+  {
+   "company": {
+    "number": "07235607",
+    "name": "MICHAEL DRAKE ARCHITECTS LTD",
+    "status": "active",
+    "type": "ltd",
+    "incorporated": "2010-04-27",
+    "sic": [
+     "71111"
+    ],
+    "office": {
+     "line1": "83 Greenbank Road",
+     "line2": "Greenbank",
+     "town": "Bristol",
+     "postcode": "BS5 6HE",
+     "premises": ""
+    },
+    "source": "https://find-and-update.company-information.service.gov.uk/company/07235607"
+   },
+   "website": null,
+   "stagesRun": [
+    "companies-house",
+    "website",
+    "web search (manual)"
+   ],
+   "checkedAt": "2026-10-25T15:03:04.543Z",
+   "note": "A website was found by web search, but it did not respond (timeout or no DNS) when checked."
+  },
+  {
+   "company": {
+    "number": "07177000",
+    "name": "SIX GABLES DENTAL PRACTICE LIMITED",
+    "status": "active",
+    "type": "ltd",
+    "incorporated": "2010-03-03",
+    "sic": [
+     "86230"
+    ],
+    "office": {
+     "line1": "Six Gables 27a Penlline Road",
+     "line2": "Whitchurch",
+     "town": "Cardiff",
+     "postcode": "CF14 2AA",
+     "premises": ""
+    },
+    "source": "https://find-and-update.company-information.service.gov.uk/company/07177000"
+   },
+   "website": {
+    "website": "https://sixgablesdental.co.uk/",
+    "confidence": "Confirmed",
+    "proofs": [
+     "legal name “SIX GABLES DENTAL PRACTICE LIMITED” (home page, /contact-us/, /privacy-policy/, /terms-of-use/)",
+     "registered office postcode CF14 2AA (home page, /contact-us/, /privacy-policy/, /terms-of-use/)"
+    ],
+    "brandOnly": false,
+    "pagesRead": [
+     "https://sixgablesdental.co.uk/",
+     "https://sixgablesdental.co.uk/contact-us/",
+     "https://sixgablesdental.co.uk/privacy-policy/",
+     "https://sixgablesdental.co.uk/terms-of-use/"
+    ],
+    "phones": [
+     {
+      "value": "029 2069 3664",
+      "source": "https://sixgablesdental.co.uk/"
+     }
+    ],
+    "emails": [
+     {
+      "value": "info@sixgablesdentalpractice.com",
+      "source": "https://sixgablesdental.co.uk/contact-us/",
+      "sameDomain": false
+     },
+     {
+      "value": "enquiries@sixgables.co.uk",
+      "source": "https://sixgablesdental.co.uk/privacy-policy/",
+      "sameDomain": false
+     }
+    ],
+    "addresses": [
+     {
+      "value": "27A Penlline Road, Cardiff, South Glamorgan, CF14 2AA",
+      "postcode": "CF14 2AA",
+      "source": "https://sixgablesdental.co.uk/"
+     }
+    ],
+    "personalSkipped": 0,
+    "foundBy": "web search (manual stand-in for stage 3)"
+   },
+   "stagesRun": [
+    "companies-house",
+    "website"
+   ],
+   "checkedAt": "2026-10-25T15:04:00.860Z"
+  },
+  {
+   "company": {
+    "number": "07908231",
+    "name": "ROTHLEY LODGE DENTAL CARE LTD",
+    "status": "active",
+    "type": "ltd",
+    "incorporated": "2012-01-12",
+    "sic": [
+     "86230"
+    ],
+    "office": {
+     "line1": "Suite G2 The Business Centre",
+     "line2": "Cardiff House, Cardiff Road",
+     "town": "Barry",
+     "postcode": "CF63 2AW",
+     "premises": ""
+    },
+    "source": "https://find-and-update.company-information.service.gov.uk/company/07908231"
+   },
+   "website": {
+    "website": "https://www.rothleylodgedentalpractice.co.uk/",
+    "confidence": "Confirmed",
+    "proofs": [
+     "legal name “ROTHLEY LODGE DENTAL CARE LTD” (/privacy-policy/, /terms-of-use/)",
+     "company number 07908231 (/terms-of-use/)"
+    ],
+    "brandOnly": false,
+    "pagesRead": [
+     "https://www.rothleylodgedentalpractice.co.uk/",
+     "https://www.rothleylodgedentalpractice.co.uk/how-to-find-us/",
+     "https://www.rothleylodgedentalpractice.co.uk/privacy-policy/",
+     "https://www.rothleylodgedentalpractice.co.uk/terms-of-use/"
+    ],
+    "phones": [
+     {
+      "value": "01784 453448",
+      "source": "https://www.rothleylodgedentalpractice.co.uk/"
+     }
+    ],
+    "emails": [
+     {
+      "value": "info@rothleylodgedentalpractice.co.uk",
+      "source": "https://www.rothleylodgedentalpractice.co.uk/",
+      "sameDomain": true
+     }
+    ],
+    "addresses": [
+     {
+      "value": "15 Cherry Orchard, Staines, Spelthorne, TW18 2DE",
+      "postcode": "TW18 2DE",
+      "source": "https://www.rothleylodgedentalpractice.co.uk/privacy-policy/"
+     }
+    ],
+    "personalSkipped": 0,
+    "foundBy": "web search (manual stand-in for stage 3)"
+   },
+   "stagesRun": [
+    "companies-house",
+    "website"
+   ],
+   "checkedAt": "2026-10-25T15:04:07.485Z"
+  },
+  {
+   "company": {
+    "number": "07856704",
+    "name": "STEVE SWINGLER CREATIVE LIMITED",
+    "status": "active",
+    "type": "ltd",
+    "incorporated": "2011-11-22",
+    "sic": [
+     "74100"
+    ],
+    "office": {
+     "line1": "Preston Park House",
+     "line2": "South Road",
+     "town": "Brighton",
+     "postcode": "BN1 6SB",
+     "premises": ""
+    },
+    "source": "https://find-and-update.company-information.service.gov.uk/company/07856704"
+   },
+   "website": null,
+   "stagesRun": [
+    "companies-house",
+    "website",
+    "web search (manual)"
+   ],
+   "checkedAt": "2026-10-25T15:04:15.364Z",
+   "note": "A website was found by web search, but it did not respond (timeout or no DNS) when checked."
+  },
+  {
+   "company": {
+    "number": "07492411",
+    "name": "DIRECT HEATING INSTALLATIONS LIMITED",
+    "status": "active",
+    "type": "ltd",
+    "incorporated": "2011-01-13",
+    "sic": [
+     "43220"
+    ],
+    "office": {
+     "line1": "Units 7 & 8 Gelder Road",
+     "line2": "",
+     "town": "Leeds",
+     "postcode": "LS12 3UF",
+     "premises": ""
+    },
+    "source": "https://find-and-update.company-information.service.gov.uk/company/07492411"
+   },
+   "website": null,
+   "stagesRun": [
+    "companies-house",
+    "website"
+   ],
+   "checkedAt": "2026-10-25T15:04:38.927Z"
+  },
+  {
+   "company": {
+    "number": "11121997",
+    "name": "SUBTLE IMPROVEMENTS ELECTRICAL CONTRACTORS LIMITED",
+    "status": "active",
+    "type": "ltd",
+    "incorporated": "2017-12-21",
+    "sic": [
+     "43210"
+    ],
+    "office": {
+     "line1": "Unit 4 Woodbury Business Park",
+     "line2": "",
+     "town": "Exeter",
+     "postcode": "EX5 1AY",
+     "premises": ""
+    },
+    "source": "https://find-and-update.company-information.service.gov.uk/company/11121997"
+   },
+   "website": null,
+   "stagesRun": [
+    "companies-house",
+    "website"
+   ],
+   "checkedAt": "2026-10-25T15:04:57.153Z"
+  }
+ ]
+}

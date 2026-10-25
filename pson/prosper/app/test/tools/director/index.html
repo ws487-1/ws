@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Director lookup: every UK company a person runs or ran · Prosper</title>
+<meta name="description" content="Search the Companies House officers register for a director and see all their current and past appointments in one list.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../kit.css">
+<link rel="stylesheet" href="../tools.css">
+</head>
+<body data-tool="director">
+<main class="wrap">
+  <section class="hero">
+    <div class="eyebrow">Free tool · Companies House data</div>
+    <h1>See every company a director is, or was, involved with</h1>
+    <p class="lead">Type a name to search the official officers register. Companies House often holds several records for the same person, so we group records with the same name and birth month, then list current and past roles side by side.</p>
+    <div class="form"><input id="q" placeholder="Director’s full name, e.g. Deborah Meaden" autocomplete="off"><button class="btn pri" id="go" type="button">Search</button></div>
+    <p class="hint">Free, no sign-up. Uses your own Companies House API key (Settings). <a id="demo" href="#example">See a worked example</a></p>
+  </section>
+  <section class="out" id="out"></section>
+  <section class="info"><div class="note"><h3>Useful for</h3><p>Checking who you are about to do business with, spotting a history of dissolved companies, or finding a founder’s other ventures before a call.</p></div><div class="note"><h3>Where the data comes from</h3><p>The Companies House public register, read live through its free API with your own key. Records are as filed by the companies; Companies House does not verify that two records are the same person, so “likely the same person” is our grouping, not theirs.</p></div><div class="note"><h3>What we leave out</h3><p>Home and correspondence addresses, and day of birth. Companies House publishes month and year of birth only; we show it solely to tell people with the same name apart.</p></div><div class="note"><h3>Limits</h3><p>Name search returns the closest 30 matches. Very common names may need a middle name. Appointments are capped at 50 per record.</p></div></section>
+  <section class="more"><h3>Other free tools</h3><div class="tiles"><a class="tile on" href="../director/"><b>Director lookup</b><span>Search the Companies House officers register for a director and see all their current and past appointments in one list.</span></a><a class="tile" href="../company-age/"><b>Company age & status checker</b><span>Check when a UK company was incorporated, whether it is active, and whether its accounts and confirmation statement are up to date.</span></a><a class="tile" href="../address/"><b>Registered office lookup</b><span>List every company with its registered office at a UK address or postcode, active and dissolved, and spot formation-agent addresses.</span></a></div></section>
+</main>
+<script src="../../../fonts.js"></script>
+<script src="../kit.js"></script>
+<script src="../tools.js"></script>
+</body>
+</html>

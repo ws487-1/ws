@@ -1,0 +1,52 @@
+/* Prosper test prototypes: small shared tokens (own copy, consistent with the app look). */
+:root{
+  --bg:#ffffff; --panel:#fafafa; --line:#e6e6e9; --line2:#d6d6db;
+  --ink:#1d1f24; --ink2:#4a4d55; --mute:#7a7d86; --faint:#a9abb2;
+  --accent:#2f3270; --accent-soft:#eeeff8; /* inky indigo, provisional */
+  --ok:#1f7a4a; --ok-soft:#e9f5ee; --warn:#8a5a00; --warn-soft:#fbf3e2; --bad:#a33a2f; --bad-soft:#fbecea;
+  --r:8px; --r2:12px; --sh:0 1px 2px rgba(20,20,30,.05),0 4px 16px rgba(20,20,30,.05);
+  --font:'Prosper Inter',Inter,system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.01em} h1{font-size:28px;line-height:1.2} h2{font-size:18px} h3{font-size:15px}
+p{margin:0}
+.top{display:flex;align-items:center;gap:20px;height:56px;padding:0 28px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:20}
+.logo{font:700 20px/1 'Prosper Display','DM Sans',var(--font);color:var(--ink);letter-spacing:-.02em}
+.logo:hover{text-decoration:none}
+.tag{font-size:11px;font-weight:600;color:var(--mute);border:1px solid var(--line2);border-radius:99px;padding:2px 8px;text-transform:uppercase;letter-spacing:.06em}
+.nav{display:flex;gap:4px;margin-left:8px}
+.nav a{color:var(--ink2);padding:6px 10px;border-radius:6px;font-weight:500}
+.nav a:hover{background:var(--panel);text-decoration:none}
+.nav a.on{color:var(--ink);background:var(--accent-soft)}
+.sp{flex:1}
+.btn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 14px;border:1px solid var(--line2);border-radius:var(--r);background:#fff;color:var(--ink);font:500 13px var(--font);cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--panel)} .btn:disabled{opacity:.5;cursor:default}
+.btn.pri{background:var(--ink);border-color:var(--ink);color:#fff} .btn.pri:hover{background:#000}
+.btn.sm{height:28px;padding:0 10px;font-size:12px}
+.btn.ghost{border-color:transparent;background:transparent}
+.wrap{max-width:1180px;margin:0 auto;padding:28px}
+.card{border:1px solid var(--line);border-radius:var(--r2);background:#fff}
+.muted{color:var(--mute)} .small{font-size:12px} .num{font-variant-numeric:tabular-nums}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:500;color:var(--ink2)}
+input,select,textarea{font:14px var(--font);color:var(--ink);border:1px solid var(--line2);border-radius:var(--r);height:36px;padding:0 10px;background:#fff;min-width:0}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+table.t{width:100%;border-collapse:collapse}
+.t th{font-size:11px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:.05em;text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0}
+.t td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.t tr:hover td{background:#fcfcfd}
+.pill{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:500;padding:1px 8px;border-radius:99px;background:var(--panel);border:1px solid var(--line);color:var(--ink2);white-space:nowrap}
+.pill.ok{background:var(--ok-soft);border-color:#cfe8da;color:var(--ok)}
+.pill.warn{background:var(--warn-soft);border-color:#f0e0bb;color:var(--warn)}
+.pill.bad{background:var(--bad-soft);border-color:#f1cfca;color:var(--bad)}
+.pill.grey{color:var(--faint)}
+.note{border:1px solid var(--line);background:var(--panel);border-radius:var(--r2);padding:14px 16px;color:var(--ink2);font-size:13px}
+.note b{color:var(--ink)}
+dialog{border:1px solid var(--line);border-radius:14px;padding:0;width:min(520px,94vw);box-shadow:0 20px 60px rgba(0,0,0,.18);color:var(--ink)}
+dialog::backdrop{background:rgba(20,22,30,.28)}
+.dlg-h{display:flex;align-items:center;padding:16px 20px;border-bottom:1px solid var(--line)}
+.dlg-b{padding:18px 20px;display:flex;flex-direction:column;gap:14px}
+.dlg-f{display:flex;gap:8px;justify-content:flex-end;padding:14px 20px;border-top:1px solid var(--line)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;z-index:99;box-shadow:var(--sh)}
+.foot{border-top:1px solid var(--line);margin-top:48px;padding:22px 28px;color:var(--mute);font-size:12px;display:flex;gap:16px;flex-wrap:wrap}

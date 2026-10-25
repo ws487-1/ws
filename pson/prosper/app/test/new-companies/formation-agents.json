@@ -1,0 +1,97 @@
+{
+ "built": "2026-10-25",
+ "sample": "Companies House advanced search, incorporated 19-23 Oct 2026, 10,000 of 12,763 results",
+ "threshold": 20,
+ "addresses": [
+  {
+   "postcode": "WC2H 9JQ",
+   "label": "71-75 Shelton Street, London",
+   "seen": 373
+  },
+  {
+   "postcode": "EC1V 2NX",
+   "label": "128 City Road, London",
+   "seen": 344
+  },
+  {
+   "postcode": "EC2A 4NA",
+   "label": "66 Paul Street, London",
+   "seen": 203
+  },
+  {
+   "postcode": "W1W 5PF",
+   "label": "167-169 Great Portland Street, London",
+   "seen": 115
+  },
+  {
+   "postcode": "IP28 7DE",
+   "label": "James Carter Road, Mildenhall",
+   "seen": 107
+  },
+  {
+   "postcode": "N1 7GU",
+   "label": "20 Wenlock Road, London",
+   "seen": 94
+  },
+  {
+   "postcode": "M40 8WN",
+   "label": "Wilsons Business Park, Manchester",
+   "seen": 72
+  },
+  {
+   "postcode": "E6 2JA",
+   "label": "182-184 High Street North, East Ham",
+   "seen": 61
+  },
+  {
+   "postcode": "E1 0SG",
+   "label": "5 Brayford Square, London",
+   "seen": 44
+  },
+  {
+   "postcode": "E17 3NU",
+   "label": "195-197 Wood Street, London",
+   "seen": 44
+  },
+  {
+   "postcode": "E1 5NF",
+   "label": "4-6 Greatorex Street, London",
+   "seen": 40
+  },
+  {
+   "postcode": "WV6 0SR",
+   "label": "85 Dunstall Hill, Wolverhampton",
+   "seen": 36
+  },
+  {
+   "postcode": "HA4 7AE",
+   "label": "College House, 17 King Edwards Road, Ruislip",
+   "seen": 29
+  },
+  {
+   "postcode": "WC1N 3AX",
+   "label": "27 Old Gloucester Street, London",
+   "seen": 29
+  },
+  {
+   "postcode": "DN6 8DA",
+   "label": "43 Owston Road, Carcroft, Doncaster",
+   "seen": 24
+  },
+  {
+   "postcode": "M12 6AE",
+   "label": "Piccadilly Business Centre, Blackett Street, Manchester",
+   "seen": 22
+  },
+  {
+   "postcode": "HR5 3DJ",
+   "label": "61 Bridge Street, Kington",
+   "seen": 22
+  },
+  {
+   "postcode": "EH2 4AN",
+   "label": "5 South Charlotte Street, Edinburgh",
+   "seen": 20
+  }
+ ]
+}

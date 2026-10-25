@@ -1,0 +1,30 @@
+.intro{display:grid;grid-template-columns:1.3fr 1fr;gap:32px;align-items:start;margin-top:8px}
+.intro h1{font-size:28px;letter-spacing:-.02em}
+.intro .lead{color:var(--ink2);margin-top:8px;font-size:15px;max-width:620px}
+.legend{border:1px solid var(--line);border-radius:var(--r2);padding:14px 16px;display:grid;gap:9px;font-size:12.5px;color:var(--ink2)}
+.legend .pill{min-width:84px;justify-content:center;margin-right:6px}
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);border:1px solid var(--line);border-radius:var(--r2);margin-top:22px}
+.kpis>div{padding:14px 18px;border-right:1px solid var(--line)} .kpis>div:last-child{border-right:0}
+.kpis .v{font-size:22px;font-weight:600;letter-spacing:-.02em} .kpis .l{font-size:12px;color:var(--mute)}
+.bar{display:flex;align-items:center;gap:12px;margin:20px 0 12px}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:#fff;padding:7px 12px;font:inherit;font-size:13px;color:var(--ink2);cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0} .seg button.on{background:var(--ink);color:#fff}
+.saved{margin-left:auto;font-size:12.5px;color:var(--mute)}
+.co{border:1px solid var(--line);border-radius:var(--r2);margin-bottom:14px;display:grid;grid-template-columns:330px 1fr;overflow:hidden}
+.co .ch{padding:16px 18px;background:var(--panel);border-right:1px solid var(--line)}
+.co .ch .nm{font-weight:600;font-size:15px} .co .ch .sub{font-size:12.5px;color:var(--mute);margin-top:2px}
+.co .ch .ro{margin-top:12px;font-size:13px} .co .ch .k{font-size:11px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px}
+.co .ch a.src{font-size:12px}
+.co .web{padding:16px 18px}
+.co .wh{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.co .wh a{font-weight:600}
+.co .proof{font-size:12.5px;color:var(--ink2);margin-top:6px}
+.co .items{display:grid;grid-template-columns:90px 1fr;gap:6px 14px;margin-top:12px;font-size:13.5px}
+.co .items .k{color:var(--mute);font-size:12.5px;padding-top:1px}
+.co .items .v a.s{font-size:11.5px;color:var(--mute);margin-left:8px}
+.co .none{color:var(--mute);font-size:13.5px;margin-top:6px}
+.co .foot2{margin-top:12px;font-size:11.5px;color:var(--mute)}
+.co.grey .web{opacity:.5}
+.how{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:26px}
+.how .note h3{font-size:14px;margin-bottom:6px}

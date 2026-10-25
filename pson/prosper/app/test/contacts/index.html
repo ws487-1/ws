@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Contact details · Prosper prototype</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="contacts.css">
+</head>
+<body>
+<main class="wrap">
+  <section class="intro">
+    <div>
+      <h1>Contact details</h1>
+      <p class="lead">For each company we start from the Companies House record, find the company’s own website, check that it really is theirs, and keep only the phone, email and address the business publishes, with the page it came from.</p>
+    </div>
+    <div class="legend">
+      <div><span class="pill ok">Confirmed</span> The site shows the company number, or the legal name and registered postcode.</div>
+      <div><span class="pill warn">Likely</span> The site shows the legal name or the registered postcode, but not both.</div>
+      <div><span class="pill grey">Not verified</span> A site with the trading name only. Shown greyed; do not rely on it.</div>
+    </div>
+  </section>
+  <section class="kpis" id="kpis"></section>
+  <section class="bar">
+    <div class="seg" id="seg"></div>
+    <span class="saved" id="saved"></span>
+  </section>
+  <section id="list"></section>
+  <section class="how">
+    <div class="note"><h3>How the live version runs</h3><p>On a server, not in your browser: browsers cannot read other companies’ websites, and the server keeps one polite queue. It reads robots.txt first and skips anything disallowed, waits 1.5 seconds between pages on a site, reads at most four pages (home, contact, about, privacy or terms), and stores only the result with its source links. Stage 3, a web search when the website cannot be found by its name, is off unless you add a Serper key in Settings; each search costs one Serper credit.</p></div>
+    <div class="note"><h3>What we collect, and what we don’t</h3><p>Only business contact details the company publishes about itself: switchboard numbers, role addresses such as info@ or sales@, and trading addresses. Named-person emails and mobile numbers are skipped, because they are personal data. Sole traders are not on the Companies House register, so they are never looked up. Any email sent to these addresses must still follow PECR: say who you are and give an easy opt-out.</p></div>
+  </section>
+</main>
+<script src="../../fonts.js"></script>
+<script src="kit.js"></script>
+<script src="contacts.js"></script>
+</body>
+</html>
