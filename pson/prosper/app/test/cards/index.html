@@ -7,6 +7,7 @@
 <title>Prosper · Company card prototype</title>
 <link rel="stylesheet" href="styles.css">
 <script src="../../fonts.js"></script>
+<script src="theme.js"></script>
 <script src="fixtures.js"></script>
 <script src="normalise.js"></script>
 <script src="components.js"></script>
@@ -22,6 +23,7 @@
   <div class="seg" role="group" aria-label="Layout" id="lay">
     <button data-l="A" aria-pressed="false">A · Stacked</button><button data-l="B" aria-pressed="false">B · Bento</button><button data-l="C" aria-pressed="false">C · Tabbed</button>
   </div>
+  <button class="btn ghost sm" id="themeBtn" aria-label="Toggle dark theme">Dark</button>
   <button class="btn ghost sm" id="settingsBtn">Settings</button>
 </div>
 <main class="page" id="out"></main>
@@ -63,6 +65,7 @@
     links.forEach((l) => { const t = document.querySelector(l.getAttribute('href')); if (t) obs.observe(t); });
   }
   $('co').onchange = () => { st.co = $('co').value; st.raw = null; render(); };
+  Theme.button($('themeBtn'));
   $('lay').onclick = (e) => { const l = e.target.dataset.l; if (l) { st.layout = l; render(); } };
   $('liveForm').onsubmit = async (e) => {
     e.preventDefault(); const n = $('liveNo').value.trim(); if (!n) return;
