@@ -1,27 +1,117 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8">
-<title>TV</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Channel</title>
+<style>
+  :root { --bg:#0f1115; --panel:#181b22; --text:#eceef2; --muted:#9097a3; --line:#2a2e38; --accent:#4c8dff; }
+  body.light { --bg:#f4f5f7; --panel:#ffffff; --text:#14161a; --muted:#6a7280; --line:#dde0e6; --accent:#2563eb; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  .wrap { max-width:960px; margin:0 auto; padding:20px 16px 40px; }
+  header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  h1 { font-size:18px; margin:0; font-weight:600; }
+  .live { display:inline-block; font-size:12px; font-weight:600; padding:2px 8px; border-radius:99px; background:#e5484d; color:#fff; margin-left:8px; vertical-align:middle; }
+  button { font:inherit; color:var(--text); background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 14px; cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  .screen { position:relative; width:100%; aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden; }
+  .screen iframe, .screen #player { position:absolute; inset:0; width:100%; height:100%; border:0; pointer-events:none; }
+  #start { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
+           background:rgba(0,0,0,.65); color:#fff; font-size:20px; cursor:pointer; border:0; border-radius:0; width:100%; }
+  #start small { font-size:14px; opacity:.8; }
+  #msg { position:absolute; inset:0; display:none; align-items:center; justify-content:center; text-align:center; padding:24px; background:rgba(0,0,0,.8); color:#fff; }
+  .now { margin-top:14px; }
+  .now .title { font-size:20px; font-weight:600; }
+  .now .sub { color:var(--muted); font-size:14px; }
+  .bar { height:4px; background:var(--line); border-radius:4px; margin-top:10px; overflow:hidden; }
+  .bar > div { height:100%; width:0; background:var(--accent); }
+  .controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-top:14px; }
+  .controls input[type=range] { width:140px; accent-color:var(--accent); }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-top:16px; }
+  .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 8px; font-weight:600; }
+  ol { list-style:none; margin:0; padding:0; }
+  li { display:flex; justify-content:space-between; gap:12px; padding:6px 0; border-top:1px solid var(--line); }
+  li:first-child { border-top:0; }
+  li .t { color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  #settings { display:none; }
+  #settings label { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-top:1px solid var(--line); gap:12px; }
+  #settings label:first-of-type { border-top:0; }
+  input[type=checkbox] { width:18px; height:18px; accent-color:var(--accent); }
+  .hide { display:none !important; }
+</style>
 </head>
 <body>
-<div id="player"></div>
-<p id="now"></p>
-<button id="unmute">Unmute</button>
+<div class="wrap">
+  <header>
+    <h1>Channel <span class="live">LIVE</span></h1>
+    <button id="settingsBtn">Settings</button>
+  </header>
+
+  <div class="screen" id="screen">
+    <div id="player"></div>
+    <button id="start">Click to watch<small>Starts with sound</small></button>
+    <div id="msg"></div>
+  </div>
+
+  <div class="now">
+    <div class="title" id="title">Loading...</div>
+    <div class="sub" id="sub"></div>
+    <div class="bar" id="barWrap"><div id="bar"></div></div>
+  </div>
+
+  <div class="controls">
+    <button id="mute">Mute</button>
+    <input type="range" id="vol" min="0" max="100" value="80" aria-label="Volume">
+    <button id="fs">Fullscreen</button>
+  </div>
+
+  <div class="card" id="settings">
+    <h2>Settings</h2>
+    <label>Light theme <input type="checkbox" id="optLight"></label>
+    <label>Show up next <input type="checkbox" id="optNext"></label>
+    <label>Show progress bar <input type="checkbox" id="optBar"></label>
+    <label>Use 24-hour clock <input type="checkbox" id="opt24"></label>
+    <label>Re-sync to the live schedule <button id="resync">Re-sync</button></label>
+  </div>
+
+  <div class="card" id="nextCard">
+    <h2>Up next</h2>
+    <ol id="next"></ol>
+  </div>
+</div>
 
 <script>
-// EDIT THIS LIST. id = YouTube video ID, duration = length in seconds.
-// These are placeholder entries: replace with your own videos and real durations.
+/* ================= EDIT THIS LIST =================
+   id       = YouTube video ID
+   duration = length in seconds (must be accurate: the schedule depends on it)
+   title    = shown on the page                                              */
 const VIDEOS = [
-  { id: "dQw4w9WgXcQ", duration: 213 },
-  { id: "9bZkp7q19f0", duration: 252 },
-  { id: "kJQP7kiw5Fk", duration: 282 },
+  { id: "DXCtYUtjDYU", duration: 243, title: "MJ Cole - Sincere ft. Jay Dee, Nova Caspar" },
+  { id: "uURB-vo9rZ4", duration: 234, title: "Daft Punk - Revolution 909" },
+  { id: "esqRBsVumrw", duration: 233, title: "Jungle - Candle Flame (feat. Erick The Architect)" },
+  { id: "tmozGmGoJuw", duration: 266, title: "MGMT - When You Die" },
+  { id: "fsTz-M6YevQ", duration: 196, title: "Pogo - The Boss" },
 ];
 
-// Fixed start time of the "channel". Don't change it once live,
-// or the schedule will jump.
+/* The channel "started" at this moment. Never change it once live,
+   or everyone's schedule jumps. */
 const EPOCH = Date.UTC(2026, 0, 1);
 
+/* ---------- time: use the server's clock, not the visitor's ---------- */
+let clockOffset = 0; // server time minus local time, in ms
+async function syncClock() {
+  try {
+    const t0 = Date.now();
+    const r = await fetch(location.pathname + "?t=" + t0, { method: "HEAD", cache: "no-store" });
+    const t1 = Date.now();
+    const d = r.headers.get("Date");
+    if (d) clockOffset = new Date(d).getTime() + (t1 - t0) / 2 - t1;
+  } catch (e) { /* fall back to local clock */ }
+}
+const now = () => Date.now() + clockOffset;
+
+/* ---------- schedule ---------- */
 function mulberry32(a) {
   return function () {
     a |= 0; a = (a + 0x6D2B79F5) | 0;
@@ -30,9 +120,7 @@ function mulberry32(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-
-// Each full loop through the list uses a different shuffled order.
-function orderForCycle(cycle) {
+function orderForCycle(cycle) { // each loop through the list has its own shuffled order
   const rand = mulberry32(cycle + 1);
   const list = VIDEOS.slice();
   for (let i = list.length - 1; i > 0; i--) {
@@ -41,90 +129,151 @@ function orderForCycle(cycle) {
   }
   return list;
 }
-
 const TOTAL = VIDEOS.reduce((s, v) => s + v.duration, 0);
 
-// What should be playing right now, and how far in. skip = number of
-// videos to skip ahead (used when one fails to load).
-function nowPlaying(skip = 0) {
-  let t = (Date.now() - EPOCH) / 1000;
-  let cycle = Math.floor(t / TOTAL);
+// Returns what is on now: the video, how far in (seconds), and its start time (ms).
+function scheduleAt(ms) {
+  const t = (ms - EPOCH) / 1000;
+  const cycle = Math.floor(t / TOTAL);
   let offset = t - cycle * TOTAL;
-  let order = orderForCycle(cycle);
+  const order = orderForCycle(cycle);
   let i = 0;
-  while (i < order.length - 1 && offset >= order[i].duration) {
-    offset -= order[i].duration;
-    i++;
+  while (i < order.length - 1 && offset >= order[i].duration) { offset -= order[i].duration; i++; }
+  return { video: order[i], offset, startMs: ms - offset * 1000, cycle, index: i };
+}
+// The next `count` videos after the one that is on now.
+function upcoming(count) {
+  const out = [];
+  let cur = scheduleAt(now());
+  let t = cur.startMs + cur.video.duration * 1000;
+  while (out.length < count) {
+    const s = scheduleAt(t + 1);
+    out.push({ video: s.video, at: s.startMs });
+    t = s.startMs + s.video.duration * 1000;
   }
-  let startedAt = Date.now() - offset * 1000;
-  for (let k = 0; k < skip; k++) {
-    startedAt += order[i].duration * 1000;
-    i++;
-    if (i >= order.length) {
-      cycle++;
-      order = orderForCycle(cycle);
-      i = 0;
-    }
-    offset = 0;
-  }
-  return { video: order[i], offset: skip ? 0 : offset, index: i, cycle };
+  return out;
 }
 
-let player, timer, skip = 0, lastLoad = 0, failures = 0, stopped = false;
-const MIN_GAP = 3000; // never load a new video more often than every 3s
+/* ---------- settings (saved in the browser) ---------- */
+const defaults = { light: false, next: true, bar: true, h24: true, volume: 80, muted: false };
+const settings = Object.assign({}, defaults, JSON.parse(localStorage.getItem("channelSettings") || "{}"));
+const save = () => localStorage.setItem("channelSettings", JSON.stringify(settings));
+const $ = (id) => document.getElementById(id);
+
+function applySettings() {
+  document.body.classList.toggle("light", settings.light);
+  $("nextCard").classList.toggle("hide", !settings.next);
+  $("barWrap").classList.toggle("hide", !settings.bar);
+  $("optLight").checked = settings.light;
+  $("optNext").checked = settings.next;
+  $("optBar").checked = settings.bar;
+  $("opt24").checked = settings.h24;
+  $("vol").value = settings.volume;
+  $("mute").textContent = settings.muted ? "Unmute" : "Mute";
+  if (player && player.setVolume) {
+    player.setVolume(settings.volume);
+    if (started) settings.muted ? player.mute() : player.unMute();
+  }
+}
+$("optLight").onchange = (e) => { settings.light = e.target.checked; save(); applySettings(); };
+$("optNext").onchange = (e) => { settings.next = e.target.checked; save(); applySettings(); };
+$("optBar").onchange = (e) => { settings.bar = e.target.checked; save(); applySettings(); };
+$("opt24").onchange = (e) => { settings.h24 = e.target.checked; save(); renderNext(); };
+$("vol").oninput = (e) => { settings.volume = +e.target.value; settings.muted = settings.volume === 0; save(); applySettings(); };
+$("mute").onclick = () => { settings.muted = !settings.muted; save(); applySettings(); };
+$("settingsBtn").onclick = () => { const s = $("settings"); s.style.display = s.style.display === "block" ? "none" : "block"; };
+$("fs").onclick = () => { const el = $("screen"); (document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen && el.requestFullscreen()); };
+$("resync").onclick = () => { skip = 0; failures = 0; stopped = false; $("msg").style.display = "none"; lastLoad = 0; play(); };
+
+/* ---------- display ---------- */
+const fmtTime = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: !settings.h24 });
+const fmtDur = (s) => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+
+function renderNext() {
+  $("next").innerHTML = upcoming(4).map((u) =>
+    "<li><span>" + esc(u.video.title) + "</span><span class='t'>" + fmtTime(u.at) + "</span></li>").join("");
+}
+function esc(s) { return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+let current = null; // { video, startMs }
+function renderNow() {
+  if (!current) return;
+  const elapsed = Math.max(0, (now() - current.startMs) / 1000);
+  const d = current.video.duration;
+  $("title").textContent = current.video.title;
+  $("sub").textContent = fmtDur(Math.min(elapsed, d)) + " / " + fmtDur(d);
+  $("bar").style.width = Math.min(100, (elapsed / d) * 100) + "%";
+}
+setInterval(renderNow, 500);
+
+/* ---------- player ---------- */
+let player, timer, skip = 0, lastLoad = 0, failures = 0, stopped = false, started = false;
+const MIN_GAP = 3000;   // never load a new video more often than every 3s
 const MAX_FAILURES = 5; // give up after this many failures in a row
-const status = (msg) => { document.getElementById("now").textContent = msg; };
+
+function showMsg(text) { $("msg").textContent = text; $("msg").style.display = "flex"; }
 
 function play() {
   clearTimeout(timer);
-  if (stopped) return;
-  // Rate limit: if we loaded something very recently, wait before the next load.
+  if (stopped || !player) return;
   const wait = lastLoad + MIN_GAP - Date.now();
   if (wait > 0) { timer = setTimeout(play, wait); return; }
   lastLoad = Date.now();
-  const n = nowPlaying(skip);
-  status("Now playing: " + n.video.id + " (" + (n.index + 1) + "/" + VIDEOS.length + ")");
-  player.loadVideoById({ videoId: n.video.id, startSeconds: Math.floor(n.offset) });
-  const remaining = Math.max(n.video.duration - n.offset, 1);
-  // When the scheduled slot ends, re-sync to the schedule.
-  timer = setTimeout(() => { skip = 0; play(); }, remaining * 1000 + 500);
+
+  let s = scheduleAt(now());
+  let offset = s.offset, video = s.video, startMs = s.startMs;
+  if (skip > 0) { // current video failed or ended early: use the next one in the schedule
+    const nx = upcoming(skip)[skip - 1];
+    video = nx.video; startMs = nx.at; offset = Math.max(0, (now() - nx.at) / 1000);
+  }
+  current = { video, startMs };
+  renderNow(); renderNext();
+  player.loadVideoById({ videoId: video.id, startSeconds: Math.floor(offset) });
+  const remaining = Math.max(video.duration - offset, 1);
+  timer = setTimeout(() => { skip = 0; play(); }, remaining * 1000 + 500); // re-sync when this slot ends
 }
 
 function onYouTubeIframeAPIReady() {
-  const n = nowPlaying();
+  const s = scheduleAt(now());
   player = new YT.Player("player", {
-    width: 640,
-    height: 360,
-    videoId: n.video.id,
     host: "https://www.youtube-nocookie.com",
-    playerVars: {
-      autoplay: 1, mute: 1, controls: 0, disablekb: 1, playsinline: 1,
-      origin: location.origin, start: Math.floor(n.offset),
-    },
+    videoId: s.video.id,
+    playerVars: { autoplay: 1, mute: 1, controls: 0, disablekb: 1, playsinline: 1, rel: 0, modestbranding: 1,
+                  origin: location.origin, start: Math.floor(s.offset) },
     events: {
-      onReady: () => { play(); },
+      onReady: () => { player.setVolume(settings.volume); play(); },
       onStateChange: (e) => {
         if (e.data === YT.PlayerState.PLAYING) failures = 0;
-        // Video ended before its slot did (duration in the list is too long): go to the next one.
-        if (e.data === YT.PlayerState.ENDED) { skip++; play(); }
+        if (e.data === YT.PlayerState.ENDED) { skip++; play(); } // ended before its slot did
       },
       onError: (e) => {
         failures++;
         if (failures >= MAX_FAILURES) {
-          stopped = true;
-          clearTimeout(timer);
-          status("Stopped: YouTube error " + e.data + ". 101/150/153 = embedding blocked or page opened as a local file (needs http/https).");
+          stopped = true; clearTimeout(timer);
+          showMsg("Can't play right now (YouTube error " + e.data + "). Tap Settings > Re-sync to try again.");
           return;
         }
-        skip++; // deleted or embed-blocked: try the next one (rate limited by MIN_GAP)
-        play();
+        skip++; play();
       },
     },
   });
 }
 
-document.getElementById("unmute").onclick = () => { player.unMute(); player.setVolume(100); };
+$("start").onclick = () => { // a click is needed before browsers allow sound
+  started = true;
+  $("start").classList.add("hide");
+  settings.muted ? player.mute() : player.unMute();
+  player.setVolume(settings.volume);
+  player.playVideo();
+};
+
+applySettings();
+syncClock().then(() => {
+  renderNext();
+  const tag = document.createElement("script");
+  tag.src = "https://www.youtube.com/iframe_api";
+  document.body.appendChild(tag);
+});
 </script>
-<script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>
