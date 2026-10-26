@@ -120,12 +120,20 @@ function mulberry32(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-function orderForCycle(cycle) { // each loop through the list has its own shuffled order
+function rawShuffle(cycle) {
   const rand = mulberry32(cycle + 1);
   const list = VIDEOS.slice();
   for (let i = list.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
     [list[i], list[j]] = [list[j], list[i]];
+  }
+  return list;
+}
+function orderForCycle(cycle) { // each loop through the list has its own shuffled order
+  const list = rawShuffle(cycle);
+  // avoid the same video playing twice in a row across two loops
+  if (VIDEOS.length > 2 && list[0].id === rawShuffle(cycle - 1).slice(-1)[0].id) {
+    [list[0], list[1]] = [list[1], list[0]];
   }
   return list;
 }
