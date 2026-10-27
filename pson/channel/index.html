@@ -16,7 +16,13 @@
   button { font:inherit; color:var(--text); background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 14px; cursor:pointer; }
   button:hover { border-color:var(--accent); }
   .screen { position:relative; width:100%; aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden; }
-  .screen iframe, .screen #player { position:absolute; inset:0; width:100%; height:100%; border:0; pointer-events:none; }
+  .screen { isolation:isolate; }
+  .crop { position:absolute; inset:0; overflow:hidden; }
+  .crop iframe, .crop #player { position:absolute; inset:0; width:100%; height:100%; border:0; pointer-events:none; }
+  .crop.zoom iframe, .crop.zoom #player { transform:scale(1.3); transform-origin:center; }
+  #cover { position:absolute; inset:0; background:#000; opacity:1; transition:opacity .6s ease; pointer-events:none; z-index:2; }
+  #cover.off { opacity:0; }
+  #start, #msg { z-index:3; }
   #start { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px;
            background:rgba(0,0,0,.65); color:#fff; font-size:20px; cursor:pointer; border:0; border-radius:0; width:100%; }
   #start small { font-size:14px; opacity:.8; }
@@ -49,7 +55,8 @@
   </header>
 
   <div class="screen" id="screen">
-    <div id="player"></div>
+    <div class="crop zoom" id="crop"><div id="player"></div></div>
+    <div id="cover"></div>
     <button id="start">Click to watch<small>Starts with sound</small></button>
     <div id="msg"></div>
   </div>
@@ -69,6 +76,7 @@
   <div class="card" id="settings">
     <h2>Settings</h2>
     <label>Light theme <input type="checkbox" id="optLight"></label>
+    <label>Hide YouTube overlays (crops the edges)<input type="checkbox" id="optZoom"></label>
     <label>Show up next <input type="checkbox" id="optNext"></label>
     <label>Show progress bar <input type="checkbox" id="optBar"></label>
     <label>Use 24-hour clock <input type="checkbox" id="opt24"></label>
@@ -163,7 +171,7 @@ function upcoming(count) {
 }
 
 /* ---------- settings (saved in the browser) ---------- */
-const defaults = { light: false, next: true, bar: true, h24: true, volume: 80, muted: false };
+const defaults = { zoom: true, light: false, next: true, bar: true, h24: true, volume: 80, muted: false };
 const settings = Object.assign({}, defaults, JSON.parse(localStorage.getItem("channelSettings") || "{}"));
 const save = () => localStorage.setItem("channelSettings", JSON.stringify(settings));
 const $ = (id) => document.getElementById(id);
@@ -172,6 +180,8 @@ function applySettings() {
   document.body.classList.toggle("light", settings.light);
   $("nextCard").classList.toggle("hide", !settings.next);
   $("barWrap").classList.toggle("hide", !settings.bar);
+  $("crop").classList.toggle("zoom", settings.zoom);
+  $("optZoom").checked = settings.zoom;
   $("optLight").checked = settings.light;
   $("optNext").checked = settings.next;
   $("optBar").checked = settings.bar;
@@ -183,6 +193,7 @@ function applySettings() {
     if (started) settings.muted ? player.mute() : player.unMute();
   }
 }
+$("optZoom").onchange = (e) => { settings.zoom = e.target.checked; save(); applySettings(); };
 $("optLight").onchange = (e) => { settings.light = e.target.checked; save(); applySettings(); };
 $("optNext").onchange = (e) => { settings.next = e.target.checked; save(); applySettings(); };
 $("optBar").onchange = (e) => { settings.bar = e.target.checked; save(); applySettings(); };
@@ -219,6 +230,15 @@ let player, timer, skip = 0, lastLoad = 0, failures = 0, stopped = false, starte
 const MIN_GAP = 3000;   // never load a new video more often than every 3s
 const MAX_FAILURES = 5; // give up after this many failures in a row
 
+// A black cover hides the player while a video loads, and for the first few
+// seconds of each video (when YouTube shows its title/channel overlay).
+let coverTimer;
+function coverOn() { clearTimeout(coverTimer); $("cover").classList.remove("off"); }
+function coverOffSoon(ms) { clearTimeout(coverTimer); coverTimer = setTimeout(() => $("cover").classList.add("off"), ms); }
+function captionsOff() {
+  try { player.unloadModule("captions"); player.unloadModule("cc"); } catch (e) {}
+}
+
 function showMsg(text) { $("msg").textContent = text; $("msg").style.display = "flex"; }
 
 function play() {
@@ -227,6 +247,7 @@ function play() {
   const wait = lastLoad + MIN_GAP - Date.now();
   if (wait > 0) { timer = setTimeout(play, wait); return; }
   lastLoad = Date.now();
+  coverOn();
 
   let s = scheduleAt(now());
   let offset = s.offset, video = s.video, startMs = s.startMs;
@@ -247,14 +268,19 @@ function onYouTubeIframeAPIReady() {
     host: "https://www.youtube-nocookie.com",
     videoId: s.video.id,
     playerVars: { autoplay: 1, mute: 1, controls: 0, disablekb: 1, playsinline: 1, rel: 0, modestbranding: 1,
+                  cc_load_policy: 0, iv_load_policy: 3, fs: 0, color: "white",
                   origin: location.origin, start: Math.floor(s.offset) },
     events: {
       onReady: () => { player.setVolume(settings.volume); play(); },
       onStateChange: (e) => {
-        if (e.data === YT.PlayerState.PLAYING) failures = 0;
+        if (e.data === YT.PlayerState.PLAYING) { failures = 0; captionsOff(); coverOffSoon(4000); }
+        // paused, buffering or ended: hide the player so no YouTube UI shows
+        else if (e.data !== YT.PlayerState.UNSTARTED) coverOn();
+        if (e.data === YT.PlayerState.PAUSED) player.playVideo();
         if (e.data === YT.PlayerState.ENDED) { skip++; play(); } // ended before its slot did
       },
       onError: (e) => {
+        coverOn();
         failures++;
         if (failures >= MAX_FAILURES) {
           stopped = true; clearTimeout(timer);
