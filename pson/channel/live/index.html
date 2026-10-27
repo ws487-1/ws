@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Channel</title>
+<style>
+  html, body { margin:0; height:100%; background:#000; overflow:hidden; cursor:none; }
+  #player, iframe { position:fixed; inset:0; width:100vw; height:100vh; border:0; pointer-events:none; }
+</style>
+</head>
+<body>
+<div id="player"></div>
+<script src="/pson/channel/engine.js"></script>
+<script>
+const channel = Channel.create({ playerEl: "player", volume: 100, muted: false });
+// Sound switches on at the first click, tap or key press (browsers require this).
+["pointerdown", "keydown", "touchstart"].forEach((ev) =>
+  document.addEventListener(ev, () => channel.userInteracted(), { once: true }));
+</script>
+</body>
+</html>

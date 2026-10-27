@@ -36,6 +36,10 @@
   li:first-child { border-top:0; }
   li .t { color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
   #settings { display:none; }
+  .listedit { border-top:1px solid var(--line); padding-top:10px; margin-top:4px; }
+  .listedit .sub { color:var(--muted); font-size:13px; margin-bottom:6px; }
+  textarea { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px; font:13px/1.4 ui-monospace,Menlo,Consolas,monospace; resize:vertical; }
+  .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; }
   #settings label { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-top:1px solid var(--line); gap:12px; }
   #settings label:first-of-type { border-top:0; }
   input[type=checkbox] { width:18px; height:18px; accent-color:var(--accent); }
@@ -74,6 +78,12 @@
     <label>Show progress bar <input type="checkbox" id="optBar"></label>
     <label>Use 24-hour clock <input type="checkbox" id="opt24"></label>
     <label>Re-sync to the live schedule <button id="resync">Re-sync</button></label>
+    <div class="listedit">
+      <div class="sub">Videos: paste YouTube links or IDs, one per line. Saved in this browser only, so a custom list won't match the shared schedule.</div>
+      <textarea id="ids" rows="6" spellcheck="false"></textarea>
+      <div class="row"><button id="saveIds">Save list</button><button id="resetIds">Use default list</button><span class="sub" id="idsInfo"></span></div>
+      <div class="sub" id="skipped"></div>
+    </div>
   </div>
 
   <div class="card" id="nextCard">
@@ -82,93 +92,16 @@
   </div>
 </div>
 
+<script src="engine.js"></script>
 <script>
-/* ================= EDIT THIS LIST =================
-   id       = YouTube video ID
-   duration = length in seconds (must be accurate: the schedule depends on it)
-   title    = shown on the page                                              */
-const VIDEOS = [
-  { id: "DXCtYUtjDYU", duration: 243, title: "MJ Cole - Sincere ft. Jay Dee, Nova Caspar" },
-  { id: "uURB-vo9rZ4", duration: 234, title: "Daft Punk - Revolution 909" },
-  { id: "esqRBsVumrw", duration: 233, title: "Jungle - Candle Flame (feat. Erick The Architect)" },
-  { id: "tmozGmGoJuw", duration: 266, title: "MGMT - When You Die" },
-  { id: "fsTz-M6YevQ", duration: 196, title: "Pogo - The Boss" },
-];
-
-/* The channel "started" at this moment. Never change it once live,
-   or everyone's schedule jumps. */
-const EPOCH = Date.UTC(2026, 0, 1);
-
-/* ---------- time: use the server's clock, not the visitor's ---------- */
-let clockOffset = 0; // server time minus local time, in ms
-async function syncClock() {
-  try {
-    const t0 = Date.now();
-    const r = await fetch(location.pathname + "?t=" + t0, { method: "HEAD", cache: "no-store" });
-    const t1 = Date.now();
-    const d = r.headers.get("Date");
-    if (d) clockOffset = new Date(d).getTime() + (t1 - t0) / 2 - t1;
-  } catch (e) { /* fall back to local clock */ }
-}
-const now = () => Date.now() + clockOffset;
-
-/* ---------- schedule ---------- */
-function mulberry32(a) {
-  return function () {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-function rawShuffle(cycle) {
-  const rand = mulberry32(cycle + 1);
-  const list = VIDEOS.slice();
-  for (let i = list.length - 1; i > 0; i--) {
-    const j = Math.floor(rand() * (i + 1));
-    [list[i], list[j]] = [list[j], list[i]];
-  }
-  return list;
-}
-function orderForCycle(cycle) { // each loop through the list has its own shuffled order
-  const list = rawShuffle(cycle);
-  // avoid the same video playing twice in a row across two loops
-  if (VIDEOS.length > 2 && list[0].id === rawShuffle(cycle - 1).slice(-1)[0].id) {
-    [list[0], list[1]] = [list[1], list[0]];
-  }
-  return list;
-}
-const TOTAL = VIDEOS.reduce((s, v) => s + v.duration, 0);
-
-// Returns what is on now: the video, how far in (seconds), and its start time (ms).
-function scheduleAt(ms) {
-  const t = (ms - EPOCH) / 1000;
-  const cycle = Math.floor(t / TOTAL);
-  let offset = t - cycle * TOTAL;
-  const order = orderForCycle(cycle);
-  let i = 0;
-  while (i < order.length - 1 && offset >= order[i].duration) { offset -= order[i].duration; i++; }
-  return { video: order[i], offset, startMs: ms - offset * 1000, cycle, index: i };
-}
-// The next `count` videos after the one that is on now.
-function upcoming(count) {
-  const out = [];
-  let cur = scheduleAt(now());
-  let t = cur.startMs + cur.video.duration * 1000;
-  while (out.length < count) {
-    const s = scheduleAt(t + 1);
-    out.push({ video: s.video, at: s.startMs });
-    t = s.startMs + s.video.duration * 1000;
-  }
-  return out;
-}
+const $ = (id) => document.getElementById(id);
 
 /* ---------- settings (saved in the browser) ---------- */
 const defaults = { light: false, next: true, bar: true, h24: true, volume: 80, muted: false };
 const settings = Object.assign({}, defaults, JSON.parse(localStorage.getItem("channelSettings") || "{}"));
 const save = () => localStorage.setItem("channelSettings", JSON.stringify(settings));
-const $ = (id) => document.getElementById(id);
 
+let channel = null;
 function applySettings() {
   document.body.classList.toggle("light", settings.light);
   $("nextCard").classList.toggle("hide", !settings.next);
@@ -179,10 +112,7 @@ function applySettings() {
   $("opt24").checked = settings.h24;
   $("vol").value = settings.volume;
   $("mute").textContent = settings.muted ? "Unmute" : "Mute";
-  if (player && player.setVolume) {
-    player.setVolume(settings.volume);
-    if (started) settings.muted ? player.mute() : player.unMute();
-  }
+  if (channel) channel.setAudio(settings.volume, settings.muted);
 }
 $("optLight").onchange = (e) => { settings.light = e.target.checked; save(); applySettings(); };
 $("optNext").onchange = (e) => { settings.next = e.target.checked; save(); applySettings(); };
@@ -192,22 +122,40 @@ $("vol").oninput = (e) => { settings.volume = +e.target.value; settings.muted = 
 $("mute").onclick = () => { settings.muted = !settings.muted; save(); applySettings(); };
 $("settingsBtn").onclick = () => { const s = $("settings"); s.style.display = s.style.display === "block" ? "none" : "block"; };
 $("fs").onclick = () => { const el = $("screen"); (document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen && el.requestFullscreen()); };
-$("resync").onclick = () => { skip = 0; failures = 0; stopped = false; $("msg").style.display = "none"; lastLoad = 0; play(); };
+$("resync").onclick = () => channel && channel.resync();
+
+/* ---------- video list editor ---------- */
+$("ids").value = Channel.getCustomText() || Channel.DEFAULT_IDS.join("\n");
+function updateIdsInfo() {
+  const n = Channel.parseIds($("ids").value).length;
+  $("idsInfo").textContent = n + " video" + (n === 1 ? "" : "s") + " found";
+}
+$("ids").oninput = updateIdsInfo;
+updateIdsInfo();
+$("saveIds").onclick = () => {
+  const text = $("ids").value;
+  if (!Channel.parseIds(text).length) { $("idsInfo").textContent = "No valid YouTube IDs or links found."; return; }
+  // saving the default list again just clears the custom one
+  const same = Channel.parseIds(text).join() === Channel.DEFAULT_IDS.join();
+  Channel.setCustomText(same ? "" : text);
+  location.reload();
+};
+$("resetIds").onclick = () => { Channel.setCustomText(""); location.reload(); };
 
 /* ---------- display ---------- */
 const fmtTime = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: !settings.h24 });
 const fmtDur = (s) => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 function renderNext() {
-  $("next").innerHTML = upcoming(4).map((u) =>
+  if (!channel || !channel.videos().length) return;
+  $("next").innerHTML = channel.upcoming(4).map((u) =>
     "<li><span>" + esc(u.video.title) + "</span><span class='t'>" + fmtTime(u.at) + "</span></li>").join("");
 }
-function esc(s) { return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
-
-let current = null; // { video, startMs }
+let current = null;
 function renderNow() {
-  if (!current) return;
-  const elapsed = Math.max(0, (now() - current.startMs) / 1000);
+  if (!current || !channel) return;
+  const elapsed = Math.max(0, (channel.now() - current.startMs) / 1000);
   const d = current.video.duration;
   $("title").textContent = current.video.title;
   $("sub").textContent = fmtDur(Math.min(elapsed, d)) + " / " + fmtDur(d);
@@ -215,94 +163,32 @@ function renderNow() {
 }
 setInterval(renderNow, 500);
 
-/* ---------- player ---------- */
-const bad = new Set(); // videos that failed to play in this visit
-let player, timer, skip = 0, lastLoad = 0, failures = 0, stopped = false, started = false;
-const MIN_GAP = 3000;   // never load a new video more often than every 3s
-const MAX_FAILURES = 5; // give up after this many failures in a row
-
-function captionsOff() {
-  try { player.unloadModule("captions"); player.unloadModule("cc"); } catch (e) {}
+function showMsg(text) {
+  $("msg").textContent = text || "";
+  $("msg").style.display = text ? "flex" : "none";
 }
 
-function showMsg(text) { $("msg").textContent = text; $("msg").style.display = "flex"; }
-
-function play() {
-  clearTimeout(timer);
-  if (stopped || !player) return;
-  const wait = lastLoad + MIN_GAP - Date.now();
-  if (wait > 0) { timer = setTimeout(play, wait); return; }
-  lastLoad = Date.now();
-
-  const s = scheduleAt(now());
-  let video = s.video, offset = s.offset, startMs = s.startMs;
-  // If this video is one we already know can't play (or ended early), use the next playable one.
-  let k = skip;
-  let cand = k === 0 ? { video: s.video, at: s.startMs } : upcoming(k)[k - 1];
-  let guard = 0;
-  while (bad.has(cand.video.id) && guard++ < VIDEOS.length) { k++; cand = upcoming(k)[k - 1]; }
-  if (k > 0) { video = cand.video; offset = 0; startMs = now(); }
-  current = { video, startMs };
-  renderNow(); renderNext();
-  player.loadVideoById({ videoId: video.id, startSeconds: Math.floor(offset) });
-  const remaining = Math.max(video.duration - offset, 1);
-  timer = setTimeout(() => { skip = 0; play(); }, remaining * 1000 + 500); // re-sync when this slot ends
-}
-
-function onYouTubeIframeAPIReady() {
-  const s = scheduleAt(now());
-  player = new YT.Player("player", {
-    host: "https://www.youtube-nocookie.com",
-    videoId: s.video.id,
-    playerVars: { autoplay: 1, mute: 1, controls: 0, disablekb: 1, playsinline: 1, rel: 0, modestbranding: 1,
-                  cc_load_policy: 0, iv_load_policy: 3, fs: 0, color: "white",
-                  origin: location.origin, start: Math.floor(s.offset) },
-    events: {
-      onReady: () => {
-        player.setVolume(settings.volume);
-        if (started) { settings.muted ? player.mute() : player.unMute(); }
-        play();
-      },
-      onStateChange: (e) => {
-        if (e.data === YT.PlayerState.PLAYING) { failures = 0; captionsOff(); }
-        if (e.data === YT.PlayerState.PAUSED) player.playVideo();
-        if (e.data === YT.PlayerState.ENDED) { skip++; play(); } // ended before its slot did
-      },
-      onError: (e) => {
-              if (current) bad.add(current.video.id);
-        skip = 0;
-        failures++;
-        if (failures >= MAX_FAILURES) {
-          stopped = true; clearTimeout(timer);
-          showMsg("Can't play right now (YouTube error " + e.data + "). Use Settings > Re-sync to try again.");
-          return;
-        }
-        play();
-      },
-    },
-  });
-}
+/* ---------- start ---------- */
+channel = Channel.create({
+  playerEl: "player",
+  volume: settings.volume,
+  muted: settings.muted,
+  onStatus: (t) => { $("title").textContent = t; $("sub").textContent = ""; },
+  onNow: (cur) => { current = cur; renderNow(); renderNext(); },
+  onMessage: showMsg,
+  onSkipped: (ids) => {
+    $("skipped").textContent = ids.length ? "Couldn't load " + ids.length + " video(s), so they're left out for you: " + ids.join(", ") : "";
+  },
+});
+applySettings();
 
 // Browsers only allow sound after the visitor has interacted with the page,
 // so the video starts muted and sound switches on at the first click, tap or key press.
 function enableSound() {
-  if (started) return;
-  started = true;
   $("hint").classList.add("hide");
-  if (player && player.setVolume) {
-    settings.muted ? player.mute() : player.unMute();
-    player.setVolume(settings.volume);
-  }
+  channel.userInteracted();
 }
 ["pointerdown", "keydown", "touchstart"].forEach((ev) => document.addEventListener(ev, enableSound, { once: true }));
-
-applySettings();
-syncClock().then(() => {
-  renderNext();
-  const tag = document.createElement("script");
-  tag.src = "https://www.youtube.com/iframe_api";
-  document.body.appendChild(tag);
-});
 </script>
 </body>
 </html>
