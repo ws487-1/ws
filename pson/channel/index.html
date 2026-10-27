@@ -226,6 +226,7 @@ function renderNow() {
 setInterval(renderNow, 500);
 
 /* ---------- player ---------- */
+const bad = new Set(); // videos that failed to play in this visit
 let player, timer, skip = 0, lastLoad = 0, failures = 0, stopped = false, started = false;
 const MIN_GAP = 3000;   // never load a new video more often than every 3s
 const MAX_FAILURES = 5; // give up after this many failures in a row
@@ -249,12 +250,14 @@ function play() {
   lastLoad = Date.now();
   coverOn();
 
-  let s = scheduleAt(now());
-  let offset = s.offset, video = s.video, startMs = s.startMs;
-  if (skip > 0) { // current video failed or ended early: use the next one in the schedule
-    const nx = upcoming(skip)[skip - 1];
-    video = nx.video; startMs = nx.at; offset = Math.max(0, (now() - nx.at) / 1000);
-  }
+  const s = scheduleAt(now());
+  let video = s.video, offset = s.offset, startMs = s.startMs;
+  // If this video is one we already know can't play (or ended early), use the next playable one.
+  let k = skip;
+  let cand = k === 0 ? { video: s.video, at: s.startMs } : upcoming(k)[k - 1];
+  let guard = 0;
+  while (bad.has(cand.video.id) && guard++ < VIDEOS.length) { k++; cand = upcoming(k)[k - 1]; }
+  if (k > 0) { video = cand.video; offset = 0; startMs = now(); }
   current = { video, startMs };
   renderNow(); renderNext();
   player.loadVideoById({ videoId: video.id, startSeconds: Math.floor(offset) });
@@ -281,13 +284,15 @@ function onYouTubeIframeAPIReady() {
       },
       onError: (e) => {
         coverOn();
+        if (current) bad.add(current.video.id);
+        skip = 0;
         failures++;
         if (failures >= MAX_FAILURES) {
           stopped = true; clearTimeout(timer);
-          showMsg("Can't play right now (YouTube error " + e.data + "). Tap Settings > Re-sync to try again.");
+          showMsg("Can't play right now (YouTube error " + e.data + "). Use Settings > Re-sync to try again.");
           return;
         }
-        skip++; play();
+        play();
       },
     },
   });
