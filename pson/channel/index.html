@@ -5,23 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Channel</title>
 <style>
-  :root { --bg:#0f1115; --panel:#181b22; --text:#eceef2; --muted:#9097a3; --line:#2a2e38; --accent:#4c8dff; }
-  body.light { --bg:#f4f5f7; --panel:#ffffff; --text:#14161a; --muted:#6a7280; --line:#dde0e6; --accent:#2563eb; }
+  :root { --bg:#f4f5f7; --panel:#ffffff; --text:#14161a; --muted:#6a7280; --line:#dde0e6; --accent:#2563eb; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--text); font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
   .wrap { max-width:960px; margin:0 auto; padding:20px 16px 40px; }
-  header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
-  h1 { font-size:18px; margin:0; font-weight:600; }
-  .live { display:inline-block; font-size:12px; font-weight:600; padding:2px 8px; border-radius:99px; background:#e5484d; color:#fff; margin-left:8px; vertical-align:middle; }
   button { font:inherit; color:var(--text); background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 14px; cursor:pointer; }
   button:hover { border-color:var(--accent); }
-  .screen { position:relative; width:100%; aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden; }
-  .screen { isolation:isolate; }
-  .crop { position:absolute; inset:0; overflow:hidden; }
-  .crop iframe, .crop #player { position:absolute; inset:0; width:100%; height:100%; border:0; pointer-events:none; }
-  #msg { z-index:3; }
+  .screen { position:relative; width:100%; aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden; isolation:isolate; }
+  .screen iframe, .screen #player { position:absolute; inset:0; width:100%; height:100%; border:0; pointer-events:none; }
   #hint { position:absolute; left:12px; bottom:12px; z-index:3; padding:6px 10px; border-radius:8px; background:rgba(0,0,0,.7); color:#fff; font-size:13px; pointer-events:none; }
-  #msg { position:absolute; inset:0; display:none; align-items:center; justify-content:center; text-align:center; padding:24px; background:rgba(0,0,0,.8); color:#fff; }
+  #msg { position:absolute; inset:0; z-index:3; display:none; align-items:center; justify-content:center; text-align:center; padding:24px; background:rgba(0,0,0,.8); color:#fff; }
   .now { margin-top:14px; }
   .now .title { font-size:20px; font-weight:600; }
   .now .sub { color:var(--muted); font-size:14px; }
@@ -31,38 +24,29 @@
   .controls input[type=range] { width:140px; accent-color:var(--accent); }
   .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-top:16px; }
   .card h2 { font-size:13px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:0 0 8px; font-weight:600; }
-  ol { list-style:none; margin:0; padding:0; }
-  li { display:flex; justify-content:space-between; gap:12px; padding:6px 0; border-top:1px solid var(--line); }
-  li:first-child { border-top:0; }
-  li .t { color:var(--muted); font-variant-numeric:tabular-nums; white-space:nowrap; }
-  #settings { display:none; }
-  .listedit { border-top:1px solid var(--line); padding-top:10px; margin-top:4px; }
-  .listedit .sub { color:var(--muted); font-size:13px; margin-bottom:6px; }
+  .sub { color:var(--muted); font-size:13px; }
   textarea { width:100%; background:var(--bg); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:8px; font:13px/1.4 ui-monospace,Menlo,Consolas,monospace; resize:vertical; }
   .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; }
-  #settings label { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-top:1px solid var(--line); gap:12px; }
-  #settings label:first-of-type { border-top:0; }
-  input[type=checkbox] { width:18px; height:18px; accent-color:var(--accent); }
+  ul { list-style:none; margin:12px 0 0; padding:0; }
+  li { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:6px 0; border-top:1px solid var(--line); }
+  li .name { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  li .kind { color:var(--muted); font-size:12px; margin-right:8px; text-transform:uppercase; letter-spacing:.05em; }
+  li button { padding:3px 10px; font-size:13px; }
   .hide { display:none !important; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <header>
-    <h1>Channel <span class="live">LIVE</span></h1>
-    <button id="settingsBtn">Settings</button>
-  </header>
-
   <div class="screen" id="screen">
-    <div class="crop" id="crop"><div id="player"></div></div>
-    <div id="hint">Sound is off. Click or tap anywhere to turn it on.</div>
+    <div id="player"></div>
+    <div id="hint" class="hide">Sound is off. Click or tap anywhere to turn it on.</div>
     <div id="msg"></div>
   </div>
 
   <div class="now">
     <div class="title" id="title">Loading...</div>
     <div class="sub" id="sub"></div>
-    <div class="bar" id="barWrap"><div id="bar"></div></div>
+    <div class="bar"><div id="bar"></div></div>
   </div>
 
   <div class="controls">
@@ -71,124 +55,206 @@
     <button id="fs">Fullscreen</button>
   </div>
 
-  <div class="card" id="settings">
-    <h2>Settings</h2>
-    <label>Light theme <input type="checkbox" id="optLight"></label>
-    <label>Show up next <input type="checkbox" id="optNext"></label>
-    <label>Show progress bar <input type="checkbox" id="optBar"></label>
-    <label>Use 24-hour clock <input type="checkbox" id="opt24"></label>
-    <label>Re-sync to the live schedule <button id="resync">Re-sync</button></label>
-    <div class="listedit">
-      <div class="sub">Videos: paste YouTube links or IDs, one per line. Saved in this browser only, so a custom list won't match the shared schedule.</div>
-      <textarea id="ids" rows="6" spellcheck="false"></textarea>
-      <div class="row"><button id="saveIds">Save list</button><button id="resetIds">Use default list</button><span class="sub" id="idsInfo"></span></div>
-      <div class="sub" id="skipped"></div>
-    </div>
-  </div>
-
-  <div class="card" id="nextCard">
-    <h2>Up next</h2>
-    <ol id="next"></ol>
+  <div class="card">
+    <h2>Your videos and playlists</h2>
+    <div class="sub">Paste YouTube links, video IDs or playlist links, one per line. Everything plays in random order. Saved in this browser only.</div>
+    <textarea id="add" rows="4" spellcheck="false" placeholder="https://www.youtube.com/watch?v=...&#10;https://www.youtube.com/playlist?list=..."></textarea>
+    <div class="row"><button id="addBtn">Add</button><button id="resetBtn">Reset to default list</button><span class="sub" id="addInfo"></span></div>
+    <ul id="items"></ul>
   </div>
 </div>
 
-<script src="engine.js"></script>
 <script>
 const $ = (id) => document.getElementById(id);
+const DEFAULT_IDS = ["DXCtYUtjDYU","uURB-vo9rZ4","esqRBsVumrw","tmozGmGoJuw","5ZT3gTu4Sjw","eBG7P-K-r1Y","b3PvUHjoUJA"];
 
-/* ---------- settings (saved in the browser) ---------- */
-const defaults = { light: false, next: true, bar: true, h24: true, volume: 80, muted: false };
-const settings = Object.assign({}, defaults, JSON.parse(localStorage.getItem("channelSettings") || "{}"));
-const save = () => localStorage.setItem("channelSettings", JSON.stringify(settings));
-
-let channel = null;
-function applySettings() {
-  document.body.classList.toggle("light", settings.light);
-  $("nextCard").classList.toggle("hide", !settings.next);
-  $("barWrap").classList.toggle("hide", !settings.bar);
-  $("optLight").checked = settings.light;
-  $("optNext").checked = settings.next;
-  $("optBar").checked = settings.bar;
-  $("opt24").checked = settings.h24;
-  $("vol").value = settings.volume;
-  $("mute").textContent = settings.muted ? "Unmute" : "Mute";
-  if (channel) channel.setAudio(settings.volume, settings.muted);
-}
-$("optLight").onchange = (e) => { settings.light = e.target.checked; save(); applySettings(); };
-$("optNext").onchange = (e) => { settings.next = e.target.checked; save(); applySettings(); };
-$("optBar").onchange = (e) => { settings.bar = e.target.checked; save(); applySettings(); };
-$("opt24").onchange = (e) => { settings.h24 = e.target.checked; save(); renderNext(); };
-$("vol").oninput = (e) => { settings.volume = +e.target.value; settings.muted = settings.volume === 0; save(); applySettings(); };
-$("mute").onclick = () => { settings.muted = !settings.muted; save(); applySettings(); };
-$("settingsBtn").onclick = () => { const s = $("settings"); s.style.display = s.style.display === "block" ? "none" : "block"; };
-$("fs").onclick = () => { const el = $("screen"); (document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen && el.requestFullscreen()); };
-$("resync").onclick = () => channel && channel.resync();
-
-/* ---------- video list editor ---------- */
-$("ids").value = Channel.getCustomText() || Channel.DEFAULT_IDS.join("\n");
-function updateIdsInfo() {
-  const n = Channel.parseIds($("ids").value).length;
-  $("idsInfo").textContent = n + " video" + (n === 1 ? "" : "s") + " found";
-}
-$("ids").oninput = updateIdsInfo;
-updateIdsInfo();
-$("saveIds").onclick = () => {
-  const text = $("ids").value;
-  if (!Channel.parseIds(text).length) { $("idsInfo").textContent = "No valid YouTube IDs or links found."; return; }
-  // saving the default list again just clears the custom one
-  const same = Channel.parseIds(text).join() === Channel.DEFAULT_IDS.join();
-  Channel.setCustomText(same ? "" : text);
-  location.reload();
+/* ---------- storage ---------- */
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 };
-$("resetIds").onclick = () => { Channel.setCustomText(""); location.reload(); };
+let items = store.get("channelItemsV2", null) || DEFAULT_IDS.map((id) => ({ type: "video", id }));
+const titles = store.get("channelTitlesV2", {});     // video id -> title, filled in as videos play
+const plLen = store.get("channelPlaylistLenV2", {});  // playlist id -> number of videos, filled in once loaded
+const prefs = Object.assign({ volume: 80, muted: false }, store.get("channelPrefsV2", {}));
+const saveItems = () => store.set("channelItemsV2", items);
 
-/* ---------- display ---------- */
-const fmtTime = (ms) => new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: !settings.h24 });
-const fmtDur = (s) => Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0");
-const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-
-function renderNext() {
-  if (!channel || !channel.videos().length) return;
-  $("next").innerHTML = channel.upcoming(4).map((u) =>
-    "<li><span>" + esc(u.video.title) + "</span><span class='t'>" + fmtTime(u.at) + "</span></li>").join("");
+/* ---------- parsing links / ids ---------- */
+function parseEntry(raw) {
+  const s = raw.trim();
+  if (!s) return null;
+  let m;
+  try {
+    const u = new URL(/^https?:\/\//i.test(s) ? s : "https://" + s);
+    if (/(^|\.)youtube(-nocookie)?\.com$|^youtu\.be$/i.test(u.hostname)) {
+      const v = u.searchParams.get("v");
+      if (v && /^[\w-]{11}$/.test(v)) return { type: "video", id: v };
+      const l = u.searchParams.get("list");
+      if (l && /^[\w-]{10,60}$/.test(l)) return { type: "playlist", id: l };
+      if (u.hostname === "youtu.be" && (m = u.pathname.match(/^\/([\w-]{11})/))) return { type: "video", id: m[1] };
+      if ((m = u.pathname.match(/^\/(?:shorts|embed|live|v)\/([\w-]{11})/))) return { type: "video", id: m[1] };
+    }
+  } catch (e) {}
+  if (/^[\w-]{11}$/.test(s)) return { type: "video", id: s };
+  if (/^(PL|UU|OL|FL|LL)[\w-]{8,60}$/.test(s)) return { type: "playlist", id: s };
+  return null;
 }
-let current = null;
-function renderNow() {
-  if (!current || !channel) return;
-  const elapsed = Math.max(0, (channel.now() - current.startMs) / 1000);
-  const d = current.video.duration;
-  $("title").textContent = current.video.title;
-  $("sub").textContent = fmtDur(Math.min(elapsed, d)) + " / " + fmtDur(d);
-  $("bar").style.width = Math.min(100, (elapsed / d) * 100) + "%";
-}
-setInterval(renderNow, 500);
 
-function showMsg(text) {
-  $("msg").textContent = text || "";
-  $("msg").style.display = text ? "flex" : "none";
+/* ---------- list UI ---------- */
+function renderItems() {
+  $("items").innerHTML = "";
+  items.forEach((it, i) => {
+    const li = document.createElement("li");
+    const name = document.createElement("span");
+    name.className = "name";
+    const kind = document.createElement("span");
+    kind.className = "kind";
+    kind.textContent = it.type;
+    name.appendChild(kind);
+    name.appendChild(document.createTextNode(it.type === "video" && titles[it.id] ? titles[it.id] : it.id));
+    const rm = document.createElement("button");
+    rm.textContent = "Remove";
+    rm.onclick = () => { items.splice(i, 1); saveItems(); renderItems(); };
+    li.appendChild(name); li.appendChild(rm);
+    $("items").appendChild(li);
+  });
+  if (!items.length) $("items").innerHTML = "<li class='sub'>The list is empty, add something above.</li>";
+}
+$("addBtn").onclick = () => {
+  const lines = $("add").value.split(/[\s,]+/).filter(Boolean);
+  let added = 0, bad = 0;
+  lines.forEach((l) => {
+    const e = parseEntry(l);
+    if (!e) { bad++; return; }
+    if (!items.some((x) => x.type === e.type && x.id === e.id)) { items.push(e); added++; }
+  });
+  saveItems(); renderItems();
+  $("add").value = "";
+  $("addInfo").textContent = added + " added" + (bad ? ", " + bad + " not recognised" : "");
+  if (added && !playing) startNext();
+};
+$("resetBtn").onclick = () => { items = DEFAULT_IDS.map((id) => ({ type: "video", id })); saveItems(); renderItems(); $("addInfo").textContent = "Reset."; };
+
+/* ---------- player ---------- */
+let player = null, ready = false, playing = false, last = null;
+let startedAt = 0, fails = 0, lastLoadAt = 0, loadTimer = null, pendingRandomIndex = false, mutedFallback = false;
+const bad = new Set();
+
+function pickEntry() {
+  const pool = items.filter((it) => !bad.has(it.type + ":" + it.id));
+  if (!pool.length) return null;
+  const weight = (it) => it.type === "playlist" ? Math.max(1, plLen[it.id] || 5) : 1;
+  const others = pool.length > 1 ? pool.filter((it) => !(last && it.type === last.type && it.id === last.id && it.type === "video")) : pool;
+  const total = others.reduce((a, it) => a + weight(it), 0);
+  let r = Math.random() * total;
+  for (const it of others) { r -= weight(it); if (r <= 0) return it; }
+  return others[others.length - 1];
 }
 
-/* ---------- start ---------- */
-channel = Channel.create({
-  playerEl: "player",
-  volume: settings.volume,
-  muted: settings.muted,
-  onStatus: (t) => { $("title").textContent = t; $("sub").textContent = ""; },
-  onNow: (cur) => { current = cur; renderNow(); renderNext(); },
-  onMessage: showMsg,
-  onSkipped: (ids) => {
-    $("skipped").textContent = ids.length ? "Couldn't load " + ids.length + " video(s), so they're left out for you: " + ids.join(", ") : "";
-  },
-});
-applySettings();
+function showMsg(t) { $("msg").textContent = t || ""; $("msg").style.display = t ? "flex" : "none"; }
 
-// Browsers only allow sound after the visitor has interacted with the page,
-// so the video starts muted and sound switches on at the first click, tap or key press.
-function enableSound() {
-  $("hint").classList.add("hide");
-  channel.userInteracted();
+function startNext() {
+  if (!ready) return;
+  const wait = Math.max(0, 3000 - (Date.now() - lastLoadAt));   // never switch faster than every 3 seconds
+  clearTimeout(loadTimer);
+  loadTimer = setTimeout(doLoad, wait);
 }
-["pointerdown", "keydown", "touchstart"].forEach((ev) => document.addEventListener(ev, enableSound, { once: true }));
+function doLoad() {
+  const it = pickEntry();
+  if (!it) { playing = false; showMsg(items.length ? "None of the videos in your list can be played here." : "Your list is empty. Add a video or playlist below."); return; }
+  showMsg("");
+  last = it; lastLoadAt = Date.now(); startedAt = Date.now(); playing = true;
+  if (it.type === "video") player.loadVideoById(it.id);
+  else { pendingRandomIndex = true; player.loadPlaylist({ listType: "playlist", list: it.id }); }
+  // if the browser blocks sound, nothing starts; fall back to muted playback
+  setTimeout(() => {
+    if (last !== it || mutedFallback) return;
+    const st = player.getPlayerState();
+    if (st !== 1 && st !== 3 && st !== 0) enterMutedFallback();
+  }, 3500);
+}
+function enterMutedFallback() {
+  mutedFallback = true;
+  player.mute(); player.playVideo();
+  $("hint").classList.remove("hide");
+}
+function userInteracted() {
+  if (!$("hint").classList.contains("hide") || mutedFallback) {
+    $("hint").classList.add("hide");
+    mutedFallback = false;
+    applyAudio();
+  }
+}
+["pointerdown", "keydown", "touchstart"].forEach((ev) => document.addEventListener(ev, userInteracted));
+
+function applyAudio() {
+  $("vol").value = prefs.volume;
+  $("mute").textContent = prefs.muted ? "Unmute" : "Mute";
+  if (!ready || mutedFallback) return;
+  player.setVolume(prefs.volume);
+  prefs.muted ? player.mute() : player.unMute();
+}
+function savePrefs() { store.set("channelPrefsV2", prefs); }
+$("vol").oninput = (e) => { prefs.volume = +e.target.value; prefs.muted = prefs.volume === 0; savePrefs(); applyAudio(); };
+$("mute").onclick = () => { prefs.muted = !prefs.muted; savePrefs(); mutedFallback = false; $("hint").classList.add("hide"); applyAudio(); };
+$("fs").onclick = () => { const el = $("screen"); document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen && el.requestFullscreen(); };
+
+function onState(e) {
+  const S = YT.PlayerState;
+  if (e.data === S.PLAYING) {
+    if (pendingRandomIndex && last && last.type === "playlist") {
+      pendingRandomIndex = false;
+      const list = player.getPlaylist() || [];
+      if (list.length) {
+        plLen[last.id] = list.length; store.set("channelPlaylistLenV2", plLen);
+        const idx = Math.floor(Math.random() * list.length);
+        if (idx !== player.getPlaylistIndex()) { player.playVideoAt(idx); return; }
+      }
+    }
+    fails = 0;
+    const d = player.getVideoData() || {};
+    if (d.video_id && d.title) { if (titles[d.video_id] !== d.title) { titles[d.video_id] = d.title; store.set("channelTitlesV2", titles); renderItems(); } }
+    try { player.unloadModule("captions"); player.unloadModule("cc"); } catch (err) {}
+  }
+  if (e.data === S.ENDED) startNext();     // always pick a fresh random entry instead of the playlist's next video
+}
+function onError(e) {
+  console.warn("player error", e.data, last);
+  if (last) bad.add(last.type + ":" + last.id);
+  if (last && last.type === "playlist" && e.data !== 4 && e.data !== 100) { bad.delete(last.type + ":" + last.id); }  // one blocked video inside a playlist isn't the playlist's fault
+  fails++;
+  if (fails > items.length * 2 + 4) { playing = false; showMsg("Couldn't play anything from the list right now."); return; }
+  startNext();
+}
+
+function fmt(s) { s = Math.max(0, s || 0); return Math.floor(s / 60) + ":" + String(Math.floor(s % 60)).padStart(2, "0"); }
+setInterval(() => {
+  if (!ready || !playing) return;
+  try {
+    const d = player.getVideoData() || {};
+    const dur = player.getDuration(), t = player.getCurrentTime();
+    if (d.title) $("title").textContent = d.title;
+    if (dur > 0) { $("sub").textContent = fmt(t) + " / " + fmt(dur); $("bar").style.width = Math.min(100, t / dur * 100) + "%"; }
+  } catch (e) {}
+}, 500);
+
+window.onYouTubeIframeAPIReady = () => {
+  player = new YT.Player("player", {
+    width: "100%", height: "100%", host: "https://www.youtube-nocookie.com",
+    playerVars: { autoplay: 1, controls: 0, disablekb: 1, fs: 0, rel: 0, iv_load_policy: 3, cc_load_policy: 0, playsinline: 1, origin: location.origin },
+    events: {
+      onReady: () => { ready = true; applyAudio(); startNext(); },
+      onStateChange: onState,
+      onError,
+      onAutoplayBlocked: () => { if (!mutedFallback) enterMutedFallback(); },
+    },
+  });
+};
+renderItems(); applyAudio();
+const tag = document.createElement("script");
+tag.src = "https://www.youtube.com/iframe_api";
+document.head.appendChild(tag);
+window.__dbg = () => ({ items, last, ready, playing, fails, mutedFallback, bad: [...bad] });
 </script>
 </body>
 </html>
