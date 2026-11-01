@@ -61,7 +61,7 @@
     p = ok(p) ? p : {};
     const acc = p.accounts || {}, la = acc.last_accounts || {}, na = acc.next_accounts || {}, cs = p.confirmation_statement || {};
     const ard = acc.accounting_reference_date || {};
-    const ardText = ard.day && ard.month ? `${+ard.day} ${MON[+ard.month - 1]}` : '';
+    const ardText = +ard.day >= 1 && +ard.day <= 31 && +ard.month >= 1 && +ard.month <= 12 ? `${+ard.day} ${MON[+ard.month - 1]}` : '';
     const status = str(p.company_status);
     const active = ['active', 'open', 'registered'].includes(status) || (!status && !p.date_of_cessation);
     const flags = [];
@@ -87,7 +87,7 @@
       url: p.company_number ? 'https://find-and-update.company-information.service.gov.uk/company/' + p.company_number : '',
       status: { code: status, label: label('company_status', status) || 'Unknown', detail: label('company_status_detail', p.company_status_detail), detailColour: DETAIL_COLOUR[str(p.company_status_detail)] || 'grey', tone: statusTone(status), colour: statusColour(status), active },
       type: { code: str(p.type), label: label('company_type', p.type), subtype: label('company_subtype', p.subtype) },
-      jurisdiction: label('jurisdiction', p.jurisdiction),
+      jurisdiction: label('jurisdiction', p.jurisdiction), jurisdictionCode: str(p.jurisdiction),
       created, createdText: fmtDate(created), ceased, ceasedText: fmtDate(ceased),
       ageYears: yearsSince(created, ceased || undefined),
       address: address(p.registered_office_address),
@@ -96,7 +96,7 @@
       previousNames: arr(p.previous_company_names).map((x) => ({ name: str(x.name), from: fmtDate(x.effective_from), to: fmtDate(x.ceased_on) })),
       accounts: {
         refDate: ardText,
-        lastMadeUp: fmtDate(la.made_up_to), lastType: label('account_type', la.type), lastTypeCode: str(la.type),
+        lastMadeUp: fmtDate(la.made_up_to), lastType: la.type && la.type !== 'null' ? label('account_type', la.type) : '', lastTypeCode: la.type === 'null' ? '' : str(la.type),
         lastPeriod: isoOk(la.period_start_on) && isoOk(la.period_end_on) ? `${fmtDate(la.period_start_on)} – ${fmtDate(la.period_end_on)}` : '',
         nextDue: fmtDate(na.due_on || acc.next_due),
         nextPeriod: isoOk(na.period_start_on) && isoOk(na.period_end_on) ? `${fmtDate(na.period_start_on)} – ${fmtDate(na.period_end_on)}` : '',
@@ -137,6 +137,7 @@
       registration: corporate ? { number: str(id.registration_number), legalForm: str(id.legal_form), place: str(id.place_registered || id.country_registered) } : null,
       idv: idv(o.identity_verification_details),
       responsibilities: str(o.responsibilities),
+      personNumber: str(o.person_number),
     };
   }
   const ROLE_ORDER = ['director', 'corporate-director', 'llp-designated-member', 'llp-member', 'secretary', 'corporate-secretary'];
@@ -188,17 +189,23 @@
     if (!main && other.length) main = other.shift();
     return { main, other: other.join(' · ') };
   }
+  /* The PSC's own Companies House ID: the segment before /notifications in links.persons_with_significant_control.notifications. */
+  const pscIdOf = (x) => (/\/persons-with-significant-control\/([^/]+)\/notifications/.exec(str(x && x.links && x.links.persons_with_significant_control && x.links.persons_with_significant_control.notifications)) || [])[1] || '';
+  /* Each nature of control in Companies House's own short wording, one line each (shares, votes and board rights kept separate). */
+  const controlLines = (natures) => natures.map((c) => ((E.psc_short_description && E.psc_short_description[c]) || label('psc_description', c)).replace(/\*\*/g, '').trim()).filter(Boolean);
   function psc(x) {
     const kind = str(x.kind);
     const corporate = /corporate|legal-person/.test(kind), secure = /super-secure/.test(kind);
     const id = x.identification || {};
     const natures = arr(x.natures_of_control).map(str);
+    const role = /beneficial-owner/.test(kind) ? 'Beneficial owner' : natures.some((n) => /^ownership-of-shares/.test(n)) ? 'Owner' : 'Person with significant control';
     return {
       name: secure ? 'Super-secure person' : personName(x.name, corporate),
+      pscId: pscIdOf(x), role, natures,
       kind, kindLabel: secure ? 'Protected' : corporate ? (/legal-person/.test(kind) ? 'Legal person' : 'Company') : 'Individual',
       beneficialOwner: /beneficial-owner/.test(kind),
       corporate, secure, description: str(x.description),
-      controls: natures.map((c) => (E.psc_short_description && E.psc_short_description[c]) || label('psc_description', c)),
+      controls: controlLines(natures),
       band: controlBand(natures), summary: controlSummary(natures),
       shares: (/ownership-of-shares-([0-9]+)-to-([0-9]+)/.exec(natures.join(' ')) || []).slice(1).join('–'),
       notified: fmtDate(x.notified_on), ceased: fmtDate(x.ceased_on), isCeased: !!(x.ceased || x.ceased_on),
@@ -220,6 +227,7 @@
     'restrictions-notice-issued-to-psc': 'The company has issued a restrictions notice to a PSC.',
     'awaiting-confirmation-from-psc': 'The company is waiting for a PSC to confirm their details.',
   };
+  const STATEMENT_SHORT = { 'no-individual-or-entity-with-signficant-control': 'Company says none', 'psc-exists-but-not-identified': 'Not identified yet', 'psc-details-not-confirmed': 'Details not confirmed', 'steps-to-find-psc-not-yet-completed': 'Checks not finished', 'psc-contacted-but-no-response': 'No reply from PSC', 'awaiting-confirmation-from-psc': 'Awaiting confirmation' };
   function plainStatement(code, linked) {
     const base = code.replace(/-partnership$/, '');
     const t = STATEMENT_PLAIN[base];
@@ -232,7 +240,7 @@
     const statements = ok(rawStatements) ? arr(rawStatements.items).filter((s) => !s.ceased_on).map((s) => ({
       text: (E.psc_statement_description && E.psc_statement_description[s.statement]) || label('', s.statement),
       plain: plainStatement(str(s.statement), str(s.linked_psc_name)),
-      notified: fmtDate(s.notified_on), linkedPsc: str(s.linked_psc_name), restrictions: !!s.restrictions_notice_withdrawal_reason || /restrictions-notice/.test(str(s.statement)),
+      code: str(s.statement), notified: fmtDate(s.notified_on), linkedPsc: str(s.linked_psc_name), restrictions: !!s.restrictions_notice_withdrawal_reason || /restrictions-notice/.test(str(s.statement)),
     })) : [];
     const exemptions = [];
     if (ok(rawExemptions) && rawExemptions.exemptions) {
@@ -350,12 +358,144 @@
     return { name: personName(raw.name, raw.is_corporate_officer), born: fmtMonthYear(raw.date_of_birth), total: raw.total_results || items.length, active: raw.active_count || 0, resigned: raw.resigned_count || 0, items, loaded: items.length };
   }
 
+  /* ---------- person page: personal data and appointment statistics from one or more appointment lists ---------- */
+  const FINISHED = ['dissolved', 'liquidation'];
+  function approxAge(dob) {
+    if (!dob || !dob.year) return null;
+    const now = new Date(); return now.getFullYear() - dob.year - ((dob.month || 12) > now.getMonth() + 1 ? 1 : 0);
+  }
+  function person(raws) {
+    const rs = arr(raws).filter(ok);
+    if (!rs.length) return null;
+    const first = rs[0];
+    const all = [].concat(...rs.map((r) => arr(r.items)));
+    const uniq = (xs) => xs.map(str).filter(Boolean).filter((x, i, a) => a.indexOf(x) === i);
+    const corporate = rs.some((r) => r.is_corporate_officer);
+    const items = all.map((a) => {
+      const to = a.appointed_to || {};
+      const statusCode = str(to.company_status);
+      const appointedIso = str(a.appointed_on), resignedIso = str(a.resigned_on);
+      // Tenure only when both ends are known: appointment date, and a resignation date or still current at a live company
+      const end = resignedIso || (FINISHED.includes(statusCode) || statusCode === 'converted-closed' || statusCode === 'closed' ? '' : today());
+      const tenureDays = isoOk(appointedIso) && isoOk(end) ? daysBetween(appointedIso, end) : null;
+      return {
+        company: tidyCaps(str(to.company_name)), number: str(to.company_number),
+        status: label('company_status', statusCode), statusCode, colour: statusColour(statusCode),
+        role: label('officer_role', a.officer_role) || sentence(a.officer_role), roleCode: str(a.officer_role),
+        appointed: fmtDate(appointedIso) || (a.is_pre_1992_appointment ? 'before 1992' : isoOk(a.appointed_before) ? 'before ' + fmtDate(a.appointed_before) : ''),
+        appointedIso, resignedIso, resigned: fmtDate(resignedIso), current: !resignedIso,
+        tenureDays, occupation: sentence(a.occupation), nationality: str(a.nationality), residence: str(a.country_of_residence),
+        address: address(a.address).oneLine,
+      };
+    }).sort((a, b) => (b.current - a.current) || (b.resignedIso || b.appointedIso).localeCompare(a.resignedIso || a.appointedIso));
+    const dob = rs.map((r) => r.date_of_birth).find((d) => d && d.year) || null;
+    const formerNames = uniq([].concat(...all.map((a) => arr(a.former_names).map((f) => [f.forenames, f.surname].filter(Boolean).join(' ')))));
+    const withTenure = items.filter((x) => x.tenureDays != null && x.tenureDays >= 0);
+    const longest = withTenure.slice().sort((a, b) => b.tenureDays - a.tenureDays)[0] || null;
+    const yrs = (d) => Math.round((d / 365.25) * 10) / 10;
+    const total = rs.reduce((n, r) => n + (+r.total_results || arr(r.items).length), 0);
+    return {
+      name: personName(first.name, corporate), rawName: str(first.name), corporate,
+      born: fmtMonthYear(dob), dob, age: approxAge(dob),
+      nationalities: uniq(all.map((a) => a.nationality)), residences: uniq(all.map((a) => a.country_of_residence)),
+      addresses: uniq(items.map((x) => x.address)), formerNames,
+      roles: uniq(items.map((x) => x.role)),
+      items, total, loaded: items.length,
+      active: items.filter((x) => x.current && !['dissolved', 'converted-closed', 'removed', 'closed'].includes(x.statusCode)).length, resigned: items.filter((x) => !x.current).length,
+      openClosed: items.filter((x) => x.current && ['dissolved', 'converted-closed', 'removed', 'closed'].includes(x.statusCode)).length,
+      finished: items.filter((x) => FINISHED.includes(x.statusCode)).length,
+      longest: longest ? { years: yrs(longest.tenureDays), company: longest.company, number: longest.number, role: longest.role } : null,
+      averageYears: withTenure.length >= 2 ? yrs(withTenure.reduce((n, x) => n + x.tenureDays, 0) / withTenure.length) : null,
+      tenureBase: withTenure.length,
+    };
+  }
+
+  /* ---------- PSC notifications: every company where this PSC ID is recorded as having significant control ---------- */
+  function pscNotifications(raw) {
+    if (!ok(raw)) return null;
+    const items = arr(raw.items).map((x) => {
+      const natures = arr(x.natures_of_control).map(str);
+      const kind = str(x.kind);
+      return {
+        number: str(x.notified_to && x.notified_to.company_number), kind,
+        corporate: /corporate|legal-person/.test(kind),
+        name: personName(x.name, /corporate|legal-person/.test(kind)),
+        role: /beneficial-owner/.test(kind) ? 'Beneficial owner' : natures.some((n) => /^ownership-of-shares/.test(n)) ? 'Owner' : 'Person with significant control',
+        controls: controlLines(natures), natures,
+        notified: fmtDate(x.notified_on), notifiedIso: str(x.notified_on), ceased: fmtDate(x.ceased_on), isCeased: !!(x.ceased_on || x.ceased),
+        nationality: str(x.nationality), residence: str(x.country_of_residence), address: address(x.address).oneLine,
+      };
+    }).filter((x) => x.number);
+    const latest = items.slice().sort((a, b) => b.notifiedIso.localeCompare(a.notifiedIso))[0] || {};
+    const corporate = items.some((x) => x.corporate);
+    const uniq = (xs) => xs.filter(Boolean).filter((x, i, a) => a.indexOf(x) === i);
+    return {
+      name: personName(raw.name, corporate) || latest.name || '', corporate,
+      born: fmtMonthYear(raw.date_of_birth), dob: raw.date_of_birth || null, age: approxAge(raw.date_of_birth),
+      nationality: latest.nationality || '', residence: latest.residence || '', address: latest.address || '',
+      names: uniq(items.map((x) => x.name)), items,
+      current: items.filter((x) => !x.isCeased), ceased: items.filter((x) => x.isCeased), total: +raw.total_results || items.length,
+    };
+  }
+
+  /* ---------- disqualified officers ---------- */
+  function disqualification(raw) {
+    if (!ok(raw)) return null;
+    const corporate = /corporate/.test(str(raw.kind));
+    const name = corporate ? str(raw.name) : tidyCaps([raw.title, raw.forename, raw.other_forenames, raw.surname].map(str).filter(Boolean).join(' '));
+    return {
+      name, corporate, personNumber: str(raw.person_number), born: fmtDate(raw.date_of_birth), nationality: str(raw.nationality),
+      url: raw.links && raw.links.self ? 'https://find-and-update.company-information.service.gov.uk' + str(raw.links.self) : '',
+      items: arr(raw.disqualifications).map((d) => {
+        const r = d.reason || {};
+        return {
+          type: label('disq_type', d.disqualification_type), typeCode: str(d.disqualification_type),
+          reason: (E.disq_description && E.disq_description[r.description_identifier]) || label('', r.description_identifier),
+          law: [r.section ? 'Section ' + str(r.section) : '', r.article ? 'Article ' + str(r.article) : '', (E.disq_act && E.disq_act[r.act]) || label('', r.act)].filter(Boolean).join(', '),
+          from: fmtDate(d.disqualified_from), until: fmtDate(d.disqualified_until), fromIso: str(d.disqualified_from), untilIso: str(d.disqualified_until),
+          current: isoOk(d.disqualified_until) ? str(d.disqualified_until) >= today() : true,
+          court: str(d.court_name), heard: fmtDate(d.heard_on), undertaken: fmtDate(d.undertaken_on), caseId: str(d.case_identifier),
+          companies: arr(d.company_names).map((c) => tidyCaps(c)), address: address(d.address).oneLine,
+        };
+      }),
+      permissions: arr(raw.permissions_to_act).map((p) => ({ companies: arr(p.company_names).map(tidyCaps), court: str(p.court_name), granted: fmtDate(p.granted_on), expires: fmtDate(p.expires_on) })),
+    };
+  }
+  function searchDisqualified(raw) {
+    if (!ok(raw)) return { total: 0, items: [] };
+    return { total: +raw.total_results || 0, items: arr(raw.items).map((i) => {
+      const m = /\/disqualified-officers\/(natural|corporate)\/([^/]+)/.exec(str(i.links && i.links.self)) || [];
+      return { name: /corporate/.test(m[1]) ? str(i.title) : tidyCaps(i.title), kind: m[1] || '', id: m[2] || '', description: str(i.description), address: str(i.address_snippet) || address(i.address).oneLine };
+    }).filter((x) => x.id) };
+  }
+
+  /* ---------- company types: what officers are called, and other regulators ---------- */
+  function officerWord(type) {
+    type = str(type);
+    if (type === 'llp') return { one: 'Member', many: 'Members' };
+    if (/^limited-partnership|^scottish-partnership/.test(type)) return { one: 'Partner', many: 'Partners' };
+    return { one: 'Officer', many: 'Officers' };
+  }
+  /* Bodies that are also registered with another regulator. */
+  function otherRegister(type) {
+    type = str(type);
+    if (type === 'charitable-incorporated-organisation') return { body: 'Charity Commission for England and Wales', what: 'charity record', url: 'https://register-of-charities.charitycommission.gov.uk/en/charity-search' };
+    if (type === 'scottish-charitable-incorporated-organisation') return { body: 'Scottish Charity Regulator (OSCR)', what: 'charity record', url: 'https://www.oscr.org.uk/about-charities/search-the-register/' };
+    if (type === 'registered-society-non-jurisdictional' || type === 'industrial-and-provident-society') return { body: 'FCA Mutuals Public Register', what: 'society record', url: 'https://mutuals.fca.org.uk/' };
+    if (/^icvc-|^investment-company-with-variable-capital$/.test(type)) return { body: 'FCA Financial Services Register', what: 'fund record', url: 'https://register.fca.org.uk/s/' };
+    return null;
+  }
+
+  /* SIC codes that say little about what a company does; matches on these are broad. */
+  const GENERIC_SIC = ['99999', '74990', '70100', '64209', '82990', '96090', '98000', '68100', '68209', '66300', '64999'];
+
   /* ---------- similar companies (advanced search) ---------- */
   function similar(raw, selfNumber) {
     if (!ok(raw)) return { available: false, total: 0, items: [] };
     const items = arr(raw.items).filter((i) => i.company_number !== selfNumber).map((i) => {
       const a = address(i.registered_office_address);
-      return { name: tidyCaps(i.company_name), number: str(i.company_number), status: label('company_status', i.company_status), created: fmtDate(i.date_of_creation), ageYears: yearsSince(i.date_of_creation), town: a.town, postcode: a.postcode, type: label('company_type', i.company_type) };
+      const sic = arr(i.sic_codes).map(str);
+      return { name: tidyCaps(i.company_name), number: str(i.company_number), status: label('company_status', i.company_status), colour: statusColour(i.company_status), created: fmtDate(i.date_of_creation), createdIso: str(i.date_of_creation), ageYears: yearsSince(i.date_of_creation), town: a.town, postcode: a.postcode, type: label('company_type', i.company_type), sic, generic: !!sic.length && sic.every((c) => GENERIC_SIC.includes(c)) };
     });
     return { available: true, total: raw.hits || items.length, items };
   }
@@ -366,6 +506,16 @@
     return { total: raw.total_results || 0, start: raw.start_index || 0, items: arr(raw.items).map((i) => ({
       name: str(i.title), number: str(i.company_number), status: label('company_status', i.company_status) || 'Unknown', colour: statusColour(i.company_status),
       address: str(i.address_snippet) || address(i.address).oneLine, created: fmtDate(i.date_of_creation), ceased: fmtDate(i.date_of_cessation), type: label('company_type', i.company_type),
+    })) };
+  }
+  /* Advanced, dissolved and alphabetical search share one item shape (company_name, registered_office_address, ...). Total is `hits`. */
+  function searchList(raw) {
+    if (!ok(raw)) return { total: 0, items: [] };
+    return { total: raw.hits || raw.total_results || 0, items: arr(raw.items).map((i) => ({
+      name: str(i.company_name), number: str(i.company_number), status: label('company_status', i.company_status) || 'Unknown', colour: statusColour(i.company_status),
+      type: label('company_type', i.company_type), address: address(i.registered_office_address).oneLine, created: fmtDate(i.date_of_creation), ceased: fmtDate(i.date_of_cessation),
+      sic: arr(i.sic_codes).map(str), key: str(i.ordered_alpha_key_with_id),
+      previous: arr(i.previous_company_names).map((x) => ({ name: str(x.name), from: fmtDate(x.effective_from), to: fmtDate(x.ceased_on) })),
     })) };
   }
   /* Officer search returns one record per officer ID; the same person often has several. Group by name + birth month/year. */
@@ -391,7 +541,7 @@
     if (!ok(raw) || !raw.registers) return [];
     return Object.entries(raw.registers).map(([k, v]) => { const it = arr(v.items)[0] || {}; return { name: sentence(k.replace(/_/g, ' ')), where: it.register_moved_to === 'public-register' ? 'Companies House (public register)' : 'Registered office / SAIL', since: fmtDate(it.moved_on) }; });
   }
-  function ukEstablishments(raw) { return ok(raw) ? arr(raw.items).map((i) => ({ name: tidyCaps(i.company_name), number: str(i.company_number), status: label('company_status', i.company_status), town: str(i.locality) })) : []; }
+  function ukEstablishments(raw) { return ok(raw) ? arr(raw.items).map((i) => ({ name: tidyCaps(i.company_name), number: str(i.company_number), status: label('company_status', i.company_status), colour: statusColour(i.company_status), town: str(i.locality) })) : []; }
 
   /* ---------- whole company ---------- */
   function company(raw) {
@@ -405,11 +555,12 @@
       appointments: Object.fromEntries(Object.entries(raw.appointments || {}).map(([k, v]) => [k, appointments(v)]).filter(([, v]) => v)),
     };
     // Headline facts used by tiles; each tile is {label, value, sub, tone}
+    vm.officerWord = officerWord(pr.type.code); vm.otherRegister = otherRegister(pr.type.code);
     const o = vm.officers, c = vm.charges, own = vm.ownership;
     vm.keyFacts = [
       { key: 'age', label: 'Age', value: pr.ageYears == null ? '—' : pr.ageYears < 1 ? '< 1 year' : `${pr.ageYears} year${pr.ageYears === 1 ? '' : 's'}`, sub: pr.createdText ? 'Incorporated ' + pr.createdText : '' },
-      { key: 'directors', label: 'Officers', value: String(o.counts.active), sub: o.counts.resigned ? `${o.counts.resigned} former` : 'none former', tone: o.counts.active ? '' : 'warn' },
-      { key: 'owners', label: 'Owners', value: own.current.length ? String(own.current.length) : own.exemptions.some((e) => e.current) ? 'Exempt' : '—', sub: own.current.length ? (own.current[0].band ? own.current[0].band + ' largest' : own.current[0].kindLabel) : own.exemptions.some((e) => e.current) ? 'Listed company' : 'No PSC' },
+      { key: 'directors', label: vm.officerWord.many, value: String(o.counts.active), sub: o.counts.resigned ? `${o.counts.resigned} former` : 'none former', tone: o.counts.active ? '' : 'warn' },
+      { key: 'owners', label: own.current.some((p) => p.role === 'Owner') ? 'Owners' : 'Significant control', value: own.current.length ? String(own.current.length) : own.exemptions.some((e) => e.current) ? 'Exempt' : '—', sub: own.current.length ? (own.current[0].controls[0] || own.current[0].role) : own.exemptions.some((e) => e.current) ? 'Listed company' : own.statements[0] ? (STATEMENT_SHORT[own.statements[0].code.replace(/-partnership$/, '')] || 'See statement') : 'None on the register' },
       { key: 'charges', label: 'Charges', value: c.available ? String(c.outstanding) : '0', sub: c.available ? `outstanding of ${c.total}` : 'none registered', tone: c.allAssets ? 'warn' : '' },
       { key: 'accounts', label: 'Last accounts', value: pr.accounts.lastMadeUp || 'None filed', sub: pr.accounts.lastType || '', tone: pr.accounts.overdue && pr.status.active ? 'bad' : '' },
       { key: 'yearend', label: 'Year end', value: pr.accounts.refDate || '—', sub: pr.accounts.nextPeriod ? 'Next period ends ' + pr.accounts.nextPeriod.split(' – ')[1] : '' },
@@ -432,6 +583,6 @@
     return vm;
   }
 
-  const api = { setEnums, company, profile, officers, ownership, charges, insolvency, filings, appointments, similar, registers, ukEstablishments, searchCompanies, searchOfficers, statusColour, fmtDate, personName, address, label, FH_CAT };
+  const api = { setEnums, company, profile, officers, ownership, charges, insolvency, filings, appointments, person, pscNotifications, disqualification, searchDisqualified, officerWord, otherRegister, GENERIC_SIC, approxAge, controlLines, similar, registers, ukEstablishments, searchCompanies, searchOfficers, searchList, statusColour, fmtDate, personName, address, label, FH_CAT };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Normalise = api;
 })(typeof window !== 'undefined' ? window : globalThis);

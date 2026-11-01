@@ -15,18 +15,28 @@
     officers: (n) => 'officers.html?co=' + encodeURIComponent(n),
     filings: (n) => 'filings.html?co=' + encodeURIComponent(n),
     person: (ids) => 'officer.html?id=' + [].concat(ids).map(encodeURIComponent).join(','),
+    psc: (id) => 'officer.html?psc=' + encodeURIComponent(id),
+    disq: (kind, id) => 'officer.html?disq=' + encodeURIComponent(id) + (kind === 'corporate' ? '&k=corporate' : ''),
   };
   const head = (title, count, aside) => `<div class="tile-head"><h3>${esc(title)}${count != null && count !== '' ? `<span class="count">${esc(count)}</span>` : ''}</h3>${aside ? `<span class="aside">${aside}</span>` : ''}</div>`;
+
+  /* Registered office nation, shown after the status text. n = {flag, name} or {text}. */
+  function nationHtml(n) {
+    if (!n) return '';
+    if (n.flag) return `<span class="muted" style="font-size:12px">Registered office</span><img class="flag" src="flags/${esc(n.flag)}.svg" width="20" height="15" alt="${esc(n.name)}" title="Registered office: ${esc(n.name)}">`;
+    return `<span class="muted" style="font-size:12px">Registered office: ${esc(n.text)}</span>`;
+  }
 
   /* Overview header: status as bold coloured text, no external link buttons. */
   function header(vm, o = {}) {
     const meta = [vm.type.label, vm.type.subtype, vm.number && `No. ${vm.number}`, vm.createdText && `Incorporated ${vm.createdText}`, vm.ceasedText && `Ceased ${vm.ceasedText}`].filter(Boolean);
     return `<header class="hdr">
       <div class="hdr-top"><div style="min-width:0">
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">${st(vm.status.label, vm.status.colour)}${vm.status.detail ? st(vm.status.detail, vm.status.detailColour) : ''}${vm.jurisdiction ? `<span class="faint" style="font-size:12px">${esc(vm.jurisdiction)}</span>` : ''}</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">${st(vm.status.label, vm.status.colour)}${vm.status.detail ? st(vm.status.detail, vm.status.detailColour) : ''}<span class="ro-nation" id="roNation">${nationHtml(o.nation)}</span></div>
         <h1>${esc(vm.name)}</h1>
         <div class="hdr-meta">${meta.map((m) => `<span>${esc(m)}</span>`).join('<span class="sep"></span>')}</div>
         ${vm.address.oneLine ? `<div class="hdr-addr">${ICON.pin}<span>${esc(vm.address.oneLine)}</span></div>` : ''}
+        ${vm.otherRegister ? `<div class="hdr-addr"><span>Also registered with the <a href="${esc(vm.otherRegister.url)}" target="_blank" rel="noopener">${esc(vm.otherRegister.body)}</a>.</span></div>` : ''}
         ${vm.sic.length ? `<div class="hdr-sic">${vm.sic.map((s) => `<span class="chip"><b class="mono">${esc(s.code)}</b>${esc(s.desc)}</span>`).join('')}</div>` : ''}
       </div>
       <div class="hdr-actions"><button class="save-btn" data-act="save" data-co="${esc(vm.number)}">${o.saved ? 'Saved' : 'Save'}</button></div></div>
@@ -55,7 +65,8 @@
     const ap = p.appointmentsLink && vm.appointments[p.appointmentsLink];
     const other = ap ? ap.items.filter((x) => x.number !== vm.number) : [];
     const idv = p.idv ? `<span class="idv" title="Identity verified ${esc(p.idv.verifiedOn)}">${ICON.check}ID verified</span>` : '';
-    const left = `<div style="min-width:0"><div class="nm">${personName(p)}${idv}</div><div class="rl">${esc(p.roleLabel)}${p.resigned ? ' · resigned ' + esc(p.resigned) : p.appointed ? ' · since ' + esc(p.appointed) : ''}${p.tenureYears != null && !p.resigned ? ` (${p.tenureYears}y)` : ''}</div></div>`;
+    const dq = vm.disq && p.personNumber && vm.disq[p.personNumber];
+    const left = `<div style="min-width:0"><div class="nm">${personName(p)}${idv}</div><div class="rl">${esc(p.roleLabel)}${p.resigned ? ' · resigned ' + esc(p.resigned) : p.appointed ? ' · since ' + esc(p.appointed) : ''}${p.tenureYears != null && !p.resigned ? ` (${p.tenureYears}y)` : ''}</div>${dq ? `<div><a class="flagtxt bad" href="${esc(URL.person(p.officerId))}">Disqualified director</a></div>` : ''}</div>`;
     const c2 = `<div class="cell hide-c">${esc(p.nationality)}<span class="faint">${esc(p.residence ? 'Lives in ' + p.residence : '')}</span></div>`;
     const apHtml = other.length ? `<details class="appts"><summary>${other.length} other appointment${other.length === 1 ? '' : 's'}${ap.total > ap.items.length ? ` (of ${ap.total})` : ''}</summary><ul>${other.slice(0, 8).map((x) => `<li><span>${x.number ? `<a href="${esc(URL.company(x.number))}">${esc(x.company)}</a>` : esc(x.company)} <span class="faint" style="display:inline">${esc(x.role)}</span></span><span class="faint" style="display:inline">${esc(x.resigned ? 'resigned ' + x.resigned : x.status)}</span></li>`).join('')}</ul></details>` : '';
     return `<div class="person"><div class="avatar${p.corporate ? ' corp' : ''}">${esc(initials(p.name))}</div>${left}${c2}${apHtml}</div>`;
@@ -66,11 +77,12 @@
     const sum = [roles, of.medianAge ? `<span class="chip">Median age <b>${of.medianAge}</b></span>` : '', of.nationalities[0] ? `<span class="chip">${esc(of.nationalities.slice(0, 2).map((n) => n.name).join(', '))}</span>` : '', of.verifiedCount ? `<span class="chip">ID verified <b>${of.verifiedCount}/${of.active.length}</b></span>` : ''].join('');
     const act = of.active.map((p) => personRow(p, vm));
     const former = of.former.slice(0, 20).map((p) => personRow(p, vm));
-    return `${head('People', of.counts.active + ' active', of.counts.resigned ? of.counts.resigned + ' former' : '')}
+    const w = vm.officerWord || { many: 'Officers' };
+    return `${head(w.many === 'Officers' ? 'People' : w.many, of.counts.active + ' active', of.counts.resigned ? of.counts.resigned + ' former' : '')}
       ${!of.active.length ? '' : `<div class="people-sum">${sum}</div>`}
-      ${act.length ? `<div class="people compact">${act.slice(0, lim).join('')}</div>` : `<div class="empty">No current officers.${of.counts.resigned ? ' ' + of.counts.resigned + ' former officer' + (of.counts.resigned === 1 ? '' : 's') + ' below.' : ''}</div>`}
+      ${act.length ? `<div class="people compact">${act.slice(0, lim).join('')}</div>` : `<div class="empty">No current ${esc(w.many.toLowerCase())}.${of.counts.resigned ? ' ' + of.counts.resigned + ' former ' + esc((of.counts.resigned === 1 ? w.one || 'officer' : w.many).toLowerCase()) + ' below.' : ''}</div>`}
       ${act.length > lim ? `<details><summary class="more">Show ${act.length - lim} more</summary><div class="people compact">${act.slice(lim).join('')}</div></details>` : ''}
-      ${former.length ? `<details${act.length ? '' : ' open'}><summary class="more">Former officers (${of.counts.resigned})</summary><div class="people compact">${former.join('')}</div>${of.counts.resigned > 20 ? '<div class="faint" style="font-size:12px;padding-top:6px">Showing the 20 most recent.</div>' : ''}</details>` : ''}`;
+      ${former.length ? `<details${act.length ? '' : ' open'}><summary class="more">Former ${esc(w.many.toLowerCase())} (${of.counts.resigned})</summary><div class="people compact">${former.join('')}</div>${of.counts.resigned > 20 ? '<div class="muted" style="font-size:12px;padding-top:6px">Showing the 20 most recent.</div>' : ''}</details>` : ''}`;
   }
 
   /* Officer changes: the whole tile opens the full officers list. */
@@ -79,19 +91,22 @@
     return `<a class="tile tile-link s5" href="${esc(URL.officers(vm.number))}">${head('Officer changes', 'last 12 months')}${ch.length ? `<ul class="changes">${ch.slice(0, 8).map((c) => `<li><span class="k ${c.kind}">${c.kind}</span><span><b style="font-weight:600;color:var(--ink-900)">${esc(c.name)}</b> <span class="muted">${esc(c.role.toLowerCase())} · ${esc(c.dateText)}</span></span></li>`).join('')}</ul>` : '<div class="empty">No appointments or resignations in the last 12 months.</div>'}<div class="tile-foot">View all officers</div></a>`;
   }
 
-  /* Ownership: one plain line per PSC. */
+  /* Ownership: one row per PSC. Names open the PSC's own record (by Companies House PSC ID), or the company for UK corporate PSCs.
+     Each nature of control is a separate line in Companies House's wording; 'Owner' only where it includes ownership of shares. */
+  function pscLink(p) {
+    if (p.ukCompany) return `<a href="${esc(URL.company(p.ukCompany))}">${esc(p.name)}</a>`;
+    if (p.pscId && !p.secure) return `<a href="${esc(URL.psc(p.pscId))}">${esc(p.name)}</a>`;
+    return esc(p.name);
+  }
   function ownership(vm) {
     const w = vm.ownership;
-    const row = (p) => {
-      const nm = p.ukCompany ? `<a href="${esc(URL.company(p.ukCompany))}">${esc(p.name)}</a>` : esc(p.name);
-      return `<div class="psc"><div class="line"><span class="nm">${nm}${p.idv ? `<span class="idv">${ICON.check}ID verified</span>` : ''}</span>${p.summary.main ? `<span class="bd">${esc(p.summary.main)}</span>` : ''}${p.notified ? `<span class="since">since ${esc(p.notified)}</span>` : ''}</div>${p.summary.other ? `<div class="other">${esc(p.summary.other)}</div>` : ''}${p.sanctioned ? '<div class="other flagtxt bad">On a sanctions list</div>' : ''}</div>`;
-    };
+    const row = (p) => `<div class="psc"><div class="line"><span class="nm">${pscLink(p)}${p.idv ? `<span class="idv">${ICON.check}ID verified</span>` : ''}</span><span class="bd">${esc(p.role)}</span>${p.notified ? `<span class="since">since ${esc(p.notified)}</span>` : ''}</div>${p.controls.map((c) => `<div class="other">${esc(c)}</div>`).join('')}${p.sanctioned ? '<div class="other flagtxt bad">On a sanctions list</div>' : ''}</div>`;
     const list = w.current.map(row).join('');
     const notes = w.notes.map((t) => `<div class="own-note">${esc(t)}</div>`).join('');
     return `${head('Ownership', w.current.length ? w.current.length + ' PSC' + (w.current.length === 1 ? '' : 's') : '', w.counts.ceased ? w.counts.ceased + ' ceased' : '')}
       ${list ? `<div class="psc-list">${list}</div>` : ''}
       ${notes ? `<div${list ? ' style="margin-top:10px"' : ''}>${notes}</div>` : ''}
-      ${w.ceased.length ? `<details><summary class="more">Former PSCs (${w.ceased.length})</summary><div class="psc-list" style="margin-top:8px">${w.ceased.map((p) => `<div class="psc"><div class="line"><span class="nm">${esc(p.name)}</span><span class="since">${esc(p.notified)} – ${esc(p.ceased)}</span></div></div>`).join('')}</div></details>` : ''}`;
+      ${w.ceased.length ? `<details><summary class="more">Former PSCs (${w.ceased.length})</summary><div class="psc-list" style="margin-top:8px">${w.ceased.map((p) => `<div class="psc"><div class="line"><span class="nm">${pscLink(p)}</span><span class="since">${esc(p.notified)} – ${esc(p.ceased)}</span></div></div>`).join('')}</div></details>` : ''}`;
   }
 
   function charges(vm, o = {}) {
@@ -130,19 +145,26 @@
       <div class="tile-foot"><a href="${esc(URL.filings(vm.number))}">View all filings</a></div>`;
   }
 
-  function similar(vm, o = {}) {
-    const s = vm.similar, lim = o.limit || 7;
-    const town = vm.address.town;
-    if (!s.items.length) return `${head('Similar companies')}<div class="empty">No similar active companies found${town ? ' in ' + esc(town) : ''}.</div>`;
-    return `${head('Similar nearby', '', esc(s.total.toLocaleString('en-GB')) + ' in ' + esc(town || 'the UK'))}<div class="sim">${s.items.slice(0, lim).map((x) => `<div class="sim-row"><a class="nm" href="${esc(URL.company(x.number))}">${esc(x.name)}</a><span class="m num">${x.ageYears != null ? esc(x.ageYears + 'y') : ''}</span><span class="s">${esc(join([x.town, x.postcode]))}</span><span class="m">${esc(x.number)}</span></div>`).join('')}</div>`;
+  /* Similar companies: three tabs, each loaded with its own request when opened (app.js fills #simBody). */
+  const SIM_TABS = [['nearby', 'Nearby'], ['trade', 'Same trade, UK-wide'], ['connected', 'Connected']];
+  function similar() {
+    return `${head('Similar companies')}<div class="tabs-plain" role="tablist" aria-label="Similar companies">${SIM_TABS.map(([k, l], i) => `<a href="#" role="tab" id="simTab-${k}" data-sim="${k}" aria-controls="simBody" aria-selected="${i === 0}"${i === 0 ? ' class="on"' : ''}>${esc(l)}</a>`).join('')}</div><div id="simBody" role="tabpanel" aria-live="polite"><div class="loading">Loading…</div></div>`;
+  }
+  const simRow = (x) => `<div class="sim-row"><a class="nm" href="${esc(URL.company(x.number))}">${esc(x.name)}</a><span class="m num">${x.ageYears != null ? esc(x.ageYears + 'y') : ''}</span><span class="s">${esc(join([x.town, x.postcode, x.generic ? 'general activity code' : '']))}</span><span class="m">${esc(x.number)}</span></div>`;
+  function simList(items, notes) {
+    const n = (notes || []).filter(Boolean).map((t) => `<div class="muted" style="font-size:12px;margin-top:8px">${esc(t)}</div>`).join('');
+    return (items.length ? `<div class="sim">${items.map(simRow).join('')}</div>` : '') + n;
+  }
+  /* Connected: companies sharing a current officer or PSC with this company, matched by Companies House ID. */
+  function connectedList(rows, notes) {
+    const n = (notes || []).filter(Boolean).map((t) => `<div class="muted" style="font-size:12px;margin-top:8px">${esc(t)}</div>`).join('');
+    const via = (l) => `${l.href ? `<a href="${esc(l.href)}">${esc(l.name)}</a>` : esc(l.name)}, ${esc(l.role.toLowerCase())}`;
+    return `<div class="muted" style="font-size:12px;margin-bottom:6px">Companies sharing a director or owner with this company (matched by Companies House ID)</div>${rows.length ? `<div class="sim">${rows.map((r) => `<div class="sim-row"><a class="nm" href="${esc(URL.company(r.number))}">${esc(r.name)}</a><span class="m">${r.status ? st(r.status, r.colour) : ''}</span><span class="s">Linked through ${r.links.slice(0, 3).map(via).join('; ')}${r.links.length > 3 ? ` and ${r.links.length - 3} more` : ''}</span><span class="m">${esc(r.number)}</span></div>`).join('')}</div>` : ''}${n}`;
   }
 
-  function details(vm) {
-    const rows = [['Company number', esc(vm.number)], ['Type', esc([vm.type.label, vm.type.subtype].filter(Boolean).join(' · '))], ['Jurisdiction', esc(vm.jurisdiction)], ['Incorporated', esc(vm.createdText)], ['Ceased', esc(vm.ceasedText)],
-      ['Previous names', esc(vm.previousNames.map((p) => `${p.name} (${p.from || '?'} – ${p.to || '?'})`).join('; '))], ['Service address', esc(vm.serviceAddress && vm.serviceAddress.oneLine)],
-      ['Overseas registration', vm.overseas ? join([vm.overseas.regNumber, vm.overseas.registry, vm.overseas.country]) : ''],
-      ['Registers', esc(vm.registers.map((r) => `${r.name}: ${r.where}`).join('; '))], ['UK establishments', vm.ukEstablishments.map((u) => `<a href="${esc(URL.company(u.number))}">${esc(u.name)}</a> (${esc(u.number)})`).join('; ')]].filter((r) => r[1]);
-    return `${head('Details')}<dl class="dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join('')}</dl>`;
+  function ukEstablishments(vm) {
+    const u = vm.ukEstablishments;
+    return `${head('UK establishments', u.length)}${u.length ? `<div class="sim">${u.map((x) => `<div class="sim-row"><a class="nm" href="${esc(URL.company(x.number))}">${esc(x.name)}</a><span class="m">${x.status ? st(x.status, x.colour) : ''}</span><span class="s">${esc(x.town)}</span><span class="m">${esc(x.number)}</span></div>`).join('')}</div>` : '<div class="empty">No UK establishments on record.</div>'}`;
   }
 
   /* Bento layout B, without the AI summary tile. */
@@ -161,10 +183,9 @@
         ${tile('s7', charges(vm, { limit: 3 }))}
         ${changes(vm)}
         ${tile('s7', filings(vm))}
-        ${tile('s5', similar(vm, { limit: 7 }))}
-        ${tile('s7', details(vm))}
+        ${o.ukEst ? tile('s5', similar()) + tile('s7', ukEstablishments(vm)) : tile('s12', similar())}
       </div></div></article>`;
   }
 
-  root.UI = { esc, st, initials, URL, head, header, companyPage, filingRow, personRow };
+  root.UI = { esc, st, initials, URL, head, header, companyPage, filingRow, personRow, nationHtml, simList, connectedList, pscLink, ICON, factTile, join };
 })(window);
