@@ -15,7 +15,7 @@
   const LU = (inner, extra) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${extra || ''}>${inner}</svg>`;
   const GLYPH = {
     company: '<path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/>',
-    person: '<path d="M17.925 20.056a6 6 0 0 0-11.851.001"/><circle cx="12" cy="11" r="4"/>',
+    person: '<path d="M17.925 20.056a6 6 0 0 0-11.851.001"/><circle cx="12" cy="11" r="4"/><circle cx="12" cy="12" r="10"/>',
     bookmark: '<path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z"/>',
   };
   const kindIcon = (kind, label) => `<span class="kic ${kind === 'person' ? 'person' : 'company'}"${label ? ` role="img" aria-label="${label}"` : ' aria-hidden="true"'}>${LU(GLYPH[kind === 'person' ? 'person' : 'company'])}</span>`;
@@ -35,11 +35,13 @@
   };
   const head = (title, count, aside) => `<div class="tile-head"><h3>${esc(title)}${count != null && count !== '' ? `<span class="count">${esc(count)}</span>` : ''}</h3>${aside ? `<span class="aside">${aside}</span>` : ''}</div>`;
 
-  /* Registered office nation, shown after the status text. n = {flag, name} or {text}. */
+  /* Nation of registration, shown at the end of the address row: flag (England, Wales, Scotland) and the nation name as text.
+     n = {flag, name} or {text, reg}. reg = true when the text is a place of registration (Northern Ireland, England & Wales). */
   function nationHtml(n) {
     if (!n) return '';
-    if (n.flag) return `<span class="muted" style="font-size:12px">Registered office</span><img class="flag" src="flags/${esc(n.flag)}.svg" width="24" height="18" alt="${esc(n.name)}" title="Registered office: ${esc(n.name)}">`;
-    return `<span class="muted" style="font-size:12px">Registered office: ${esc(n.text)}</span>`;
+    if (n.flag) return `<span class="nat" title="Registered in ${esc(n.name)}" aria-label="Registered in ${esc(n.name)}" role="img"><img class="flag" src="flags/${esc(n.flag)}.svg" width="24" height="18" alt=""><span aria-hidden="true">${esc(n.name)}</span></span>`;
+    if (n.reg) return `<span class="nat" title="Registered in ${esc(n.text)}" aria-label="Registered in ${esc(n.text)}" role="img"><span aria-hidden="true">${esc(n.text)}</span></span>`;
+    return `<span class="nat" title="Registered office: ${esc(n.text)}"><span>Registered office: ${esc(n.text)}</span></span>`;
   }
 
   /* Overview header: status as bold coloured text, no external link buttons. */
@@ -47,10 +49,10 @@
     const meta = [cp(vm.type.label), esc(vm.type.subtype), vm.number && `No. ${cp(vm.number)}`, vm.createdText && `Incorporated ${cp(vm.createdText)}`, vm.ceasedText && `Ceased ${cp(vm.ceasedText)}`].filter(Boolean);
     return `<header class="hdr">
       <div class="hdr-top"><div style="min-width:0">
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">${st(vm.status.label, vm.status.colour)}${vm.status.detail ? st(vm.status.detail, vm.status.detailColour) : ''}<span class="ro-nation" id="roNation">${nationHtml(o.nation)}</span></div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">${st(vm.status.label, vm.status.colour)}${vm.status.detail ? st(vm.status.detail, vm.status.detailColour) : ''}</div>
         <h1>${cp(vm.name)}</h1>
         <div class="hdr-meta">${kindIcon('company', 'Company')}${meta.map((m) => `<span>${m}</span>`).join('<span class="sep"></span>')}</div>
-        ${vm.address.oneLine ? `<div class="hdr-addr">${ICON.pin}${cp(vm.address.oneLine)}</div>` : ''}
+        <div class="hdr-addr"${vm.address.oneLine ? '' : ' hidden'}>${ICON.pin}${vm.address.oneLine ? `<span class="addr-txt">${cp(vm.address.oneLine)}</span>` : ''}<span class="ro-nation" id="roNation">${nationHtml(o.nation)}</span></div>
         ${vm.otherRegister ? `<div class="hdr-addr"><span>Also registered with the <a href="${esc(vm.otherRegister.url)}" target="_blank" rel="noopener">${esc(vm.otherRegister.body)}</a>.</span></div>` : ''}
         ${vm.sic.length ? `<div class="hdr-sic">${vm.sic.map((s) => `<span class="chip"><b class="mono">${cp(s.code)}</b>${esc(s.desc)}</span>`).join('')}</div>` : ''}
       </div>
@@ -113,15 +115,17 @@
     if (p.pscId && !p.secure) return `<a href="${esc(URL.psc(p.pscId))}">${esc(p.name)}</a>`;
     return esc(p.name);
   }
+  /* Company or person disc from the PSC kind recorded by Companies House (corporate entity and legal person = company). */
+  const pscIcon = (p) => kindIcon(p.corporate ? 'company' : 'person', p.secure ? 'Protected person' : p.kindLabel || (p.corporate ? 'Company' : 'Individual')).replace('class="kic', 'class="kic sm');
   function ownership(vm) {
     const w = vm.ownership;
-    const row = (p) => `<div class="psc"><div class="line"><span class="nm">${pscLink(p)}${p.idv ? `<span class="idv">${ICON.check}ID verified</span>` : ''}</span><span class="bd">${esc(p.role)}</span>${p.notified ? `<span class="since">since ${esc(p.notified)}</span>` : ''}</div>${p.controls.map((c) => `<div class="other">${esc(c)}</div>`).join('')}${p.sanctioned ? '<div class="other flagtxt bad">On a sanctions list</div>' : ''}</div>`;
+    const row = (p) => `<div class="psc ic">${pscIcon(p)}<div class="psc-body"><div class="line"><span class="nm">${pscLink(p)}${p.idv ? `<span class="idv">${ICON.check}ID verified</span>` : ''}</span><span class="bd">${esc(p.role)}</span>${p.notified ? `<span class="since">since ${esc(p.notified)}</span>` : ''}</div>${p.controls.map((c) => `<div class="other">${esc(c)}</div>`).join('')}${p.sanctioned ? '<div class="other flagtxt bad">On a sanctions list</div>' : ''}</div></div>`;
     const list = w.current.map(row).join('');
     const notes = w.notes.map((t) => `<div class="own-note">${esc(t)}</div>`).join('');
     return `${head('Ownership', w.current.length ? w.current.length + ' PSC' + (w.current.length === 1 ? '' : 's') : '', w.counts.ceased ? w.counts.ceased + ' ceased' : '')}
       ${list ? `<div class="psc-list">${list}</div>` : ''}
       ${notes ? `<div${list ? ' style="margin-top:10px"' : ''}>${notes}</div>` : ''}
-      ${w.ceased.length ? `<details><summary class="more">Former PSCs (${w.ceased.length})</summary><div class="psc-list" style="margin-top:8px">${w.ceased.map((p) => `<div class="psc"><div class="line"><span class="nm">${pscLink(p)}</span><span class="since">${esc(p.notified)} – ${esc(p.ceased)}</span></div></div>`).join('')}</div></details>` : ''}`;
+      ${w.ceased.length ? `<details><summary class="more">Former PSCs (${w.ceased.length})</summary><div class="psc-list" style="margin-top:8px">${w.ceased.map((p) => `<div class="psc ic">${pscIcon(p)}<div class="psc-body"><div class="line"><span class="nm">${pscLink(p)}</span><span class="since">${esc(p.notified)} – ${esc(p.ceased)}</span></div></div></div>`).join('')}</div></details>` : ''}`;
   }
 
   function charges(vm, o = {}) {

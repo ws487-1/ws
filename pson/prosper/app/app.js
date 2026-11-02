@@ -10,7 +10,7 @@
   const qs = new URLSearchParams(location.search);
 
   /* ---------- storage ---------- */
-  const SLOT = { ch: 'prosper.key.ch', claude: 'prosper.key.claude', saved: 'prosper.saved', recent: 'prosper.recent', pc: 'prosper.pc', disq: 'prosper.disq', conn: 'prosper.conn.' };
+  const SLOT = { ch: 'prosper.key.ch', claude: 'prosper.key.claude', saved: 'prosper.saved', recent: 'prosper.recent', viewed: 'prosper.viewed', pc: 'prosper.pc', disq: 'prosper.disq', conn: 'prosper.conn.' };
   const lsGet = (k) => { try { const v = localStorage.getItem(k); return v == null ? null : JSON.parse(v); } catch (e) { return null; } };
   const lsObj = (k) => { const v = lsGet(k); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; };
   const lsSet = (k, v) => { try { if (v == null || v === '') localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage blocked */ } };
@@ -163,25 +163,75 @@
     if (/^[A-Za-z0-9_-]{27}$/.test(s) && /[a-z]/.test(s) && /[A-Z]/.test(s) && /[0-9_-]/.test(s)) return U.person(s);
     return '';
   }
-  /* Recent searches: [{label, href, at}]. The earlier web app (before round 1) kept 'prosper.recent' as a JSON-encoded
-     string of [{n, name}] company visits; that, or any other shape, is dropped and the slot rewritten as an array. */
-  function recentList() {
-    const raw = lsGet(SLOT.recent);
-    let v = raw;
+  /* Recently viewed: company and person pages opened in this browser, newest first, at most 100, one entry per page.
+     Entry = {type, id, name, t}: type 'company' (id = company number), 'person' or 'corporate' (a company acting as officer
+     or owner; id = 'id:<officer IDs>' or 'psc:<PSC ID>'), t = ISO time viewed (null for entries migrated from old data). */
+  const VIEW_MAX = 100, VIEW_TRIM = 50;
+  const viewOk = (r) => !!r && typeof r === 'object' && ['company', 'person', 'corporate'].includes(r.type) && typeof r.id === 'string' && !!r.id && typeof r.name === 'string';
+  const viewKey = (r) => (r.type === 'company' ? 'c:' : 'p:') + r.id;
+  const viewHref = (r) => (r.type === 'company' ? U.company(r.id) : r.id.startsWith('psc:') ? U.psc(r.id.slice(4)) : U.person(r.id.replace(/^id:/, '').split(',')));
+  /* Writes the list; when storage is full, keeps the newest 50. Returns false if nothing could be stored. */
+  function saveViewed(l) {
+    try { if (!l.length) localStorage.removeItem(SLOT.viewed); else localStorage.setItem(SLOT.viewed, JSON.stringify(l.slice(0, VIEW_MAX))); return true; } catch (e) { /* quota or blocked */ }
+    try { localStorage.setItem(SLOT.viewed, JSON.stringify(l.slice(0, VIEW_TRIM))); return true; } catch (e) { return false; }
+  }
+  /* 'prosper.recent' held recent searches (rounds 1-4) or, in the earlier web app, a JSON-encoded string of [{n, name}]
+     company visits. Company visits become Recently viewed entries; searches and any other shape are dropped, never thrown on. */
+  function legacyViews() {
+    let v = lsGet(SLOT.recent);
     if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
-    const l = Array.isArray(v) ? v.filter((r) => r && typeof r === 'object' && typeof r.href === 'string' && r.href && typeof r.label === 'string') : [];
-    if (raw != null && JSON.stringify(l) !== JSON.stringify(raw)) lsSet(SLOT.recent, l.length ? l : null);
-    return l;
+    if (!Array.isArray(v)) return [];
+    const out = [];
+    for (const r of v) {
+      if (!r || typeof r !== 'object' || (typeof r.n !== 'string' && typeof r.n !== 'number')) continue;
+      const n = normNumber(r.n);
+      if (!isNumber(n) || out.some((x) => x.id === n)) continue;
+      out.push({ type: 'company', id: n, name: typeof r.name === 'string' && r.name.trim() ? N.profile({ company_name: r.name, company_number: n }).name : 'Company ' + n, t: null });
+    }
+    return out.slice(0, VIEW_MAX);
   }
-  function addRecent(label, href) {
-    const l = recentList().filter((r) => r.href !== href);
-    l.unshift({ label, href, at: new Date().toISOString() });
-    lsSet(SLOT.recent, l.slice(0, 10));
+  function viewedList() {
+    const raw = lsGet(SLOT.viewed);
+    let had = false; try { had = localStorage.getItem(SLOT.recent) != null; } catch (e) { /* storage blocked */ }
+    if (had) {
+      let old = []; try { old = legacyViews(); } catch (e) { old = []; }
+      const cur = Array.isArray(raw) ? raw.filter(viewOk) : [];
+      const merged = cur.concat(old.filter((o) => !cur.some((c) => viewKey(c) === viewKey(o))));
+      if (!old.length || saveViewed(merged)) lsSet(SLOT.recent, null);
+      return merged.slice(0, VIEW_MAX);
+    }
+    const l = Array.isArray(raw) ? raw.filter(viewOk) : [];
+    if (raw != null && (!Array.isArray(raw) || l.length !== raw.length)) saveViewed(l);
+    return l.slice(0, VIEW_MAX);
   }
-  function recentHtml() {
-    const l = recentList();
-    if (!l.length) return '';
-    return `<div class="panel" id="recentPanel"><div class="tile-head"><h3>Recent searches</h3><span class="aside"><button class="lnk" type="button" id="clearRecent">Clear all</button></span></div><div class="recent">${l.map((r) => `<a href="${esc(r.href)}">${esc(r.label)}</a>`).join('')}</div></div>`;
+  function addViewed(type, id, name) {
+    if (!id || !name) return;
+    const e = { type, id: String(id), name: String(name), t: new Date().toISOString() };
+    saveViewed([e].concat(viewedList().filter((r) => viewKey(r) !== viewKey(e))));
+  }
+  /* Search page panel: the latest 10, 'Show 10 more' up to 100; each row can be removed, or the whole list cleared. */
+  function wireViewed(el) {
+    const box = el.querySelector('#viewedBox');
+    if (!box) return;
+    let n = 10;
+    const when = (t) => { const d = t ? new Date(t) : null; return d && !isNaN(d) ? N.fmtDate(t.slice(0, 10)) + ', ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''; };
+    const row = (r) => `<div class="res"><div class="res-nm">${window.UI.kindIcon(r.type === 'person' ? 'person' : 'company', r.type === 'company' ? 'Company' : r.type === 'person' ? 'Person' : 'Company (officer or owner)')}<a class="nm" href="${esc(viewHref(r))}">${esc(r.name)}</a></div><div class="rt"><button class="lnk" type="button" data-rm="${esc(viewKey(r))}" aria-label="Remove ${esc(r.name)} from recently viewed">Remove</button></div><div class="meta">${esc([r.type === 'company' && 'No. ' + r.id, when(r.t) && (r.type === 'company' ? 'viewed ' : 'Viewed ') + when(r.t)].filter(Boolean).join(' · '))}</div></div>`;
+    const draw = (focusSel) => {
+      const l = viewedList();
+      if (!l.length) { box.innerHTML = ''; return; }
+      n = Math.min(Math.max(n, 10), l.length);
+      box.innerHTML = `<div class="panel" id="recentPanel"><div class="tile-head"><h3>Recently viewed<span class="count">${l.length}</span></h3><span class="aside"><button class="lnk" type="button" id="clearRecent">Clear all</button></span></div>
+        <div class="res-list" id="viewedList">${l.slice(0, n).map(row).join('')}</div>
+        ${l.length > n ? `<div class="more-row"><button class="btn sm" type="button" id="viewedMore">Show ${Math.min(10, l.length - n)} more</button><span class="muted">Showing ${n} of ${l.length}</span></div>` : ''}</div>`;
+      box.querySelector('#clearRecent').addEventListener('click', () => { saveViewed([]); box.innerHTML = ''; document.querySelector('.search input').focus(); });
+      const more = box.querySelector('#viewedMore');
+      if (more) more.addEventListener('click', () => { const first = n; n += 10; draw(); const a = box.querySelectorAll('#viewedList .nm')[first]; if (a) a.focus(); });
+      box.querySelectorAll('[data-rm]').forEach((b, i) => b.addEventListener('click', () => {
+        saveViewed(viewedList().filter((r) => viewKey(r) !== b.dataset.rm)); draw();
+        const bs = box.querySelectorAll('[data-rm]'); const t = bs[Math.min(i, bs.length - 1)]; if (t) t.focus(); else document.querySelector('.search input').focus();
+      }));
+    };
+    draw();
   }
   const opts = (map, cur, any) => `<option value="">${esc(any)}</option>` + Object.entries(map || {}).sort((a, b) => a[1].localeCompare(b[1])).map(([k, v]) => `<option value="${esc(k)}"${k === cur ? ' selected' : ''}>${esc(v)}</option>`).join('');
   function advancedPanel(mode, open) {
@@ -256,10 +306,9 @@
     }
     if (!q && !mode) {
       setTitle('Search');
-      el.innerHTML = `<div class="page-head"><div><h1>Search</h1><div class="sub">Search Companies House by company name or number, or by a person's name. You can also paste a Companies House link or officer ID.</div></div><div>${advBtn(false)}</div></div>${chKey() ? '' : '<div class="panel plain-msg" style="margin-bottom:16px">Add your Companies House API key in <a href="settings.html">Settings</a> to start searching.</div>'}${advancedPanel('', false)}${recentHtml()}`;
+      el.innerHTML = `<div class="page-head"><div><h1>Search</h1><div class="sub">Search Companies House by company name or number, or by a person's name. You can also paste a Companies House link or officer ID.</div></div><div>${advBtn(false)}</div></div>${chKey() ? '' : '<div class="panel plain-msg" style="margin-bottom:16px">Add your Companies House API key in <a href="settings.html">Settings</a> to start searching.</div>'}${advancedPanel('', false)}<div id="viewedBox"></div>`;
       wireAdvanced(el);
-      const cr = el.querySelector('#clearRecent');
-      if (cr) cr.addEventListener('click', () => { lsSet(SLOT.recent, null); el.querySelector('#recentPanel').remove(); document.querySelector('.search input').focus(); });
+      wireViewed(el);
       document.querySelector('.search input').focus();
       return;
     }
@@ -276,7 +325,6 @@
     wireAdvanced(el);
     const res = document.getElementById('res');
     loading(res, 'Searching…');
-    const href = location.pathname.split('/').pop() + location.search;
     try {
       if (mode === 'advanced') {
         const g = (k) => qs.get(k) || '';
@@ -285,7 +333,6 @@
         if (!params.length) { res.innerHTML = '<div class="plain-msg">Choose at least one filter.</div>'; return; }
         const per = 20, raw = await ch('/advanced-search/companies?' + new URLSearchParams(params.concat([['size', per], ['start_index', (page - 1) * per]])).toString());
         const r = N.searchList(raw);
-        addRecent('Filtered: ' + params.map(([k, v]) => (k === 'sic_codes' ? 'SIC ' + v : v)).join(', '), href);
         if (!r.items.length) { res.innerHTML = '<div class="plain-msg">No companies match these filters.</div>'; return; }
         const total = Math.min(r.total, 10000);
         res.innerHTML = `<div class="res-list">${r.items.map((c) => resRow(c, c.sic.length ? `<div class="addr">SIC ${esc(c.sic.join(', '))}</div>` : '')).join('')}</div>
@@ -298,7 +345,6 @@
         const raw = await ch(`/alphabetical-search/companies?q=${encodeURIComponent(q)}&size=${after ? 40 : 20}`);
         let r = N.searchList(raw).items;
         if (after) r = r.filter((c) => c.key > after).slice(0, 20);
-        addRecent('A–Z: ' + q, href);
         if (!r.length) { res.innerHTML = '<div class="plain-msg">No companies found.</div>'; return; }
         const last = r[r.length - 1];
         res.innerHTML = `<div class="res-list">${r.map((c) => resRow(c)).join('')}</div><div class="pager"><span>Alphabetical list from Companies House</span><span class="btns"><a class="btn sm" href="${esc(withParams('index.html', { mode: 'az', q: last.name, after: last.key }))}">Next</a></span></div>`;
@@ -308,14 +354,12 @@
         const per = 20, prev = !!qs.get('prev');
         const raw = await ch(`/dissolved-search/companies?q=${encodeURIComponent(q)}&search_type=${prev ? 'previous-name-dissolved' : 'best-match'}&size=${per}&start_index=${(page - 1) * per}`);
         const r = N.searchList(raw);
-        addRecent((prev ? 'Dissolved, previous names: ' : 'Dissolved: ') + q, href);
         if (!r.items.length) { res.innerHTML = '<div class="plain-msg">No dissolved companies found.</div>'; return; }
         const total = Math.min(r.total, 10000);
         res.innerHTML = `<div class="res-list">${r.items.map((c) => resRow(c, c.previous.length ? `<div class="addr">Previous names: ${esc(c.previous.map((x) => x.name + (x.to ? ' (until ' + x.to + ')' : '')).join('; '))}</div>` : '')).join('')}</div>
           ${pager(page, Math.ceil(total / per), r.total, (page - 1) * per + 1, (page - 1) * per + r.items.length, (p) => withParams('index.html', { mode, q, prev: prev ? 1 : '', page: p }))}`;
         return;
       }
-      addRecent(q + (type === 'companies' ? '' : type === 'people' ? ' (people)' : ' (disqualified)'), href);
       if (type === 'companies') {
         const per = 20, raw = await ch(`/search/companies?q=${encodeURIComponent(q)}&items_per_page=${per}&start_index=${(page - 1) * per}`);
         const r = N.searchCompanies(raw);
@@ -383,12 +427,12 @@
   async function nation(vm) {
     const j = vm.jurisdictionCode;
     if (j === 'scotland') return { flag: 'gb-sct', name: 'Scotland' };
-    if (j === 'northern-ireland') return { text: 'Northern Ireland' };
+    if (j === 'northern-ireland') return { text: 'Northern Ireland', reg: true };
     if (j === 'england-wales' || j === 'england' || j === 'wales') {
       const c = vm.address.postcode ? await pcCountry(vm.address.postcode) : null;
       if (c === 'England' && j !== 'wales') return { flag: 'gb-eng', name: 'England' };
       if (c === 'Wales' && j !== 'england') return { flag: 'gb-wls', name: 'Wales' };
-      return { text: j === 'england-wales' ? 'England & Wales' : vm.jurisdiction };
+      return { text: j === 'england-wales' ? 'England & Wales' : vm.jurisdiction, reg: true };
     }
     const t = (vm.overseas && vm.overseas.country) || vm.jurisdiction || vm.address.country;
     return t ? { text: t } : null;
@@ -445,7 +489,8 @@
       setTitle(vm.name);
       el.innerHTML = window.UI.companyPage(vm, { saved: isSaved('c:' + vm.number), ukEst: !!raw.ukEstablishments && !raw.ukEstablishments._http });
       bindSave(el.querySelector('[data-act="save"]'), { kind: 'company', number: vm.number, name: vm.name, status: vm.status.label, colour: vm.status.colour, town: vm.address.town || '' });
-      nation(vm).then((x) => { const s = document.getElementById('roNation'); if (s) s.innerHTML = window.UI.nationHtml(x); }).catch(() => {});
+      addViewed('company', vm.number, vm.name);
+      nation(vm).then((x) => { const s = document.getElementById('roNation'); if (s) { s.innerHTML = window.UI.nationHtml(x); if (s.innerHTML) s.parentNode.hidden = false; } }).catch(() => {});
       initSimilar(vm, raw);
     } catch (e) { showError(el, e); }
   }
@@ -760,6 +805,68 @@
     disqRemember(rec.pns, hits[0] && hits[0].path);
     return hits[0] ? N.disqualification(hits[0].raw) : null;
   }
+  /* Appointments table. Over AP_FEW appointments it gets a filter box, a status menu, a sort menu, a live count and
+     'Show 25 more'; when Companies House has more than were loaded, 'Load more from Companies House' fetches the next 500.
+     'Current' uses Companies House's filter=active list, so it is complete even when only part of the history is loaded. */
+  const AP_FEW = 10, AP_STEP = 25, AP_FETCH = 500;
+  const apRow = (a) => `<tr><td>${a.number ? `<a href="${esc(U.company(a.number))}">${esc(a.company)}</a> <span class="muted">${cp(a.number)}</span>` : esc(a.company)}</td><td>${a.status ? st(a.status, a.colour) : ''}</td><td>${esc(a.role)}</td><td class="nowrap num">${cpd(a.appointed)}</td><td class="nowrap num">${cpd(a.resigned)}</td></tr>`;
+  const CLOSED = ['dissolved', 'closed', 'converted-closed', 'removed'];
+  function apList(el, ids, raws, total) {
+    const $ = (s) => el.querySelector(s);
+    const q = $('#apQ'), sel = $('#apS'), ord = $('#apO'), body = $('#apBody'), count = $('#apCount'), more = $('#apMore'), load = $('#apLoad');
+    const fmt = (n) => n.toLocaleString('en-GB');
+    let items = N.person(raws).items, current = null, currentFull = false, shown = AP_STEP, busy = '', note = '';
+    const loaded = () => raws.reduce((n, r) => n + r.items.length, 0);
+    const partial = () => loaded() < total;
+    async function fetchCurrent() {
+      busy = 'Loading current appointments from Companies House…'; draw();
+      let rs = null;
+      try { rs = await Promise.all(ids.map((id) => allPages(`/officers/${id}/appointments?filter=active`, 50, 2000))); } catch (e) { rs = null; }
+      busy = '';
+      if (!rs || rs.some((r) => r._http)) { note = 'Could not load the full list of current appointments; showing current ones among those loaded'; current = items.filter((a) => a.current); currentFull = false; }
+      else { current = N.person(rs).items; currentFull = true; }
+      draw();
+    }
+    async function loadMore() {
+      busy = 'Loading more appointments from Companies House…'; note = ''; draw();
+      let budget = AP_FETCH;
+      try {
+        for (let i = 0; i < raws.length && budget > 0; i++) {
+          const r = raws[i], tot = +r.total_results || 0;
+          while (r.items.length < tot && budget > 0) {
+            const nx = await ch(`/officers/${ids[i]}/appointments?items_per_page=50&start_index=${r.items.length}`);
+            const got = (nx && !nx._http && nx.items) || [];
+            if (!got.length) { budget = 0; if (nx && nx._http) note = 'Companies House did not return more appointments. Try again later.'; break; }
+            r.items.push(...got); budget -= got.length;
+          }
+        }
+      } catch (e) { note = 'Could not load more appointments. Try again later.'; }
+      busy = ''; items = N.person(raws).items; draw();
+    }
+    function draw() {
+      const t = q.value.trim().toLowerCase(), sv = sel.value, o = ord.value;
+      if (sv === 'current' && partial() && !current && !busy) { fetchCurrent(); return; }
+      const base = sv === 'current' && current && partial() ? current : items;
+      const m = base.filter((a) => (!t || (a.company + ' ' + a.number).toLowerCase().includes(t)) && (!sv || (sv === 'current' ? a.current : sv === 'resigned' ? !a.current : sv === 'co-active' ? a.statusCode === 'active' : CLOSED.includes(a.statusCode))));
+      m.sort((a, b) => (o === 'az' ? a.company.localeCompare(b.company) || a.number.localeCompare(b.number)
+        : o === 'old' ? (a.appointedIso || '0').localeCompare(b.appointedIso || '0')
+        : (b.current - a.current) || (b.appointedIso || '0').localeCompare(a.appointedIso || '0')));
+      const vis = Math.min(shown, m.length);
+      body.innerHTML = m.slice(0, vis).map(apRow).join('') || '<tr><td colspan="5" class="muted">No appointments match.</td></tr>';
+      const fromCur = sv === 'current' && current && currentFull && partial();
+      count.textContent = busy || [`Showing ${fmt(vis)} of ${fmt(m.length)}${t || sv ? ' matching' : ''}`,
+        fromCur ? 'all current appointments, from Companies House' : partial() ? `${fmt(loaded())} of ${fmt(total)} appointments loaded` : '', note].filter(Boolean).join(' · ');
+      more.style.display = vis < m.length ? '' : 'none';
+      more.textContent = `Show ${Math.min(AP_STEP, m.length - vis)} more`;
+      load.style.display = partial() && !fromCur ? '' : 'none';
+      load.disabled = !!busy;
+      more.parentNode.style.display = more.style.display === 'none' && load.style.display === 'none' ? 'none' : '';
+    }
+    [q, sel, ord].forEach((x) => x.addEventListener('input', () => { shown = AP_STEP; note = ''; draw(); }));
+    more.addEventListener('click', () => { const first = shown; shown += AP_STEP; draw(); const a = body.querySelectorAll('tr')[first]; const f = a && a.querySelector('a'); if (f) f.focus(); });
+    load.addEventListener('click', () => { if (!busy) loadMore(); });
+    draw();
+  }
   async function pageOfficer() {
     const el = shell('');
     const okId = (s) => /^[A-Za-z0-9_-]{6,}$/.test(s);
@@ -795,8 +902,14 @@
       const details = dl([['Name', vm.name, false, true], ['Roles', vm.roles.join(', ')], ['First appointed', firstAp ? N.fmtDate(firstAp) : '', false, true], ['Last resigned', lastRes ? N.fmtDate(lastRes) : '', false, true],
         ['Nationality', vm.nationalities.join(', ')], ['Country of residence', vm.residences.join(', ')], ['Born', vm.born, false, true], ['Age', ageText(vm.age)],
         ['Correspondence address', vm.addresses.map((a) => cp(a)).join('<br>'), true], ['Former names', vm.formerNames.join(', ')], ['Companies House records', apIds.length > 1 ? apIds.length + ' combined (same person IDs chosen in search)' : '']]);
-      const shown = vm.loaded < vm.total ? `Showing the latest ${vm.loaded} of ${vm.total}` : '';
-      const apTable = `<div class="table-wrap"><table class="table"><thead><tr><th>Company</th><th>Status</th><th>Role</th><th class="nowrap">Appointed</th><th class="nowrap">Resigned</th></tr></thead><tbody>${vm.items.map((a) => `<tr><td>${a.number ? `<a href="${esc(U.company(a.number))}">${esc(a.company)}</a> <span class="muted">${cp(a.number)}</span>` : esc(a.company)}</td><td>${a.status ? st(a.status, a.colour) : ''}</td><td>${esc(a.role)}</td><td class="nowrap num">${cpd(a.appointed)}</td><td class="nowrap num">${cpd(a.resigned)}</td></tr>`).join('')}</tbody></table></div>`;
+      const many = vm.total > AP_FEW;
+      const apTable = `<div class="table-wrap"><table class="table"><thead><tr><th>Company</th><th>Status</th><th>Role</th><th class="nowrap">Appointed</th><th class="nowrap">Resigned</th></tr></thead><tbody id="apBody">${many ? '' : vm.items.map(apRow).join('')}</tbody></table></div>`;
+      const apTools = many ? `<div class="ap-tools">
+          <input class="input" type="search" id="apQ" placeholder="Filter by company name or number" aria-label="Filter appointments by company name or number">
+          <select class="input" id="apS" aria-label="Status"><option value="">All appointments</option><option value="current">Current</option><option value="resigned">Resigned</option><option value="co-active">Company active</option><option value="co-closed">Company dissolved or closed</option></select>
+          <select class="input" id="apO" aria-label="Sort"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="az">Company A–Z</option></select></div>
+        <div class="ap-count" id="apCount" role="status" aria-live="polite"></div>` : '';
+      const apMore = many ? '<div class="more-row center"><button class="btn" type="button" id="apMore">Show 25 more</button><button class="btn" type="button" id="apLoad">Load more from Companies House</button></div>' : '';
       const names = pnv ? await companyNames(pnv.items.map((x) => x.number)).catch(() => ({})) : {};
       vm.items.forEach((a) => { if (a.number && !names[a.number]) names[a.number] = a.company; });
       el.innerHTML = `<article class="lay-b"><div class="card shell">
@@ -808,10 +921,12 @@
           <div class="s3">${f('Average tenure', reliableAvg ? vm.averageYears + (vm.averageYears === 1 ? ' year' : ' years') : '—', reliableAvg ? 'Across ' + vm.tenureBase + ' appointments' : (vm.loaded < vm.total ? 'Not shown: not all appointments loaded' : vm.tenureBase < 2 ? 'Not shown: needs two or more dated roles' : 'Not shown: dates incomplete'))}</div>
           <div class="tile s12" id="disqTile" hidden></div>
           <div class="tile s5">${window.UI.head('Personal details')}${details}</div>
-          <div class="tile s7">${window.UI.head('Appointments', vm.total, shown)}${apTable}</div>
+          <div class="tile s7">${window.UI.head('Appointments', vm.total)}${apTools}${apTable}${apMore}</div>
           ${pnv ? `<div class="tile s12">${controlsTile(pnv, names)}</div>` : ''}
         </div></div></article>`;
+      addViewed(vm.corporate ? 'corporate' : 'person', key, vm.name);
       bindSave(el.querySelector('[data-act="save"]'), { kind: 'person', key, href: pscId ? U.psc(pscId) : U.person(apIds), name: vm.name, sub: [vm.roles[0], vm.born && 'Born ' + vm.born].filter(Boolean).join(' · ') });
+      if (many) apList(el, apIds.filter((id, i) => !raws[i]._http), good, vm.total);
       disqForPerson(apIds, vm).then((d) => { const t = document.getElementById('disqTile'); if (d && t) { t.innerHTML = disqTile(d); t.hidden = false; } }).catch((e) => { if (!(e instanceof ApiError)) console.error(e); });
     } catch (e) { showError(el, e); }
   }
@@ -825,6 +940,7 @@
         <div class="tile s5">${window.UI.head('Owner details only')}${details}<div class="muted" style="font-size:12px;margin-top:10px">This person is not linked to any director appointments by Companies House ID.</div></div>
         <div class="tile s7">${controlsTile(pn, names)}</div>
       </div></div></article>`;
+    addViewed(pn.corporate ? 'corporate' : 'person', 'psc:' + pscId, pn.name || 'Owner');
     bindSave(el.querySelector('[data-act="save"]'), { kind: 'person', key: 'psc:' + pscId, href: U.psc(pscId), name: pn.name, sub: ['Owner details only', pn.born && 'Born ' + pn.born].filter(Boolean).join(' · ') });
   }
   async function disqPage(el, id, kind) {
