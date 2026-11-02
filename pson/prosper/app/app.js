@@ -12,6 +12,7 @@
   /* ---------- storage ---------- */
   const SLOT = { ch: 'prosper.key.ch', claude: 'prosper.key.claude', saved: 'prosper.saved', recent: 'prosper.recent', pc: 'prosper.pc', disq: 'prosper.disq', conn: 'prosper.conn.' };
   const lsGet = (k) => { try { const v = localStorage.getItem(k); return v == null ? null : JSON.parse(v); } catch (e) { return null; } };
+  const lsObj = (k) => { const v = lsGet(k); return v && typeof v === 'object' && !Array.isArray(v) ? v : {}; };
   const lsSet = (k, v) => { try { if (v == null || v === '') localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage blocked */ } };
   function cleanKey(raw, kind) {
     let s = String(raw == null ? '' : raw);
@@ -132,13 +133,23 @@
     if (/^[A-Za-z0-9_-]{27}$/.test(s) && /[a-z]/.test(s) && /[A-Z]/.test(s) && /[0-9_-]/.test(s)) return U.person(s);
     return '';
   }
+  /* Recent searches: [{label, href, at}]. The earlier web app (before round 1) kept 'prosper.recent' as a JSON-encoded
+     string of [{n, name}] company visits; that, or any other shape, is dropped and the slot rewritten as an array. */
+  function recentList() {
+    const raw = lsGet(SLOT.recent);
+    let v = raw;
+    if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
+    const l = Array.isArray(v) ? v.filter((r) => r && typeof r === 'object' && typeof r.href === 'string' && r.href && typeof r.label === 'string') : [];
+    if (raw != null && JSON.stringify(l) !== JSON.stringify(raw)) lsSet(SLOT.recent, l.length ? l : null);
+    return l;
+  }
   function addRecent(label, href) {
-    const l = (lsGet(SLOT.recent) || []).filter((r) => r && r.href !== href);
+    const l = recentList().filter((r) => r.href !== href);
     l.unshift({ label, href, at: new Date().toISOString() });
     lsSet(SLOT.recent, l.slice(0, 10));
   }
   function recentHtml() {
-    const l = lsGet(SLOT.recent) || [];
+    const l = recentList();
     if (!l.length) return '';
     return `<div class="panel" id="recentPanel"><div class="tile-head"><h3>Recent searches</h3><span class="aside"><button class="lnk" type="button" id="clearRecent">Clear all</button></span></div><div class="recent">${l.map((r) => `<a href="${esc(r.href)}">${esc(r.label)}</a>`).join('')}</div></div>`;
   }
@@ -316,7 +327,7 @@
   async function pcCountry(postcode) {
     const k = String(postcode || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (!/^[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}$/.test(k)) return null;
-    const map = lsGet(SLOT.pc) || {};
+    const map = lsObj(SLOT.pc);
     if (Object.prototype.hasOwnProperty.call(map, k)) return map[k];
     const get = async (u) => { const r = await fetch('https://api.postcodes.io' + u, { signal: timeoutSignal(4000) }); if (r.status === 404) return null; if (!r.ok) throw new Error('postcodes.io ' + r.status); return (await r.json()).result; };
     let country = null;
@@ -358,7 +369,7 @@
      company officer lists and disqualification records. Name search only finds candidate records to open; birth month/year
      only narrows them. Nothing is shown unless the person numbers are identical. */
   const DISQ_TTL = 24 * 3600 * 1000;
-  const disqMap = () => lsGet(SLOT.disq) || {};
+  const disqMap = () => lsObj(SLOT.disq);
   function disqByPn() { const m = disqMap(), out = {}; for (const [pn, v] of Object.entries(m)) if (v && v.path && Date.now() - v.t < DISQ_TTL) out[pn] = v.path; return out; }
   function disqRemember(pns, path) { const m = disqMap(); for (const pn of pns) m[pn] = { t: Date.now(), path: path || '' }; const ks = Object.keys(m); if (ks.length > 2000) ks.slice(0, ks.length - 2000).forEach((k) => delete m[k]); lsSet(SLOT.disq, m); }
   const searchName = (raw) => { const m = /^([^,]+),\s*(.+)$/.exec(raw || ''); return (m ? m[2] + ' ' + m[1] : raw || '').replace(/^(mr|mrs|ms|miss|dr|sir)\.?\s+/i, '').trim(); };
