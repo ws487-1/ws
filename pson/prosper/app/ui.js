@@ -10,6 +10,21 @@
     pin: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg>',
     check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   };
+  /* Company and person markers: a black disc with the Lucide glyph in white (Lucide, ISC License).
+     Companies: building-2. People: circle-user-round, whose own outer ring is the black disc, so only its head and shoulders are drawn. */
+  const LU = (inner, extra) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${extra || ''}>${inner}</svg>`;
+  const GLYPH = {
+    company: '<path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/>',
+    person: '<path d="M17.925 20.056a6 6 0 0 0-11.851.001"/><circle cx="12" cy="11" r="4"/>',
+    bookmark: '<path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z"/>',
+  };
+  const kindIcon = (kind, label) => `<span class="kic ${kind === 'person' ? 'person' : 'company'}"${label ? ` role="img" aria-label="${label}"` : ' aria-hidden="true"'}>${LU(GLYPH[kind === 'person' ? 'person' : 'company'])}</span>`;
+  /* Save button: Lucide bookmark, filled when saved. */
+  const saveInner = (on) => `${LU(GLYPH.bookmark, on ? ' class="bm on"' : ' class="bm"')}<span>${on ? 'Saved' : 'Save'}</span>`;
+  const cpd = (v) => (/^\d/.test(v || '') ? cp(v) : esc(v)); // dates copy; 'before 1992' stays plain text
+  const saveBtn = (on, attrs) => `<button class="btn save-btn" type="button" data-act="save" aria-pressed="${on ? 'true' : 'false'}"${attrs || ''}>${saveInner(on)}</button>`;
+  /* Click-to-copy value (the same set the Prosper userscript made copyable). app.js handles click, Enter and Space. */
+  const cp = (value, shown) => (value ? `<span class="cp" role="button" tabindex="0" data-copy="${esc(value)}" title="Click to copy">${shown != null ? shown : esc(value)}</span>` : (shown != null ? shown : ''));
   const URL = {
     company: (n) => 'company.html?co=' + encodeURIComponent(n),
     officers: (n) => 'officers.html?co=' + encodeURIComponent(n),
@@ -23,23 +38,23 @@
   /* Registered office nation, shown after the status text. n = {flag, name} or {text}. */
   function nationHtml(n) {
     if (!n) return '';
-    if (n.flag) return `<span class="muted" style="font-size:12px">Registered office</span><img class="flag" src="flags/${esc(n.flag)}.svg" width="20" height="15" alt="${esc(n.name)}" title="Registered office: ${esc(n.name)}">`;
+    if (n.flag) return `<span class="muted" style="font-size:12px">Registered office</span><img class="flag" src="flags/${esc(n.flag)}.svg" width="24" height="18" alt="${esc(n.name)}" title="Registered office: ${esc(n.name)}">`;
     return `<span class="muted" style="font-size:12px">Registered office: ${esc(n.text)}</span>`;
   }
 
   /* Overview header: status as bold coloured text, no external link buttons. */
   function header(vm, o = {}) {
-    const meta = [vm.type.label, vm.type.subtype, vm.number && `No. ${vm.number}`, vm.createdText && `Incorporated ${vm.createdText}`, vm.ceasedText && `Ceased ${vm.ceasedText}`].filter(Boolean);
+    const meta = [cp(vm.type.label), esc(vm.type.subtype), vm.number && `No. ${cp(vm.number)}`, vm.createdText && `Incorporated ${cp(vm.createdText)}`, vm.ceasedText && `Ceased ${cp(vm.ceasedText)}`].filter(Boolean);
     return `<header class="hdr">
       <div class="hdr-top"><div style="min-width:0">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">${st(vm.status.label, vm.status.colour)}${vm.status.detail ? st(vm.status.detail, vm.status.detailColour) : ''}<span class="ro-nation" id="roNation">${nationHtml(o.nation)}</span></div>
-        <h1>${esc(vm.name)}</h1>
-        <div class="hdr-meta">${meta.map((m) => `<span>${esc(m)}</span>`).join('<span class="sep"></span>')}</div>
-        ${vm.address.oneLine ? `<div class="hdr-addr">${ICON.pin}<span>${esc(vm.address.oneLine)}</span></div>` : ''}
+        <h1>${cp(vm.name)}</h1>
+        <div class="hdr-meta">${kindIcon('company', 'Company')}${meta.map((m) => `<span>${m}</span>`).join('<span class="sep"></span>')}</div>
+        ${vm.address.oneLine ? `<div class="hdr-addr">${ICON.pin}${cp(vm.address.oneLine)}</div>` : ''}
         ${vm.otherRegister ? `<div class="hdr-addr"><span>Also registered with the <a href="${esc(vm.otherRegister.url)}" target="_blank" rel="noopener">${esc(vm.otherRegister.body)}</a>.</span></div>` : ''}
-        ${vm.sic.length ? `<div class="hdr-sic">${vm.sic.map((s) => `<span class="chip"><b class="mono">${esc(s.code)}</b>${esc(s.desc)}</span>`).join('')}</div>` : ''}
+        ${vm.sic.length ? `<div class="hdr-sic">${vm.sic.map((s) => `<span class="chip"><b class="mono">${cp(s.code)}</b>${esc(s.desc)}</span>`).join('')}</div>` : ''}
       </div>
-      <div class="hdr-actions"><button class="save-btn" data-act="save" data-co="${esc(vm.number)}">${o.saved ? 'Saved' : 'Save'}</button></div></div>
+      <div class="hdr-actions">${saveBtn(o.saved, ` data-co="${esc(vm.number)}"`)}</div></div>
       ${vm.verdict.length ? `<div class="verdict ${vm.verdict.some((v) => v.tone === 'bad') ? 'bad' : vm.verdict.some((v) => v.tone === 'warn') ? 'warn' : 'neutral'}"><b>Heads up</b><span>${vm.verdict.map((v) => esc(v.text)).join(' · ')}</span></div>` : ''}
       ${vm.flags.length ? `<div class="flags">${vm.flags.map((f) => `<span class="flagtxt ${esc(f.tone)}">${esc(f.label)}</span>`).join('')}</div>` : ''}
     </header>`;
@@ -51,12 +66,12 @@
     const a = vm.accounts, c = vm.confirmation;
     const rows = vm.deadlines.map((d) => {
       const pct = d.days < 0 ? 100 : Math.max(4, Math.min(100, 100 - (d.days / 365) * 100));
-      return `<div class="dline ${d.tone}"><span class="t">${esc(d.label)}</span><span class="d num">${esc(d.dueText)}</span><span class="n">${esc(d.note)}</span><span class="r">${esc(d.relText)}</span><div class="bar"><i class="${d.tone === 'ok' ? 'ok' : d.tone === 'warn' ? 'warn' : ''}" style="width:${pct}%;${d.tone === 'bad' ? 'background:var(--bad)' : ''}"></i></div></div>`;
+      return `<div class="dline ${d.tone}"><span class="t">${esc(d.label)}</span><span class="d num">${cp(d.dueText)}</span><span class="n">${esc(d.note)}</span><span class="r">${esc(d.relText)}</span><div class="bar"><i class="${d.tone === 'ok' ? 'ok' : d.tone === 'warn' ? 'warn' : ''}" style="width:${pct}%;${d.tone === 'bad' ? 'background:var(--bad)' : ''}"></i></div></div>`;
     }).join('');
-    const dl = [['Year end', a.refDate], ['Last accounts', [a.lastMadeUp, a.lastType].filter(Boolean).join(' · ')], ['Last period', a.lastPeriod], ['Next period', a.nextPeriod], ['Last confirmation', c.last]].filter((x) => x[1]);
+    const dl = [['Year end', esc(a.refDate)], ['Last accounts', [cp(a.lastMadeUp), esc(a.lastType)].filter(Boolean).join(' · ')], ['Last period', esc(a.lastPeriod)], ['Next period', esc(a.nextPeriod)], ['Last confirmation', cp(c.last)]].filter((x) => x[1]);
     return `${head('Deadlines')}
       ${rows ? `<div class="dlines">${rows}</div>` : `<div class="empty">${vm.status.active ? 'No filing deadlines on record.' : 'No deadlines: the company is ' + esc(vm.status.label.toLowerCase()) + '.'}</div>`}
-      ${dl.length ? `<dl class="dl acc-dl">${dl.map(([k, v]) => `<dt>${esc(k)}</dt><dd class="num">${esc(v)}</dd>`).join('')}</dl>` : ''}`;
+      ${dl.length ? `<dl class="dl acc-dl">${dl.map(([k, v]) => `<dt>${esc(k)}</dt><dd class="num">${v}</dd>`).join('')}</dl>` : ''}`;
   }
 
   /* People: names open that person's appointments; other appointments link to those companies. */
@@ -66,10 +81,10 @@
     const other = ap ? ap.items.filter((x) => x.number !== vm.number) : [];
     const idv = p.idv ? `<span class="idv" title="Identity verified ${esc(p.idv.verifiedOn)}">${ICON.check}ID verified</span>` : '';
     const dq = vm.disq && p.personNumber && vm.disq[p.personNumber];
-    const left = `<div style="min-width:0"><div class="nm">${personName(p)}${idv}</div><div class="rl">${esc(p.roleLabel)}${p.resigned ? ' · resigned ' + esc(p.resigned) : p.appointed ? ' · since ' + esc(p.appointed) : ''}${p.tenureYears != null && !p.resigned ? ` (${p.tenureYears}y)` : ''}</div>${dq ? `<div><a class="flagtxt bad" href="${esc(URL.person(p.officerId))}">Disqualified director</a></div>` : ''}</div>`;
+    const left = `<div style="min-width:0"><div class="nm">${personName(p)}${idv}</div><div class="rl">${esc(p.roleLabel)}${p.resigned ? ' · resigned ' + cpd(p.resigned) : p.appointed ? ' · since ' + cpd(p.appointed) : ''}${p.tenureYears != null && !p.resigned ? ` (${p.tenureYears}y)` : ''}</div>${dq ? `<div><a class="flagtxt bad" href="${esc(URL.person(p.officerId))}">Disqualified director</a></div>` : ''}</div>`;
     const c2 = `<div class="cell hide-c">${esc(p.nationality)}<span class="faint">${esc(p.residence ? 'Lives in ' + p.residence : '')}</span></div>`;
     const apHtml = other.length ? `<details class="appts"><summary>${other.length} other appointment${other.length === 1 ? '' : 's'}${ap.total > ap.items.length ? ` (of ${ap.total})` : ''}</summary><ul>${other.slice(0, 8).map((x) => `<li><span>${x.number ? `<a href="${esc(URL.company(x.number))}">${esc(x.company)}</a>` : esc(x.company)} <span class="faint" style="display:inline">${esc(x.role)}</span></span><span class="faint" style="display:inline">${esc(x.resigned ? 'resigned ' + x.resigned : x.status)}</span></li>`).join('')}</ul></details>` : '';
-    return `<div class="person"><div class="avatar${p.corporate ? ' corp' : ''}">${esc(initials(p.name))}</div>${left}${c2}${apHtml}</div>`;
+    return `<div class="person">${kindIcon(p.corporate ? 'company' : 'person')}${left}${c2}${apHtml}</div>`;
   }
   function officers(vm, o = {}) {
     const of = vm.officers, lim = o.limit || 6;
@@ -187,5 +202,5 @@
       </div></div></article>`;
   }
 
-  root.UI = { esc, st, initials, URL, head, header, companyPage, filingRow, personRow, nationHtml, simList, connectedList, pscLink, ICON, factTile, join };
+  root.UI = { kindIcon, saveBtn, saveInner, cp, GLYPH, LU, esc, st, initials, URL, head, header, companyPage, filingRow, personRow, nationHtml, simList, connectedList, pscLink, ICON, factTile, join };
 })(window);

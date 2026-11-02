@@ -54,9 +54,39 @@
       const list = saved(), on = list.some((x) => savedKey(x) === k), rest = list.filter((x) => savedKey(x) !== k);
       if (!on) rest.unshift(Object.assign({}, entry, { savedAt: new Date().toISOString() }));
       lsSet(SLOT.saved, rest);
-      btn.textContent = on ? 'Save' : 'Saved'; btn.setAttribute('aria-pressed', String(!on));
+      btn.innerHTML = window.UI.saveInner(!on); btn.setAttribute('aria-pressed', String(!on));
     });
   }
+
+  /* ---------- click-to-copy: [data-copy] values copy on click, Enter or Space, with a brief 'Copied' note ---------- */
+  function fallbackCopy(t) {
+    const ta = document.createElement('textarea');
+    ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false; try { ok = document.execCommand('copy'); } catch (e) { /* ignore */ }
+    ta.remove(); return ok;
+  }
+  function copyText(t) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t).then(() => true, () => fallbackCopy(t));
+    return Promise.resolve(fallbackCopy(t));
+  }
+  function copyFrom(el) {
+    const t = el.dataset.copy;
+    if (!t) return;
+    copyText(t).then((ok) => {
+      if (!ok) return;
+      el.classList.remove('copied'); void el.offsetWidth; el.classList.add('copied');
+      clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('copied'), 1200);
+      const live = document.getElementById('copyLive');
+      if (live) { live.textContent = ''; setTimeout(() => { live.textContent = 'Copied ' + t; }, 30); }
+    });
+  }
+  document.addEventListener('click', (ev) => { const el = ev.target.closest && ev.target.closest('[data-copy]'); if (el) { ev.preventDefault(); copyFrom(el); } });
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    const el = ev.target.closest && ev.target.closest('[data-copy]');
+    if (el && el === ev.target) { ev.preventDefault(); copyFrom(el); }
+  });
 
   /* ---------- Companies House API (cached for 10 minutes in this tab) ---------- */
   class ApiError extends Error { constructor(code, msg) { super(msg); this.code = code; } }
@@ -102,7 +132,7 @@
       <div class="main">
         <div class="top"><button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false">${svg(ICONS.menu)}</button><a class="wordmark" href="index.html">Prosper</a>
           <form class="search" action="index.html" method="get" role="search"><input name="q" type="search" value="${esc(q)}" placeholder="Search companies or people by name or number" aria-label="Search companies or people">${type ? `<input type="hidden" name="type" value="${type}">` : ''}<button class="btn" type="submit">Search</button></form></div>
-        <main class="content" id="content"></main>
+        <main class="content" id="content"></main><div class="sr" id="copyLive" role="status" aria-live="polite"></div>
       </div></div>`;
     const btn = document.getElementById('menuBtn');
     btn.addEventListener('click', () => { const open = document.body.classList.toggle('menu-open'); btn.setAttribute('aria-expanded', String(open)); btn.innerHTML = svg(open ? ICONS.x : ICONS.menu); });
@@ -208,7 +238,7 @@
       f.querySelectorAll('input, select').forEach((i) => { if (!i.value && i.name) i.disabled = true; });
     }));
   }
-  const resRow = (c, extra) => `<div class="res"><div><a class="nm" href="${esc(U.company(c.number))}">${esc(c.name)}</a></div><div class="rt">${st(c.status, c.colour)}</div>
+  const resRow = (c, extra) => `<div class="res"><div class="res-nm">${window.UI.kindIcon('company')}<a class="nm" href="${esc(U.company(c.number))}">${esc(c.name)}</a></div><div class="rt">${st(c.status, c.colour)}</div>
     <div class="meta">${esc(['No. ' + c.number, c.type, c.created && 'Incorporated ' + c.created, c.ceased && 'Ceased ' + c.ceased].filter(Boolean).join(' · '))}</div><div></div>
     ${c.address ? `<div class="addr">${esc(c.address)}</div>` : ''}${extra || ''}</div>`;
 
@@ -298,7 +328,7 @@
         const r = N.searchOfficers(raw);
         if (!r.groups.length) { res.innerHTML = '<div class="plain-msg">No people found.</div>'; return; }
         const total = Math.min(r.total, 1000);
-        res.innerHTML = `<div class="res-list">${r.groups.map((g) => `<div class="res"><div><a class="nm" href="${esc(U.person(g.ids))}">${esc(g.name)}</a></div><div class="rt">${g.count} appointment${g.count === 1 ? '' : 's'}</div>
+        res.innerHTML = `<div class="res-list">${r.groups.map((g) => `<div class="res"><div class="res-nm">${window.UI.kindIcon('person')}<a class="nm" href="${esc(U.person(g.ids))}">${esc(g.name)}</a></div><div class="rt">${g.count} appointment${g.count === 1 ? '' : 's'}</div>
           <div class="meta">${esc(g.born ? 'Born ' + g.born : 'Date of birth not shown')}${g.ids.length > 1 ? ` · ${g.ids.length} Companies House records` : ''}</div><div></div>
           ${g.addresses[0] ? `<div class="addr">${esc(g.addresses[0])}</div>` : ''}</div>`).join('')}</div>
           ${pager(page, Math.ceil(total / per), r.total, (page - 1) * per + 1, (page - 1) * per + r.loaded, (p) => withParams('index.html', { q, type: 'people', page: p }))}`;
@@ -307,7 +337,7 @@
         const r = N.searchDisqualified(raw);
         if (!r.items.length) { res.innerHTML = '<div class="plain-msg">No disqualified directors found.</div>'; return; }
         const total = Math.min(r.total, 1000);
-        res.innerHTML = `<div class="res-list">${r.items.map((d) => `<div class="res"><div><a class="nm" href="${esc(U.disq(d.kind, d.id))}">${esc(d.name)}</a></div><div class="rt"></div>
+        res.innerHTML = `<div class="res-list">${r.items.map((d) => `<div class="res"><div class="res-nm">${window.UI.kindIcon(d.kind === 'corporate' ? 'company' : 'person')}<a class="nm" href="${esc(U.disq(d.kind, d.id))}">${esc(d.name)}</a></div><div class="rt"></div>
           <div class="meta">${esc(d.description)}</div><div></div>${d.address ? `<div class="addr">${esc(d.address)}</div>` : ''}</div>`).join('')}</div>
           ${pager(page, Math.ceil(total / per), r.total, (page - 1) * per + 1, (page - 1) * per + r.items.length, (p) => withParams('index.html', { q, type: 'disqualified', page: p }))}`;
       }
@@ -627,9 +657,13 @@
           <label>From<input class="input" type="date" name="from" value="${esc(from)}"></label>
           <label>To<input class="input" type="date" name="to" value="${esc(to)}"></label>
           <label class="grow">Search<input class="input" type="search" name="q" value="${esc(text)}" placeholder="Description or form type"></label>
-          <button class="btn" type="submit">Apply</button>${cat || from || to || text ? `<a class="btn ghost" href="${esc(U.filings(n))}">Clear</a>` : ''}</form>
+          <button class="btn" type="submit">Search</button>${cat || from || to || text ? `<a class="btn ghost" href="${esc(U.filings(n))}">Clear</a>` : ''}</form>
           <div id="fl"><div class="loading">Loading…</div></div></div>`;
-      el.querySelector('form.filters').addEventListener('submit', (ev) => ev.target.querySelectorAll('input, select').forEach((i) => { if (!i.value) i.disabled = true; }));
+      const ff = el.querySelector('form.filters');
+      const tidy = () => ff.querySelectorAll('input, select').forEach((i) => { if (!i.value) i.disabled = true; });
+      ff.addEventListener('submit', tidy);
+      // Choosing a category reloads the list straight away; the text and date filters keep their values.
+      ff.querySelector('select[name="category"]').addEventListener('change', () => { tidy(); ff.submit(); });
       const fl = document.getElementById('fl');
       const base = '/company/' + n + '/filing-history' + (cat ? '?category=' + encodeURIComponent(cat) : '');
       const href = (p) => withParams('filings.html', { co: n, category: cat, from, to, q: text, page: p });
@@ -668,11 +702,14 @@
      ?psc= PSC notifications. If the PSC ID is also an officer ID (Companies House sometimes uses the same ID), the page is
            combined; otherwise it is "Owner details only". People are never merged by name.
      ?disq= a disqualified-officer record (from the Disqualified search tab). */
-  const dl = (rows) => `<dl class="dl">${rows.filter((r) => r && r[1]).map(([k, v, raw]) => `<dt>${esc(k)}</dt><dd>${raw ? v : esc(v)}</dd>`).join('')}</dl>`;
-  const pHeader = (name, meta, extra, saveOn) => `<header class="hdr"><div class="hdr-top"><div style="min-width:0">
+  const cp = window.UI.cp;
+  const cpd = (v) => (/^\d/.test(v || '') ? cp(v) : esc(v)); // dates copy; 'before 1992' does not
+  /* rows: [label, value, raw?, copy?]; copy makes the value click-to-copy. */
+  const dl = (rows) => `<dl class="dl">${rows.filter((r) => r && r[1]).map(([k, v, raw, copy]) => `<dt>${esc(k)}</dt><dd>${raw ? v : copy ? cp(v) : esc(v)}</dd>`).join('')}</dl>`;
+  const pHeader = (name, meta, extra, saveOn, corporate) => `<header class="hdr"><div class="hdr-top"><div style="min-width:0">
       ${extra ? `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">${extra}</div>` : ''}
-      <h1>${esc(name)}</h1><div class="hdr-meta">${meta.filter(Boolean).map((m) => `<span>${esc(m)}</span>`).join('<span class="sep"></span>')}</div></div>
-      <div class="hdr-actions"><button class="save-btn" data-act="save">${saveOn ? 'Saved' : 'Save'}</button></div></div></header>`;
+      <h1>${cp(name)}</h1><div class="hdr-meta">${window.UI.kindIcon(corporate ? 'company' : 'person', corporate ? 'Company' : 'Person')}${meta.filter(Boolean).map((m) => `<span>${esc(m)}</span>`).join('<span class="sep"></span>')}</div></div>
+      <div class="hdr-actions">${window.UI.saveBtn(saveOn)}</div></div></header>`;
   const ageText = (a) => (a != null ? `About ${a} (approximate, from birth month and year)` : '');
   function disqTile(d) {
     if (!d) return '';
@@ -755,15 +792,15 @@
       const reliableAvg = vm.averageYears != null && vm.loaded === vm.total && vm.tenureBase >= Math.max(2, Math.ceil(vm.loaded * 0.8));
       const firstAp = vm.items.map((x) => x.appointedIso).filter(Boolean).sort()[0];
       const lastRes = vm.active ? '' : vm.items.map((x) => x.resignedIso).filter(Boolean).sort().pop();
-      const details = dl([['Name', vm.name], ['Roles', vm.roles.join(', ')], ['First appointed', firstAp ? N.fmtDate(firstAp) : ''], ['Last resigned', lastRes ? N.fmtDate(lastRes) : ''],
-        ['Nationality', vm.nationalities.join(', ')], ['Country of residence', vm.residences.join(', ')], ['Born', vm.born], ['Age', ageText(vm.age)],
-        ['Correspondence address', vm.addresses.map(esc).join('<br>'), true], ['Former names', vm.formerNames.join(', ')], ['Companies House records', apIds.length > 1 ? apIds.length + ' combined (same person IDs chosen in search)' : '']]);
+      const details = dl([['Name', vm.name, false, true], ['Roles', vm.roles.join(', ')], ['First appointed', firstAp ? N.fmtDate(firstAp) : '', false, true], ['Last resigned', lastRes ? N.fmtDate(lastRes) : '', false, true],
+        ['Nationality', vm.nationalities.join(', ')], ['Country of residence', vm.residences.join(', ')], ['Born', vm.born, false, true], ['Age', ageText(vm.age)],
+        ['Correspondence address', vm.addresses.map((a) => cp(a)).join('<br>'), true], ['Former names', vm.formerNames.join(', ')], ['Companies House records', apIds.length > 1 ? apIds.length + ' combined (same person IDs chosen in search)' : '']]);
       const shown = vm.loaded < vm.total ? `Showing the latest ${vm.loaded} of ${vm.total}` : '';
-      const apTable = `<div class="table-wrap"><table class="table"><thead><tr><th>Company</th><th>Status</th><th>Role</th><th class="nowrap">Appointed</th><th class="nowrap">Resigned</th></tr></thead><tbody>${vm.items.map((a) => `<tr><td>${a.number ? `<a href="${esc(U.company(a.number))}">${esc(a.company)}</a> <span class="muted">${esc(a.number)}</span>` : esc(a.company)}</td><td>${a.status ? st(a.status, a.colour) : ''}</td><td>${esc(a.role)}</td><td class="nowrap num">${esc(a.appointed)}</td><td class="nowrap num">${esc(a.resigned)}</td></tr>`).join('')}</tbody></table></div>`;
+      const apTable = `<div class="table-wrap"><table class="table"><thead><tr><th>Company</th><th>Status</th><th>Role</th><th class="nowrap">Appointed</th><th class="nowrap">Resigned</th></tr></thead><tbody>${vm.items.map((a) => `<tr><td>${a.number ? `<a href="${esc(U.company(a.number))}">${esc(a.company)}</a> <span class="muted">${cp(a.number)}</span>` : esc(a.company)}</td><td>${a.status ? st(a.status, a.colour) : ''}</td><td>${esc(a.role)}</td><td class="nowrap num">${cpd(a.appointed)}</td><td class="nowrap num">${cpd(a.resigned)}</td></tr>`).join('')}</tbody></table></div>`;
       const names = pnv ? await companyNames(pnv.items.map((x) => x.number)).catch(() => ({})) : {};
       vm.items.forEach((a) => { if (a.number && !names[a.number]) names[a.number] = a.company; });
       el.innerHTML = `<article class="lay-b"><div class="card shell">
-        ${pHeader(vm.name, [vm.roles.slice(0, 3).join(', '), vm.born && 'Born ' + vm.born, vm.total + ' appointment' + (vm.total === 1 ? '' : 's')], '', isSaved('p:' + key))}
+        ${pHeader(vm.name, [vm.roles.slice(0, 3).join(', '), vm.born && 'Born ' + vm.born, vm.total + ' appointment' + (vm.total === 1 ? '' : 's')], '', isSaved('p:' + key), vm.corporate)}
         <div class="bento">
           <div class="s3">${f('Appointments', String(vm.total), `${vm.active} active · ${vm.resigned} resigned${vm.openClosed ? ' · ' + vm.openClosed + ' at closed companies' : ''}${vm.loaded < vm.total ? ' (of ' + vm.loaded + ' loaded)' : ''}`)}</div>
           <div class="s3">${f('Dissolved or in liquidation', String(vm.finished), 'Companies appointed to', vm.finished ? 'warn' : '')}</div>
@@ -781,9 +818,9 @@
   async function pscOnlyPage(el, pscId, pn) {
     setTitle(pn.name || 'Owner');
     const names = await companyNames(pn.items.map((x) => x.number)).catch(() => ({}));
-    const details = dl([['Name', pn.name], ['Other names on record', pn.names.filter((x) => x !== pn.name).join(', ')], ['Nationality', pn.nationality], ['Country of residence', pn.residence], ['Born', pn.born], ['Age', ageText(pn.age)], ['Correspondence address', pn.address]]);
+    const details = dl([['Name', pn.name, false, true], ['Other names on record', pn.names.filter((x) => x !== pn.name).join(', ')], ['Nationality', pn.nationality], ['Country of residence', pn.residence], ['Born', pn.born, false, true], ['Age', ageText(pn.age)], ['Correspondence address', pn.address, false, true]]);
     el.innerHTML = `<article class="lay-b"><div class="card shell">
-      ${pHeader(pn.name || 'Owner', ['Owner details only', pn.born && 'Born ' + pn.born, pn.current.length + ' current'], '', isSaved('p:psc:' + pscId))}
+      ${pHeader(pn.name || 'Owner', ['Owner details only', pn.born && 'Born ' + pn.born, pn.current.length + ' current'], '', isSaved('p:psc:' + pscId), pn.corporate)}
       <div class="bento">
         <div class="tile s5">${window.UI.head('Owner details only')}${details}<div class="muted" style="font-size:12px;margin-top:10px">This person is not linked to any director appointments by Companies House ID.</div></div>
         <div class="tile s7">${controlsTile(pn, names)}</div>
@@ -796,7 +833,7 @@
     const d = N.disqualification(r);
     setTitle(d.name);
     el.innerHTML = `<article class="lay-b"><div class="card shell">
-      ${pHeader(d.name, [d.born && 'Born ' + d.born, d.nationality], '<span class="flagtxt bad">Disqualified director</span>', isSaved('p:disq:' + id))}
+      ${pHeader(d.name, [d.born && 'Born ' + d.born, d.nationality], '<span class="flagtxt bad">Disqualified director</span>', isSaved('p:disq:' + id), d.corporate)}
       <div class="bento"><div class="tile s12">${disqTile(d)}</div></div></div></article>`;
     bindSave(el.querySelector('[data-act="save"]'), { kind: 'person', key: 'disq:' + id, href: U.disq(kind, id), name: d.name, sub: 'Disqualified director' });
   }
@@ -805,7 +842,7 @@
   function pageSaved() {
     const el = shell('saved'); setTitle('Saved');
     let kind = 'all', text = '', status = '';
-    const ic = (k) => `<span class="saved-ic" aria-hidden="true">${svg(k === 'person' ? ICONS.user : ICONS.building)}</span>`;
+    const ic = (k) => window.UI.kindIcon(k);
     const frame = () => {
       el.innerHTML = `<div class="page-head"><div><h1>Saved</h1><div class="sub">Companies and people you have saved in this browser, newest first.</div></div></div>
         <div class="panel"><div class="filters" id="savedFilters">
@@ -827,8 +864,8 @@
       const list = all.filter((x) => (kind === 'all' || x.kind === kind) && (!status || (x.kind === 'company' && x.status === status)) && (!t || [x.name, x.number, x.town, x.sub].join(' ').toLowerCase().includes(t)));
       const when = (x) => (x.noDate ? '' : x.dateOnly ? 'saved ' + N.fmtDate(x.savedAt.slice(0, 10)) : 'saved ' + N.fmtDate(x.savedAt.slice(0, 10)) + ', ' + new Date(x.savedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
       const row = (x) => x.kind === 'person'
-        ? `<div class="res"><div style="display:flex;gap:8px;align-items:center">${ic('person')}<a class="nm" href="${esc(x.href)}">${esc(x.name)}</a></div><div class="rt"><button class="lnk" data-rm="${esc(savedKey(x))}">Remove</button></div><div class="meta">${esc([x.sub, when(x)].filter(Boolean).join(' · '))}</div></div>`
-        : `<div class="res"><div style="display:flex;gap:8px;align-items:center">${ic('company')}<a class="nm" href="${esc(U.company(x.number))}">${esc(x.name)}</a></div><div class="rt"><button class="lnk" data-rm="${esc(savedKey(x))}">Remove</button></div><div class="meta">${st(x.status, x.colour)} · ${esc(['No. ' + x.number, x.town, when(x)].filter(Boolean).join(' · '))}</div></div>`;
+        ? `<div class="res"><div class="res-nm">${ic('person')}<a class="nm" href="${esc(x.href)}">${esc(x.name)}</a></div><div class="rt"><button class="lnk" data-rm="${esc(savedKey(x))}">Remove</button></div><div class="meta">${esc([x.sub, when(x)].filter(Boolean).join(' · '))}</div></div>`
+        : `<div class="res"><div class="res-nm">${ic('company')}<a class="nm" href="${esc(U.company(x.number))}">${esc(x.name)}</a></div><div class="rt"><button class="lnk" data-rm="${esc(savedKey(x))}">Remove</button></div><div class="meta">${st(x.status, x.colour)} · ${esc(['No. ' + x.number, x.town, when(x)].filter(Boolean).join(' · '))}</div></div>`;
       el.querySelector('#savedList').innerHTML = !all.length ? '<div class="plain-msg">Nothing saved yet. Use Save on a company or person page.</div>' : list.length ? `<div class="res-list">${list.map(row).join('')}</div>` : '<div class="plain-msg">Nothing saved matches.</div>';
       el.querySelectorAll('[data-rm]').forEach((b) => b.addEventListener('click', () => { lsSet(SLOT.saved, saved().filter((x) => savedKey(x) !== b.dataset.rm)); draw(); }));
     };

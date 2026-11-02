@@ -134,7 +134,7 @@ details[open] > summary.more::after { transform: rotate(-135deg) translateY(-1px
 
 /* ---------- component: people ---------- */
 .people { display: grid; gap: 0; }
-.person { display: grid; grid-template-columns: 32px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+.person { display: grid; grid-template-columns: 24px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line-soft); }
 .person:first-child { border-top: 0; }
 .person .nm { font-weight: var(--fw-semibold); color: var(--ink-900); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .person .rl { font-size: var(--fs-xs); color: var(--ink-500); }
@@ -142,7 +142,7 @@ details[open] > summary.more::after { transform: rotate(-135deg) translateY(-1px
 .person .cell .faint { display: block; }
 .idv { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-2xs); font-weight: var(--fw-semibold); color: var(--ok); margin-left: 6px; vertical-align: 1px; }
 .idv svg { width: 11px; height: 11px; }
-.people.compact .person { grid-template-columns: 28px minmax(0, 1fr) auto; }
+.people.compact .person { grid-template-columns: 24px minmax(0, 1fr) auto; }
 .people.compact .avatar { width: 28px; height: 28px; font-size: var(--fs-2xs); }
 .people.compact .person .cell.hide-c { display: none; }
 .appts { grid-column: 2 / -1; margin-top: 4px; }
@@ -246,10 +246,11 @@ body { min-height: 100vh; }
 .side .wordmark { display: block; padding: 6px 10px 14px; }
 .wordmark { font: 700 21px/1 var(--font-brand); letter-spacing: -.02em; color: var(--ink-900); }
 a.wordmark:hover { text-decoration: none; }
-.nav { display: grid; gap: 2px; }
-.nav a { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border-radius: var(--r-sm); color: var(--ink-700); font-size: var(--fs-base); font-weight: var(--fw-medium); }
-.nav a:hover { background: var(--surface-sunk); text-decoration: none; color: var(--ink-900); }
-.nav a.on { background: var(--surface-sunk); color: var(--ink-900); font-weight: var(--fw-semibold); }
+.nav { display: grid; gap: 6px; }
+/* Menu items are simple bordered buttons; the current page has a dark border and a tinted fill. */
+.nav a { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface); color: var(--ink-700); font-size: var(--fs-base); font-weight: var(--fw-medium); transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+.nav a:hover { background: var(--surface-2); border-color: var(--ink-300); text-decoration: none; color: var(--ink-900); }
+.nav a.on { background: var(--surface-sunk); border-color: var(--ink-900); color: var(--ink-900); font-weight: var(--fw-semibold); }
 .nav svg { width: 18px; height: 18px; flex: none; color: var(--ink-500); }
 .nav a.on svg { color: var(--ink-900); }
 .main { min-width: 0; display: flex; flex-direction: column; }
@@ -320,8 +321,10 @@ a.fact-link { display: block; color: inherit; } a.fact-link:hover { text-decorat
 .own-note { font-size: var(--fs-sm); color: var(--ink-700); }
 .own-note + .own-note { margin-top: 6px; }
 .person .nm a { color: var(--ink-900); } .person .nm a:hover { color: var(--accent-600); }
-.save-btn { background: none; border: 0; padding: 0; font: inherit; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--accent-600); cursor: pointer; }
-.save-btn:hover { text-decoration: underline; }
+/* Save: a standard .btn with the Lucide bookmark; filled when saved. */
+.save-btn svg { width: 16px; height: 16px; stroke-width: 2; flex: none; }
+.save-btn svg.on { fill: currentColor; }
+.save-btn[aria-pressed="true"] { color: var(--ink-900); }
 .form { display: grid; gap: 6px; max-width: 520px; }
 .form label { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--ink-900); margin-top: 10px; }
 .form input { width: 100%; }
@@ -353,10 +356,20 @@ a.fact-link { display: block; color: inherit; } a.fact-link:hover { text-decorat
 
 /* ---------- round 2 additions ---------- */
 .ro-nation { display: inline-flex; align-items: center; gap: 6px; }
-.ro-nation .flag { display: block; width: 20px; height: 15px; border: 1px solid var(--line); border-radius: 2px; }
+.ro-nation .flag { display: block; width: 24px; height: 18px; border-radius: 0; outline: 1px solid rgba(22, 24, 27, .14); outline-offset: -1px; }
 .tile .tabs-plain { margin-bottom: var(--sp-3); }
-.saved-ic { display: inline-flex; vertical-align: -3px; margin-right: 6px; color: var(--ink-500); }
-.saved-ic svg { width: 16px; height: 16px; }
+/* Company and person markers: black disc, white Lucide glyph. */
+.kic { --kic: 24px; flex: none; display: inline-grid; place-items: center; width: var(--kic); height: var(--kic); border-radius: 50%; background: var(--ink-900); color: #fff; overflow: hidden; }
+.kic svg { width: calc(var(--kic) * .6); height: calc(var(--kic) * .6); stroke-width: 2.3; }
+.kic.person { position: relative; }
+.kic.person svg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: calc(var(--kic) * 1.2); height: calc(var(--kic) * 1.2); stroke-width: 1.6; }
+.res-nm { display: flex; gap: 10px; align-items: center; min-width: 0; }
+.hdr-meta .kic { margin-right: 2px; }
+/* Click-to-copy values (same set as the Prosper userscript). */
+.cp { cursor: copy; border-radius: 3px; position: relative; }
+.cp:hover { background: var(--surface-sunk); box-shadow: 0 0 0 2px var(--surface-sunk); }
+.cp:focus-visible { outline: 2px solid var(--accent-500); outline-offset: 1px; }
+.cp.copied::after { content: 'Copied'; position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); padding: 3px 7px; border-radius: var(--r-xs); background: var(--ink-900); color: #fff; font: 600 11px/1.3 var(--font-sans); letter-spacing: 0; white-space: nowrap; pointer-events: none; z-index: 30; }
 .adv { margin-bottom: var(--sp-4); }
 .adv h2 { font-size: var(--fs-md); margin: 4px 0 8px; }
 .adv .filters { margin-bottom: var(--sp-3); }
