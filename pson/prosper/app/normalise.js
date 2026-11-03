@@ -129,7 +129,7 @@
       appointedIso: str(o.appointed_on), resignedIso: str(o.resigned_on),
       tenureYears: yearsSince(o.appointed_on, o.resigned_on || undefined),
       occupation: sentence(o.occupation), nationality: str(o.nationality), residence: str(o.country_of_residence),
-      born: fmtMonthYear(o.date_of_birth), age: o.date_of_birth && o.date_of_birth.year ? new Date().getFullYear() - o.date_of_birth.year - ((o.date_of_birth.month || 12) > new Date().getMonth() + 1 ? 1 : 0) : null,
+      born: fmtMonthYear(o.date_of_birth), age: approxAge(o.date_of_birth),
       address: address(o.address).oneLine,
       appointmentsLink: str(o.links && o.links.officer && o.links.officer.appointments),
       officerId: (/\/officers\/([^/]+)\/appointments/.exec(str(o.links && o.links.officer && o.links.officer.appointments)) || [])[1] || '',
@@ -360,9 +360,10 @@
 
   /* ---------- person page: personal data and appointment statistics from one or more appointment lists ---------- */
   const FINISHED = ['dissolved', 'liquidation'];
+  /* Lower bound of the age: in the birth month (or with no month) the birthday is treated as not yet reached. */
   function approxAge(dob) {
     if (!dob || !dob.year) return null;
-    const now = new Date(); return now.getFullYear() - dob.year - ((dob.month || 12) > now.getMonth() + 1 ? 1 : 0);
+    const now = new Date(); return now.getFullYear() - dob.year - ((dob.month || 12) >= now.getMonth() + 1 ? 1 : 0);
   }
   function person(raws) {
     const rs = arr(raws).filter(ok);

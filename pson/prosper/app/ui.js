@@ -16,6 +16,7 @@
   const GLYPH = {
     company: '<path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/>',
     person: '<path d="M17.925 20.056a6 6 0 0 0-11.851.001"/><circle cx="12" cy="11" r="4"/><circle cx="12" cy="12" r="10"/>',
+    bell: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
     bookmark: '<path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z"/>',
   };
   const kindIcon = (kind, label) => `<span class="kic ${kind === 'person' ? 'person' : 'company'}"${label ? ` role="img" aria-label="${label}"` : ' aria-hidden="true"'}>${LU(GLYPH[kind === 'person' ? 'person' : 'company'])}</span>`;
@@ -23,6 +24,8 @@
   const saveInner = (on) => `${LU(GLYPH.bookmark, on ? ' class="bm on"' : ' class="bm"')}<span>${on ? 'Saved' : 'Save'}</span>`;
   const cpd = (v) => (/^\d/.test(v || '') ? cp(v) : esc(v)); // dates copy; 'before 1992' stays plain text
   const saveBtn = (on, attrs) => `<button class="btn save-btn" type="button" data-act="save" aria-pressed="${on ? 'true' : 'false'}"${attrs || ''}>${saveInner(on)}</button>`;
+  /* Alerts placeholder: square bell next to Save. No function yet. */
+  const alertBtn = () => `<button class="btn alert-btn" type="button" aria-disabled="true" aria-label="Alerts (coming soon)" title="Alerts coming soon">${LU(GLYPH.bell)}</button>`;
   /* Click-to-copy value (the same set the Prosper userscript made copyable). app.js handles click, Enter and Space. */
   const cp = (value, shown) => (value ? `<span class="cp" role="button" tabindex="0" data-copy="${esc(value)}" title="Click to copy">${shown != null ? shown : esc(value)}</span>` : (shown != null ? shown : ''));
   const URL = {
@@ -56,7 +59,7 @@
         ${vm.otherRegister ? `<div class="hdr-addr"><span>Also registered with the <a href="${esc(vm.otherRegister.url)}" target="_blank" rel="noopener">${esc(vm.otherRegister.body)}</a>.</span></div>` : ''}
         ${vm.sic.length ? `<div class="hdr-sic">${vm.sic.map((s) => `<span class="chip"><b class="mono">${cp(s.code)}</b>${esc(s.desc)}</span>`).join('')}</div>` : ''}
       </div>
-      <div class="hdr-actions">${saveBtn(o.saved, ` data-co="${esc(vm.number)}"`)}</div></div>
+      <div class="hdr-actions">${saveBtn(o.saved, ` data-co="${esc(vm.number)}"`)}${alertBtn()}</div></div>
       ${vm.verdict.length ? `<div class="verdict ${vm.verdict.some((v) => v.tone === 'bad') ? 'bad' : vm.verdict.some((v) => v.tone === 'warn') ? 'warn' : 'neutral'}"><b>Heads up</b><span>${vm.verdict.map((v) => esc(v.text)).join(' · ')}</span></div>` : ''}
       ${vm.flags.length ? `<div class="flags">${vm.flags.map((f) => `<span class="flagtxt ${esc(f.tone)}">${esc(f.label)}</span>`).join('')}</div>` : ''}
     </header>`;
@@ -206,5 +209,5 @@
       </div></div></article>`;
   }
 
-  root.UI = { kindIcon, saveBtn, saveInner, cp, GLYPH, LU, esc, st, initials, URL, head, header, companyPage, filingRow, personRow, nationHtml, simList, connectedList, pscLink, ICON, factTile, join };
+  root.UI = { kindIcon, saveBtn, alertBtn, saveInner, cp, GLYPH, LU, esc, st, initials, URL, head, header, companyPage, filingRow, personRow, nationHtml, simList, connectedList, pscLink, ICON, factTile, join };
 })(window);
