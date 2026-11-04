@@ -148,10 +148,10 @@
 
   function insolvency(vm) {
     const i = vm.insolvency; if (!i.cases.length) return '';
-    return `${head('Insolvency', i.cases.length + ' case' + (i.cases.length === 1 ? '' : 's'))}${i.cases.map((c) => `<div class="ins"><h4>${esc(c.type)}${c.number ? ` <span class="faint" style="font-weight:500;font-size:13px">case ${esc(c.number)}</span>` : ''}</h4>
+    return `${head('Insolvency', i.cases.length + ' case' + (i.cases.length === 1 ? '' : 's'))}${i.cases.map((c) => `<div class="ins"><h4>${esc(c.type)}${c.number ? ` <span class="muted" style="font-weight:500;font-size:13px">case ${esc(c.number)}</span>` : ''}</h4>
       <div class="dates">${c.dates.map((d) => `<span class="chip">${esc(d.label)} <b>${esc(d.date)}</b></span>`).join('')}</div>
-      ${c.practitioners.map((p) => `<div class="ip"><b style="color:var(--ink-900)">${esc(p.name)}</b> <span class="muted">${esc(p.role)}${p.appointed ? ' · appointed ' + esc(p.appointed) : ''}${p.ceased ? ' · ceased ' + esc(p.ceased) : ''}</span><div class="faint" style="font-size:12px">${esc(p.address)}</div></div>`).join('')}
-      ${c.notes.map((n) => `<div class="faint" style="font-size:12px;margin-top:6px">${esc(n)}</div>`).join('')}</div>`).join('')}`;
+      ${c.practitioners.map((p) => `<div class="ip"><b style="color:var(--ink-900)">${esc(p.name)}</b> <span class="muted">${esc(p.role)}${p.appointed ? ' · appointed ' + esc(p.appointed) : ''}${p.ceased ? ' · ceased ' + esc(p.ceased) : ''}</span><div class="muted" style="font-size:12px">${esc(p.address)}</div></div>`).join('')}
+      ${c.notes.map((n) => `<div class="muted" style="font-size:12px;margin-top:6px">${esc(n)}</div>`).join('')}</div>`).join('')}`;
   }
 
   /* One filing row: date, form type, short description, PDF link. Shared by the tile and the filings page. */
