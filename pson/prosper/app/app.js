@@ -3,6 +3,8 @@
    Icons: Lucide (https://lucide.dev), ISC License, Copyright (c) 2026 Lucide Icons and Contributors. */
 (function () {
   'use strict';
+  /* Page fade fallback: browsers without cross-document View Transitions fade the page area in with CSS. */
+  if (!('onpagereveal' in window)) document.documentElement.classList.add('no-vt');
   const { esc, st, URL: U } = window.UI;
   const N = window.Normalise;
   if (window.CH_ENUMS) N.setEnums(window.CH_ENUMS);
@@ -55,6 +57,7 @@
       if (!on) rest.unshift(Object.assign({}, entry, { savedAt: new Date().toISOString() }));
       lsSet(SLOT.saved, rest);
       btn.innerHTML = window.UI.saveInner(!on); btn.setAttribute('aria-pressed', String(!on));
+      btn.classList.remove('pop'); void btn.offsetWidth; btn.classList.add('pop');
     });
   }
 
@@ -113,6 +116,7 @@
   /* ---------- shell ---------- */
   const svg = (inner) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
   const ICONS = {
+    house: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
     search: '<path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/>',
     bookmark: '<path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z"/>',
     bell: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
@@ -130,7 +134,7 @@
     <p>Prosper doesn't verify the register. Check anything important on the Companies House service.</p>
     <p><a href="https://find-and-update.company-information.service.gov.uk/" target="_blank" rel="noopener">Companies House service</a> · <a href="settings.html">Settings</a></p>`;
   const ACCT_HTML = `<h2>Account</h2><p>Accounts aren't available yet. Your saved items and settings are kept in this browser only.</p><p><a href="settings.html">Settings</a></p>`;
-  const NAV = [['search', 'Search', 'index.html', 'search'], ['saved', 'Saved', 'saved.html', 'bookmark'], ['alerts', 'Alerts', 'alerts.html', 'bell'], ['settings', 'Settings', 'settings.html', 'settings']];
+  const NAV = [['home', 'Home', 'index.html', 'house'], ['saved', 'Saved', 'saved.html', 'bookmark'], ['alerts', 'Alerts', 'alerts.html', 'bell'], ['settings', 'Settings', 'settings.html', 'settings']];
   function shell(active) {
     const q = active === 'search' ? qs.get('q') || '' : '';
     const type = active === 'search' && ['people', 'disqualified'].includes(qs.get('type')) ? qs.get('type') : '';
@@ -142,7 +146,7 @@
       <aside class="side" id="side"><div class="side-in">
         <nav class="nav" aria-label="Main">${NAV.map(([k, label, href, ic]) => `<a href="${href}"${k === active ? ' class="on" aria-current="page"' : ''}>${svg(ICONS[ic])}<span>${label}</span></a>`).join('')}</nav></div></aside>
       <div class="main">
-        <main class="content" id="content"></main><div class="sr" id="copyLive" role="status" aria-live="polite"></div>
+        <main class="content" id="content"></main><div class="pg-load" id="pgLoad" aria-hidden="true"><span class="spin"></span><span class="pg-load-t">Loading…</span></div><div class="sr" id="copyLive" role="status" aria-live="polite"></div>
       </div></div>`;
     const btn = document.getElementById('menuBtn'), side = document.getElementById('side'), top = document.querySelector('.top');
     btn.addEventListener('click', () => { side.style.top = top.offsetHeight + 'px'; const open = document.body.classList.toggle('menu-open'); btn.setAttribute('aria-expanded', String(open)); btn.innerHTML = svg(open ? ICONS.x : ICONS.menu); });
@@ -152,9 +156,19 @@
     pops.forEach(([b, p]) => b.addEventListener('click', (ev) => { ev.stopPropagation(); const open = p.hidden; closePops(p); p.hidden = !open; b.setAttribute('aria-expanded', String(open)); }));
     document.addEventListener('click', (ev) => { if (!ev.target.closest('.top-pop')) closePops(); });
     document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && pops.some(([, p]) => !p.hidden)) { const o = pops.find(([, p]) => !p.hidden); closePops(); o[0].focus(); } });
-    return document.getElementById('content');
+    /* Page loading overlay: shown by loading(content) after a 250ms CSS delay, faded out as soon as the page content replaces the placeholder. */
+    const content = document.getElementById('content'), pg = document.getElementById('pgLoad');
+    new MutationObserver(() => { if (!content.querySelector('.pg-ph')) { pg.classList.remove('on'); pg.setAttribute('aria-hidden', 'true'); } }).observe(content, { childList: true });
+    return content;
   }
-  const loading = (el, t) => { el.innerHTML = `<div class="loading">${esc(t || 'Loading…')}</div>`; };
+  const loading = (el, t) => {
+    if (el.id === 'content') {
+      el.innerHTML = `<div class="pg-ph"><span class="sr" role="status">${esc(t || 'Loading…')}</span></div>`;
+      const pg = document.getElementById('pgLoad'); pg.querySelector('.pg-load-t').textContent = t || 'Loading…'; void getComputedStyle(pg).opacity; pg.classList.add('on'); pg.removeAttribute('aria-hidden');
+      return;
+    }
+    el.innerHTML = `<div class="loading" role="status">${esc(t || 'Loading…')}</div>`;
+  };
   function showError(el, e) {
     const msg = e && e.message ? e.message : String(e);
     el.innerHTML = `<div class="panel"><div class="err">${esc(msg)}</div>${e && (e.code === 'nokey' || e.code === '401') ? '<div style="margin-top:8px"><a href="settings.html">Open Settings</a></div>' : ''}</div>`;
@@ -308,9 +322,37 @@
     <div class="meta">${esc(['No. ' + c.number, c.type, c.created && 'Incorporated ' + c.created, c.ceased && 'Ceased ' + c.ceased].filter(Boolean).join(' · '))}</div><div></div>
     ${c.address ? `<div class="addr">${esc(c.address)}</div>` : ''}${extra || ''}</div>`;
 
+  /* Home (H4 Hybrid): search box with tabs, then Recently viewed, Saved and Alerts. index.html with no query renders it;
+     the full search page with the Advanced panel and the whole recently viewed list stays at index.html?view=search. */
+  function pageHome() {
+    const el = shell('home');
+    setTitle('Home');
+    let type = ['people', 'disqualified'].includes(qs.get('type')) ? qs.get('type') : 'companies';
+    const day = (t) => { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); };
+    const kic = (k) => window.UI.kindIcon(k, k === 'person' ? 'Person' : 'Company');
+    const rv = viewedList().slice(0, 6), sv = saved().slice(0, 4);
+    const recent = rv.length ? `<div class="res-list">${rv.map((r) => `<div class="res"><div class="res-nm">${kic(r.type === 'company' ? 'company' : 'person')}<a class="nm" href="${esc(viewHref(r))}">${esc(r.name)}</a></div><div class="rt">${esc(day(r.t))}</div></div>`).join('')}</div>` : '<div class="plain-msg">Nothing viewed yet.</div>';
+    const savedL = sv.length ? `<div class="res-list">${sv.map((x) => `<div class="res"><div class="res-nm">${kic(x.kind === 'person' ? 'person' : 'company')}<a class="nm" href="${esc(x.kind === 'person' ? x.href : U.company(x.number))}">${esc(x.name)}</a></div><div class="rt">${x.kind === 'person' ? '' : 'No. ' + esc(x.number)}</div></div>`).join('')}</div>` : '<div class="plain-msg">Nothing saved yet.</div>';
+    el.innerHTML = `<h1 class="sr">Home</h1><div class="home-hero"><form class="home-big" id="homeForm" action="index.html" method="get" role="search"><label class="home-big-l" for="homeQ">Search Companies House</label><div class="home-big-r"><input id="homeQ" name="q" type="search" placeholder="Company name or number, or a person's name"><input type="hidden" name="type" id="homeType" value="${type}"${type === 'companies' ? ' disabled' : ''}><button class="btn primary" type="submit">Search</button></div>
+        <nav class="tabs-plain home-scope" aria-label="Search in">${SEARCH_TYPES.map(([k, l]) => `<a href="#" data-type="${k}"${k === type ? ' class="on" aria-current="true"' : ''}>${l}</a>`).join('')}<a href="index.html?view=search&amp;adv=1">Advanced</a></nav></form></div>
+      ${chKey() ? '' : '<div class="panel plain-msg" style="margin-bottom:16px">Add your Companies House API key in <a href="settings.html">Settings</a> to start searching.</div>'}
+      <div class="home-bento"><section class="tile home-s7"><div class="tile-head"><h2 class="h3">Recently viewed</h2><span class="aside"><a href="index.html?view=search">See all</a></span></div>${recent}</section>
+        <section class="tile home-s5"><div class="tile-head"><h2 class="h3">Saved</h2><span class="aside"><a href="saved.html">All saved</a></span></div>${savedL}</section>
+        <section class="tile home-s12"><div class="tile-head"><h2 class="h3">Alerts</h2></div><div class="plain-msg">Alerts are coming soon. You'll be able to watch a company or person with the bell next to Save.</div></section></div>`;
+    const hid = el.querySelector('#homeType');
+    el.querySelectorAll('[data-type]').forEach((a) => a.addEventListener('click', (ev) => {
+      ev.preventDefault(); type = a.dataset.type;
+      el.querySelectorAll('[data-type]').forEach((b) => { const on = b === a; b.classList.toggle('on', on); if (on) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
+      hid.value = type; hid.disabled = type === 'companies';
+      el.querySelector('#homeQ').focus();
+    }));
+    el.querySelector('#homeQ').focus();
+  }
+
   async function pageSearch() {
-    const el = shell('search');
     const q = (qs.get('q') || '').trim();
+    if (!q && !qs.get('mode') && qs.get('view') !== 'search') return pageHome();
+    const el = shell('search');
     const type = ['people', 'disqualified'].includes(qs.get('type')) ? qs.get('type') : 'companies';
     const mode = ['advanced', 'az', 'dissolved'].includes(qs.get('mode')) ? qs.get('mode') : '';
     const page = Math.max(1, parseInt(qs.get('page'), 10) || 1);
@@ -322,10 +364,11 @@
     }
     if (!q && !mode) {
       setTitle('Search');
-      el.innerHTML = `<div class="page-head"><div><h1>Search</h1><div class="sub">Search Companies House by company name or number, or by a person's name. You can also paste a Companies House link or officer ID.</div></div><div>${advBtn(false)}</div></div>${chKey() ? '' : '<div class="panel plain-msg" style="margin-bottom:16px">Add your Companies House API key in <a href="settings.html">Settings</a> to start searching.</div>'}${advancedPanel('', false)}<div id="viewedBox"></div>`;
+      el.innerHTML = `<div class="page-head"><div><h1>Search</h1><div class="sub">Search Companies House by company name or number, or by a person's name. You can also paste a Companies House link or officer ID.</div></div><div>${advBtn(false)}</div></div>${chKey() ? '' : '<div class="panel plain-msg" style="margin-bottom:16px">Add your Companies House API key in <a href="settings.html">Settings</a> to start searching.</div>'}${advancedPanel('', qs.get('adv') === '1')}<div id="viewedBox"></div>`;
       wireAdvanced(el);
+      if (qs.get('adv') === '1') el.querySelector('#advBtn').setAttribute('aria-expanded', 'true');
       wireViewed(el);
-      document.querySelector('.search input').focus();
+      (qs.get('adv') === '1' ? el.querySelector('#adv input:not([type=hidden])') : document.querySelector('.search input')).focus();
       return;
     }
     let title, tabs = '';
@@ -559,7 +602,7 @@
       if (done[k]) { body.innerHTML = done[k]; return; }
       body.innerHTML = '<div class="loading">Loading…</div>';
       try {
-        const html = await SIM[k](vm, raw, (t) => { if (cur === k) body.innerHTML = `<div class="loading">${esc(t)}</div>`; });
+        const html = await SIM[k](vm, raw, (t) => { if (cur !== k) return; const l = body.querySelector('.loading'); if (l) l.textContent = t; else body.innerHTML = `<div class="loading">${esc(t)}</div>`; });
         done[k] = html;
         if (cur === k) body.innerHTML = html;
       } catch (e) { if (cur === k) body.innerHTML = `<div class="err">${esc(e && e.message ? e.message : String(e))}</div>`; if (!(e instanceof ApiError)) console.error(e); }

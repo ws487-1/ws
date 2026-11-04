@@ -424,3 +424,83 @@ a.fact-link { display: block; color: inherit; } a.fact-link:hover { text-decorat
   .hdr-addr .addr-txt + .ro-nation { margin-left: 22px; }
   .hdr-addr .addr-txt + .ro-nation::before { display: none; }
 }
+
+/* ---------- round 8: Home (H4 Hybrid) ---------- */
+.home-hero { display: grid; justify-items: center; padding: var(--sp-5) 0; }
+.home-big { width: min(720px, 100%); }
+.home-big-l { display: block; font: 700 28px/1.2 var(--font-brand); color: var(--ink-900); margin-bottom: 14px; text-align: center; }
+.home-big-r { display: flex; gap: 8px; }
+.home-big-r input[type=search] { flex: 1; min-width: 0; height: 46px; padding: 0 14px; border: 1px solid var(--line); border-radius: var(--r-sm); font: inherit; font-size: var(--fs-md); }
+.home-big-r input[type=search]:focus { outline: none; border-color: var(--ink-300); box-shadow: var(--ring); }
+.home-big-r .btn { height: 46px; padding: 0 20px; }
+.home-scope { justify-content: center; border-bottom: 0; margin: 10px 0 0; }
+.home-bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--sp-4); }
+.home-s7 { grid-column: span 7; } .home-s5 { grid-column: span 5; } .home-s12 { grid-column: span 12; }
+.tile-head h2.h3 { font-size: var(--fs-md); margin: 0; }
+@media (max-width: 760px) { .home-bento > * { grid-column: span 12; } .home-hero { padding: var(--sp-4) 0; } .home-big-l { font-size: 22px; } }
+
+/* ---------- round 8: motion. Opacity and transform only (no layout shift); 120–250ms, standard easing. ---------- */
+:root { --dur-1: 120ms; --dur-2: 180ms; --dur-3: 240ms; --ease-out: cubic-bezier(.2, .7, .2, 1); }
+/* Page to page: cross-document View Transitions where supported; the top bar and menu stay put while the page area fades. */
+@view-transition { navigation: auto; }
+.top { view-transition-name: top; } .side { view-transition-name: side; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: var(--dur-2); animation-timing-function: var(--ease-out); }
+/* Fallback where View Transitions aren't supported (app.js adds .no-vt): the page area fades in on load. */
+.no-vt .content { animation: m-fade var(--dur-2) var(--ease-out) both; }
+@keyframes m-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes m-rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes m-pop { 0% { transform: scale(1); } 40% { transform: scale(.94); } 100% { transform: scale(1); } }
+@keyframes m-spin { to { transform: rotate(360deg); } }
+/* Content arriving: headers, panels, tiles and cards fade up in a short stagger. */
+.content > .page-head, .content > .panel, .content > .lay-b, .content > .home-hero, .content > .table-wrap, .hdr, .tabs-row { animation: m-rise var(--dur-3) var(--ease-out) both; }
+.bento > *, .home-bento > * { animation: m-rise var(--dur-3) var(--ease-out) both; }
+.bento > :nth-child(2), .home-bento > :nth-child(2) { animation-delay: 30ms; } .bento > :nth-child(3), .home-bento > :nth-child(3) { animation-delay: 60ms; }
+.bento > :nth-child(4) { animation-delay: 90ms; } .bento > :nth-child(5) { animation-delay: 110ms; } .bento > :nth-child(6) { animation-delay: 130ms; }
+.bento > :nth-child(7) { animation-delay: 150ms; } .bento > :nth-child(n+8) { animation-delay: 170ms; }
+/* List rows (search results, saved, appointments, filings, similar companies) fade in when a list is drawn or filtered. */
+.res-list > .res, .fl-row, .sim-row, .table-wrap tbody tr, #simBody > *, #fl > * { animation: m-fade var(--dur-2) var(--ease-out) both; }
+/* Hover and press feedback */
+.btn, .tb, .acct, .icon-btn, .lnk, .nav a, .tabs-plain a { transition: background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out), box-shadow var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out); }
+.btn:not(:disabled):not([aria-disabled="true"]):active, .tb:active, .acct:active, .icon-btn:active { transform: scale(.97); }
+a.tile-link, a.fact-link .fact { transition: border-color var(--dur-1) var(--ease-out), box-shadow var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out); }
+a.tile-link:hover, a.fact-link:hover .fact { box-shadow: var(--sh-2); transform: translateY(-1px); }
+a.tile-link:active, a.fact-link:active .fact { transform: translateY(0) scale(.995); box-shadow: none; }
+/* Help and Account popovers: fade and scale on open and close. */
+.top-pop { transform-origin: top right; transition: opacity var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out), display var(--dur-1) allow-discrete, overlay var(--dur-1) allow-discrete; }
+.top-pop[hidden] { opacity: 0; transform: translateY(-4px) scale(.97); }
+@starting-style { .top-pop:not([hidden]) { opacity: 0; transform: translateY(-4px) scale(.97); } }
+/* Mobile menu slides down from the top bar. */
+@media (max-width: 760px) {
+  .side { transform-origin: top; transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out), display var(--dur-2) allow-discrete; opacity: 0; transform: translateY(-8px); }
+  body.menu-open .side { opacity: 1; transform: none; }
+  @starting-style { body.menu-open .side { opacity: 0; transform: translateY(-8px); } }
+}
+/* Save: the bookmark fills smoothly, with a small press pulse. */
+.save-btn svg { transition: fill var(--dur-2) var(--ease-out), color var(--dur-2) var(--ease-out); }
+.save-btn.pop svg { animation: m-pop var(--dur-3) var(--ease-out); }
+/* 'Copied' note rises in. */
+.cp.copied::after { animation: m-copied var(--dur-2) var(--ease-out) both; }
+@keyframes m-copied { from { opacity: 0; transform: translate(-50%, 4px); } to { opacity: 1; transform: translateX(-50%); } }
+/* Expand and collapse: details open smoothly where supported; the revealed content fades in everywhere. */
+:root { interpolate-size: allow-keywords; }
+details::details-content { block-size: 0; overflow: hidden; transition: block-size var(--dur-2) var(--ease-out), content-visibility var(--dur-2) allow-discrete; }
+details[open]::details-content { block-size: auto; }
+details[open] > :not(summary) { animation: m-fade var(--dur-2) var(--ease-out) both; }
+.adv:not([hidden]) { animation: m-rise var(--dur-2) var(--ease-out) both; }
+/* Loading: a centred brand navy ring over the page area, shown only if loading takes longer than 250ms, faded out when the page arrives. */
+.main { position: relative; }
+.pg-ph { min-height: 60vh; }
+.spin { display: block; width: 44px; height: 44px; border-radius: 50%; border: 4px solid var(--brand-100); border-top-color: var(--brand-600); animation: m-spin .8s linear infinite; }
+.pg-load { position: absolute; left: 0; right: 0; top: 0; height: 60vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; pointer-events: none; font-size: var(--fs-sm); color: var(--ink-600);
+  opacity: 0; visibility: hidden; transform: scale(.96); transition: opacity var(--dur-2) var(--ease-out), transform var(--dur-2) var(--ease-out), visibility 0s linear var(--dur-2); }
+.pg-load.on { opacity: 1; visibility: visible; transform: none; transition: opacity var(--dur-2) var(--ease-out) 250ms, transform var(--dur-2) var(--ease-out) 250ms, visibility 0s linear 250ms; }
+.loading { display: flex; align-items: center; gap: 10px; animation: m-fade var(--dur-2) var(--ease-out) 250ms both; }
+.loading::before { content: ''; flex: none; width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid var(--brand-100); border-top-color: var(--brand-600); animation: m-spin .8s linear infinite; }
+/* Reduced motion: no movement; fades become instant. The loading delay stays so quick loads don't flash. */
+@media (prefers-reduced-motion: reduce) {
+  @view-transition { navigation: none; }
+  *, *::before, *::after { animation-duration: 1ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; transition-delay: 0ms !important; }
+  .spin, .loading::before { border-top-color: var(--brand-600); border-right-color: var(--brand-600); }
+  .pg-load.on { transition-delay: 250ms !important; }
+  .loading { animation: none !important; }
+}
