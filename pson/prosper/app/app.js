@@ -5,6 +5,8 @@
   'use strict';
   /* Page fade fallback: browsers without cross-document View Transitions fade the page area in with CSS. */
   if (!('onpagereveal' in window)) document.documentElement.classList.add('no-vt');
+  /* A skipped transition (for example a fast second click) rejects its promises; that is expected, so keep it out of the console. */
+  ['pagereveal', 'pageswap'].forEach((t) => window.addEventListener(t, (e) => { const v = e.viewTransition; if (v) [v.ready, v.finished, v.updateCallbackDone].forEach((x) => x && x.catch(() => {})); }));
   const { esc, st, URL: U } = window.UI;
   const N = window.Normalise;
   if (window.CH_ENUMS) N.setEnums(window.CH_ENUMS);
