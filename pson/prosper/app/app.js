@@ -130,10 +130,10 @@
     help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
   };
   const HELP_HTML = `<h2>What is Prosper?</h2>
-    <p>Prosper shows UK company and officer information from Companies House open data, as recorded by Companies House.</p>
-    <p><b>Reading a page.</b> Status is shown in bold colour. Ownership lists each person with significant control and how they control the company. Ages and years in role are worked out from the dates Companies House holds; where only a birth month is known, an age can read "70 or 71". Deadline flags come from the dates on the register.</p>
+    <p>Search UK companies, people and their appointments.</p>
+    <p><b>Reading a page.</b> Status is shown in bold colour. Ownership lists each person with significant control and how they control the company. Ages and years in role are worked out from the dates shown; where only a birth month is known, an age can read "70 or 71". Deadline flags come from the dates on the register.</p>
     <p><b>Your data.</b> Your API key, saved items and recently viewed stay in this browser.</p>
-    <p>Prosper doesn't verify the register. Check anything important on the Companies House service.</p>
+
     <p><a href="https://find-and-update.company-information.service.gov.uk/" target="_blank" rel="noopener">Companies House service</a> · <a href="settings.html">Settings</a></p>`;
   const ACCT_HTML = `<h2>Account</h2><p>Accounts aren't available yet. Your saved items and settings are kept in this browser only.</p><p><a href="settings.html">Settings</a></p>`;
   const NAV = [['home', 'Home', 'index.html', 'house'], ['saved', 'Saved', 'saved.html', 'bookmark'], ['alerts', 'Alerts', 'alerts.html', 'bell'], ['settings', 'Settings', 'settings.html', 'settings']];
@@ -145,7 +145,7 @@
         <form class="search" action="index.html" method="get" role="search"><input name="q" type="search" value="${esc(q)}" placeholder="Search companies or people by name or number" aria-label="Search companies or people">${type ? `<input type="hidden" name="type" value="${type}">` : ''}<button class="btn" type="submit">Search</button></form>
         <div class="top-r"><button class="tb" id="helpBtn" type="button" aria-label="Help" title="Help" aria-expanded="false" aria-controls="helpPop">${svg(ICONS.help)}</button><button class="acct" id="acctBtn" type="button" aria-label="Account" title="Account" aria-expanded="false" aria-controls="acctPop">${svg(ICONS.user)}</button>
           <div class="top-pop" id="helpPop" role="dialog" aria-label="Help" hidden>${HELP_HTML}</div><div class="top-pop acct-pop" id="acctPop" role="dialog" aria-label="Account" hidden>${ACCT_HTML}</div></div></header>
-      <aside class="side" id="side"><div class="side-in">
+      <aside class="side" id="side"><div class="side-in"><a class="side-mark" href="index.html" aria-label="Prosper home"><span class="side-logo" aria-hidden="true">P</span><span class="side-name">Prosper</span></a>
         <nav class="nav" aria-label="Main">${NAV.map(([k, label, href, ic]) => `<a href="${href}"${k === active ? ' class="on" aria-current="page"' : ''}>${svg(ICONS[ic])}<span>${label}</span></a>`).join('')}</nav></div></aside>
       <div class="main">
         <main class="content" id="content"></main><div class="pg-load" id="pgLoad" aria-hidden="true"><span class="spin"></span><span class="pg-load-t">Loading…</span></div><div class="sr" id="copyLive" role="status" aria-live="polite"></div>
@@ -333,13 +333,13 @@
     const day = (t) => { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); };
     const kic = (k) => window.UI.kindIcon(k, k === 'person' ? 'Person' : 'Company');
     const rv = viewedList().slice(0, 6), sv = saved().slice(0, 4);
-    const recent = rv.length ? `<div class="res-list">${rv.map((r) => `<div class="res"><div class="res-nm">${kic(r.type === 'company' ? 'company' : 'person')}<a class="nm" href="${esc(viewHref(r))}">${esc(r.name)}</a></div><div class="rt">${esc(day(r.t))}</div></div>`).join('')}</div>` : '<div class="plain-msg">Nothing viewed yet.</div>';
-    const savedL = sv.length ? `<div class="res-list">${sv.map((x) => `<div class="res"><div class="res-nm">${kic(x.kind === 'person' ? 'person' : 'company')}<a class="nm" href="${esc(x.kind === 'person' ? x.href : U.company(x.number))}">${esc(x.name)}</a></div><div class="rt">${x.kind === 'person' ? '' : 'No. ' + esc(x.number)}</div></div>`).join('')}</div>` : '<div class="plain-msg">Nothing saved yet.</div>';
+    const recent = rv.length ? `<div class="res-list">${rv.map((r) => `<div class="res"><div class="res-nm">${kic(r.type === 'company' ? 'company' : 'person')}<a class="nm" href="${esc(viewHref(r))}">${esc(r.name)}</a></div><div class="rt">${esc(day(r.t))}</div>${r.type === 'person' ? `<div class="meta director-id">Director ID: ${esc(r.id.replace(/^id:/, ''))}</div>` : ''}</div>`).join('')}</div>` : '<div class="plain-msg">Nothing viewed yet.</div>';
+    const savedL = sv.length ? `<div class="res-list">${sv.map((x) => `<div class="res"><div class="res-nm">${kic(x.kind === 'person' ? 'person' : 'company')}<a class="nm" href="${esc(x.kind === 'person' ? x.href : U.company(x.number))}">${esc(x.name)}</a></div><div class="rt">${x.kind === 'person' ? '' : 'No. ' + esc(x.number)}</div>${x.kind === 'person' ? `<div class="meta director-id">Director ID: ${esc((x.key || '').replace(/^id:/, ''))}</div>` : ''}</div>`).join('')}</div>` : '<div class="plain-msg">Nothing saved yet.</div>';
     el.innerHTML = `<h1 class="sr">Home</h1><div class="home-hero"><form class="home-big" id="homeForm" action="index.html" method="get" role="search"><label class="home-big-l" for="homeQ">Search Companies House</label><div class="home-big-r"><input id="homeQ" name="q" type="search" placeholder="Company name or number, or a person's name"><input type="hidden" name="type" id="homeType" value="${type}"${type === 'companies' ? ' disabled' : ''}><button class="btn primary" type="submit">Search</button></div>
         <nav class="tabs-plain home-scope" aria-label="Search in">${SEARCH_TYPES.map(([k, l]) => `<a href="#" data-type="${k}"${k === type ? ' class="on" aria-current="true"' : ''}>${l}</a>`).join('')}<a href="index.html?view=search&amp;adv=1">Advanced</a></nav></form></div>
       ${chKey() ? '' : '<div class="panel plain-msg" style="margin-bottom:16px">Add your Companies House API key in <a href="settings.html">Settings</a> to start searching.</div>'}
-      <div class="home-bento"><section class="tile home-s7"><div class="tile-head"><h2 class="h3">Recently viewed</h2><span class="aside"><a href="index.html?view=search">See all</a></span></div>${recent}</section>
-        <section class="tile home-s5"><div class="tile-head"><h2 class="h3">Saved</h2><span class="aside"><a href="saved.html">All saved</a></span></div>${savedL}</section>
+      <div class="home-bento"><section class="tile home-s7"><div class="tile-head"><h2 class="h3">Recently viewed</h2><span class="aside"><a href="index.html?view=search">See all</a>${window.UI.openBtn({ href: 'index.html?view=search', label: 'Open recently viewed' })}</span></div>${recent}</section>
+        <section class="tile home-s5"><div class="tile-head"><h2 class="h3">Saved</h2><span class="aside"><a href="saved.html">All saved</a>${window.UI.openBtn({ href: 'saved.html', label: 'Open saved' })}</span></div>${savedL}</section>
         <section class="tile home-s12"><div class="tile-head"><h2 class="h3">Alerts</h2></div><div class="plain-msg">Alerts are coming soon. You'll be able to watch a company or person with the bell next to Save.</div></section></div>`;
     const hid = el.querySelector('#homeType');
     el.querySelectorAll('[data-type]').forEach((a) => a.addEventListener('click', (ev) => {
@@ -408,7 +408,7 @@
         if (after) r = r.filter((c) => c.key > after).slice(0, 20);
         if (!r.length) { res.innerHTML = '<div class="plain-msg">No companies found.</div>'; return; }
         const last = r[r.length - 1];
-        res.innerHTML = `<div class="res-list">${r.map((c) => resRow(c)).join('')}</div><div class="pager"><span>Alphabetical list from Companies House</span><span class="btns"><a class="btn sm" href="${esc(withParams('index.html', { mode: 'az', q: last.name, after: last.key }))}">Next</a></span></div>`;
+        res.innerHTML = `<div class="res-list">${r.map((c) => resRow(c)).join('')}</div><div class="pager"><span>Alphabetical list</span><span class="btns"><a class="btn sm" href="${esc(withParams('index.html', { mode: 'az', q: last.name, after: last.key }))}">Next</a></span></div>`;
         return;
       }
       if (mode === 'dissolved') {
@@ -529,7 +529,7 @@
     const p = raw.profile, L = p.links || {};
     const ukLink = p.type === 'oversea-company' && (L.uk_establishments || L['uk-establishments']);
     const [officers, psc, pscStatements, exemptions, registers, ukEstablishments, charges, insolvency, filings] = await Promise.all([
-      ch(c + '/officers?items_per_page=100'), L.persons_with_significant_control ? ch(c + '/persons-with-significant-control?items_per_page=25') : null,
+      allPages(c + '/officers', 100), L.persons_with_significant_control ? ch(c + '/persons-with-significant-control?items_per_page=25') : null,
       L.persons_with_significant_control_statements ? ch(c + '/persons-with-significant-control-statements?items_per_page=25') : null,
       L.exemptions ? ch(c + '/exemptions') : null, L.registers ? ch(c + '/registers') : null, ukLink ? ch(c + '/uk-establishments') : null, p.has_charges ? ch(c + '/charges?items_per_page=25') : null,
       p.has_insolvency_history ? ch(c + '/insolvency') : null, ch(c + '/filing-history?items_per_page=25')]);
@@ -680,17 +680,24 @@
   }
 
   /* ---------- Officers page: current and resigned. ?officers=A table (default), ?officers=B timeline ---------- */
-  async function allPages(base, per, max) {
-    const first = await ch(`${base}${base.includes('?') ? '&' : '?'}items_per_page=${per}&start_index=0`);
+  async function allPages(base, per, max = Infinity) {
+    const url = (offset) => `${base}${base.includes('?') ? '&' : '?'}items_per_page=${per}&start_index=${offset}`;
+    const first = await ch(url(0));
     if (first._http) return first;
     const items = (first.items || []).slice();
-    const total = first.total_results || first.total_count || items.length;
-    for (let s = items.length; s < Math.min(total, max) && items.length; ) {
-      const next = await ch(`${base}${base.includes('?') ? '&' : '?'}items_per_page=${per}&start_index=${s}`);
-      const got = (next && next.items) || []; if (!got.length) break;
-      items.push(...got); s += got.length;
+    const total = Number(first.total_results ?? first.total_count ?? items.length);
+    const seen = new Set([JSON.stringify(first.items || [])]);
+    let valid = Number.isInteger(total) && total >= 0, error = '';
+    while (valid && items.length < Math.min(total, max)) {
+      let next;
+      try { next = await ch(url(items.length)); } catch (e) { valid = false; error = 'load'; break; }
+      const got = next && next.items || [], fingerprint = JSON.stringify(got);
+      if (next._http || !got.length || seen.has(fingerprint) || Number(next.total_results ?? next.total_count ?? total) !== total || (next.start_index != null && Number(next.start_index) !== items.length)) {
+        valid = false; error = 'pages'; break;
+      }
+      seen.add(fingerprint); items.push(...got);
     }
-    return Object.assign({}, first, { items });
+    return Object.assign({}, first, { items, _complete: valid && items.length === total, _loadError: error });
   }
   async function pageOfficers() {
     const el = shell('');
@@ -700,7 +707,7 @@
     try {
       const prof = await ch('/company/' + n);
       if (prof._http) throw new ApiError('404', 'No company found with number ' + n + '.');
-      const raw = await allPages('/company/' + n + '/officers', 100, 5000);
+      const raw = await allPages('/company/' + n + '/officers', 100);
       const of = N.officers(raw._http ? null : raw);
       const name = N.profile(prof).name, word = N.officerWord(prof.type);
       setTitle(word.many + ' · ' + name);
@@ -822,7 +829,7 @@
     if (!d) return '';
     const cur = d.items.some((x) => x.current);
     return `${window.UI.head('Disqualified director')}
-      <div class="verdict bad" style="margin-top:0"><b>${cur ? 'Disqualified' : 'Previously disqualified'}</b><span>as recorded by Companies House</span></div>
+      <div class="verdict bad" style="margin-top:0"><b>${cur ? 'Disqualified' : 'Previously disqualified'}</b></div>
       ${d.items.map((x) => `<div style="margin-top:12px">${dl([
         ['Type', x.type], ['Reason', x.reason], ['Law', x.law],
         ['Disqualified', [x.from && 'from ' + x.from, x.until && 'until ' + x.until].filter(Boolean).join(' ')],
@@ -834,7 +841,7 @@
   function controlsTile(pn, names) {
     if (!pn) return '';
     const row = (x) => `<div class="psc"><div class="line"><span class="nm"><a href="${esc(U.company(x.number))}">${esc(names[x.number] || 'Company ' + x.number)}</a></span><span class="bd">${esc(x.role)}</span>${x.notified ? `<span class="since">since ${esc(x.notified)}</span>` : ''}${x.ceased ? `<span class="since">ceased ${esc(x.ceased)}</span>` : ''}</div>${x.controls.map((c) => `<div class="other">${esc(c)}</div>`).join('')}</div>`;
-    return `${window.UI.head('Companies this person controls (as recorded by Companies House)', pn.current.length + ' current', pn.ceased.length ? pn.ceased.length + ' ceased' : '')}
+    return `${window.UI.head('Companies this person controls', pn.current.length + ' current', pn.ceased.length ? pn.ceased.length + ' ceased' : '')}
       ${pn.current.length ? `<div class="psc-list">${pn.current.map(row).join('')}</div>` : '<div class="empty">No current significant control recorded.</div>'}
       ${pn.ceased.length ? `<div class="eyebrow" style="margin:14px 0 6px">Ceased (${pn.ceased.length})</div><div class="psc-list">${pn.ceased.map(row).join('')}</div>` : ''}`;
   }
@@ -868,7 +875,7 @@
     return hits[0] ? N.disqualification(hits[0].raw) : null;
   }
   /* Appointments table. Over AP_FEW appointments it gets a filter box, a status menu, a sort menu, a live count and
-     'Show 25 more'; when Companies House has more than were loaded, 'Load more from Companies House' fetches the next 500.
+     'Show 25 more'; when Companies House has more than were loaded, 'Load more appointments' fetches the next 500.
      'Current' uses Companies House's filter=active list, so it is complete even when only part of the history is loaded. */
   const AP_FEW = 10, AP_STEP = 25, AP_FETCH = 500;
   const apRow = (a) => `<tr><td>${a.number ? `<a href="${esc(U.company(a.number))}">${esc(a.company)}</a> <span class="muted">${cp(a.number)}</span>` : esc(a.company)}</td><td>${a.status ? st(a.status, a.colour) : ''}</td><td>${esc(a.role)}</td><td class="nowrap num">${cpd(a.appointed)}</td><td class="nowrap num">${cpd(a.resigned)}</td></tr>`;
@@ -881,7 +888,7 @@
     const loaded = () => raws.reduce((n, r) => n + r.items.length, 0);
     const partial = () => loaded() < total;
     async function fetchCurrent() {
-      busy = 'Loading current appointments from Companies House…'; draw();
+      busy = 'Loading current appointments…'; draw();
       let rs = null;
       try { rs = await Promise.all(ids.map((id) => allPages(`/officers/${id}/appointments?filter=active`, 50, 2000))); } catch (e) { rs = null; }
       busy = '';
@@ -890,7 +897,7 @@
       draw();
     }
     async function loadMore() {
-      busy = 'Loading more appointments from Companies House…'; note = ''; draw();
+      busy = 'Loading more appointments…'; note = ''; draw();
       let budget = AP_FETCH;
       try {
         for (let i = 0; i < raws.length && budget > 0; i++) {
@@ -917,7 +924,7 @@
       body.innerHTML = m.slice(0, vis).map(apRow).join('') || '<tr><td colspan="5" class="muted">No appointments match.</td></tr>';
       const fromCur = sv === 'current' && current && currentFull && partial();
       count.textContent = busy || [`Showing ${fmt(vis)} of ${fmt(m.length)}${t || sv ? ' matching' : ''}`,
-        fromCur ? 'all current appointments, from Companies House' : partial() ? `${fmt(loaded())} of ${fmt(total)} appointments loaded` : '', note].filter(Boolean).join(' · ');
+        fromCur ? 'all current appointments' : partial() ? `${fmt(loaded())} of ${fmt(total)} appointments loaded` : '', note].filter(Boolean).join(' · ');
       more.style.display = vis < m.length ? '' : 'none';
       more.textContent = `Show ${Math.min(AP_STEP, m.length - vis)} more`;
       load.style.display = partial() && !fromCur ? '' : 'none';
@@ -941,7 +948,7 @@
       if (disqId) return await disqPage(el, disqId, qs.get('k') === 'corporate' ? 'corporate' : 'natural');
       let apIds = ids, pns = [];
       if (pscId) {
-        const [pn, ap] = await Promise.all([ch(`/persons-with-significant-control/${pscId}/notifications`), allPages(`/officers/${pscId}/appointments`, 50, 500)]);
+        const [pn, ap] = await Promise.all([ch(`/persons-with-significant-control/${pscId}/notifications`), allPages(`/officers/${pscId}/appointments`, 50)]);
         if (ap._http) {
           if (pn._http) throw new ApiError('404', 'Companies House has no record for this owner.');
           return await pscOnlyPage(el, pscId, N.pscNotifications(pn));
@@ -949,7 +956,7 @@
         apIds = [pscId]; pns = [{ id: pscId, raw: pn }];
         var apRaws = [ap];
       }
-      const raws = apRaws || await Promise.all(apIds.map((id) => allPages('/officers/' + id + '/appointments', 50, 500)));
+      const raws = apRaws || await Promise.all(apIds.map((id) => allPages('/officers/' + id + '/appointments', 50)));
       const good = raws.filter((r) => !r._http);
       if (!good.length) throw new ApiError('404', 'No appointments found for this person.');
       const vm = N.person(good);
@@ -961,9 +968,12 @@
       const reliableAvg = vm.averageYears != null && vm.loaded === vm.total && vm.tenureBase >= Math.max(2, Math.ceil(vm.loaded * 0.8));
       const firstAp = vm.items.map((x) => x.appointedIso).filter(Boolean).sort()[0];
       const lastRes = vm.active ? '' : vm.items.map((x) => x.resignedIso).filter(Boolean).sort().pop();
-      const details = dl([['Name', vm.name, false, true], ['Roles', vm.roles.join(', ')], ['First appointed', firstAp ? N.fmtDate(firstAp) : '', false, true], ['Last resigned', lastRes ? N.fmtDate(lastRes) : '', false, true],
-        ['Nationality', vm.nationalities.join(', ')], ['Country of residence', vm.residences.join(', ')], ['Born', vm.born, false, true], ['Age', ageText(vm.dob)],
-        ['Correspondence address', vm.addresses.map((a) => cp(a)).join('<br>'), true], ['Former names', vm.formerNames.join(', ')], ['Companies House records', apIds.length > 1 ? apIds.length + ' combined (same person IDs chosen in search)' : '']]);
+      const details = dl([['Date of birth', vm.born], ['Age', ageText(vm.dob)],
+        ['Nationality', vm.nationalities.join(', ')], ['Country of residence', vm.residences.join(', ')],
+        ['First appointed', firstAp ? N.fmtDate(firstAp) : '', false, true],
+        ['Last resigned', lastRes ? N.fmtDate(lastRes) : '', false, true],
+        ['Correspondence address', vm.addresses.map((a) => cp(a)).join('<br>'), true],
+        ['Former names', vm.formerNames.join(', ')], ['Director ID', apIds.join(', ')]]);
       const many = vm.total > AP_FEW;
       const apTable = `<div class="table-wrap"><table class="table"><thead><tr><th>Company</th><th>Status</th><th>Role</th><th class="nowrap">Appointed</th><th class="nowrap">Resigned</th></tr></thead><tbody id="apBody">${many ? '' : vm.items.map(apRow).join('')}</tbody></table></div>`;
       const apTools = many ? `<div class="ap-tools">
@@ -971,19 +981,19 @@
           <select class="input" id="apS" aria-label="Status"><option value="">All appointments</option><option value="current">Current</option><option value="resigned">Resigned</option><option value="co-active">Company active</option><option value="co-closed">Company dissolved or closed</option></select>
           <select class="input" id="apO" aria-label="Sort"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="az">Company A–Z</option></select></div>
         <div class="ap-count" id="apCount" role="status" aria-live="polite"></div>` : '';
-      const apMore = many ? '<div class="more-row center"><button class="btn" type="button" id="apMore">Show 25 more</button><button class="btn" type="button" id="apLoad">Load more from Companies House</button></div>' : '';
+      const apMore = many ? '<div class="more-row center"><button class="btn" type="button" id="apMore">Show 25 more</button><button class="btn" type="button" id="apLoad">Load more appointments</button></div>' : '';
       const names = pnv ? await companyNames(pnv.items.map((x) => x.number)).catch(() => ({})) : {};
       vm.items.forEach((a) => { if (a.number && !names[a.number]) names[a.number] = a.company; });
       el.innerHTML = `<article class="lay-b"><div class="card shell">
-        ${pHeader(vm.name, [vm.roles.slice(0, 3).join(', '), vm.born && 'Born ' + vm.born, vm.total + ' appointment' + (vm.total === 1 ? '' : 's')], '', isSaved('p:' + key), vm.corporate)}
+        ${pHeader(vm.name, [vm.roles.join(', ')], '', isSaved('p:' + key), vm.corporate)}
+        <div class="person-overview">${details}</div>
         <div class="bento">
-          <div class="s3">${f('Appointments', String(vm.total), `${vm.active} active · ${vm.resigned} resigned${vm.openClosed ? ' · ' + vm.openClosed + ' at closed companies' : ''}${vm.loaded < vm.total ? ' (of ' + vm.loaded + ' loaded)' : ''}`)}</div>
-          <div class="s3">${f('Dissolved or in liquidation', String(vm.finished), 'Companies appointed to', vm.finished ? 'warn' : '')}</div>
-          <div class="s3">${f('Longest role', vm.longest ? vm.longest.years + (vm.longest.years === 1 ? ' year' : ' years') : '—', vm.longest ? vm.longest.company : 'No complete dates')}</div>
-          <div class="s3">${f('Average tenure', reliableAvg ? vm.averageYears + (vm.averageYears === 1 ? ' year' : ' years') : '—', reliableAvg ? 'Across ' + vm.tenureBase + ' appointments' : (vm.loaded < vm.total ? 'Not shown: not all appointments loaded' : vm.tenureBase < 2 ? 'Not shown: needs two or more dated roles' : 'Not shown: dates incomplete'))}</div>
+          <div class="s4">${f('Dissolved or in liquidation', String(vm.finished), 'Companies appointed to', vm.finished ? 'warn' : '')}</div>
+          <div class="s4">${f('Longest role', vm.longest ? vm.longest.years + (vm.longest.years === 1 ? ' year' : ' years') : '—', vm.longest ? vm.longest.company : 'No complete dates')}</div>
+          <div class="s4">${f('Average tenure', reliableAvg ? vm.averageYears + (vm.averageYears === 1 ? ' year' : ' years') : '—', reliableAvg ? 'Across ' + vm.tenureBase + ' appointments' : (vm.loaded < vm.total ? 'Not shown: not all appointments loaded' : vm.tenureBase < 2 ? 'Not shown: needs two or more dated roles' : 'Not shown: dates incomplete'))}</div>
           <div class="tile s12" id="disqTile" hidden></div>
-          <div class="tile s5">${window.UI.head('Personal details')}${details}</div>
-          <div class="tile s7">${window.UI.head('Appointments', vm.total)}${apTools}${apTable}${apMore}</div>
+          <div class="tile s12 appointments-tile">${window.UI.head('Appointments', vm.total)}${apTools}${apTable}${apMore}</div>
+          <div class="tile s12 yc-tile person-chart">${window.UI.personHistory(vm, { complete: good.length === raws.length && good.every(r => r._complete === true) })}</div>
           ${pnv ? `<div class="tile s12">${controlsTile(pnv, names)}</div>` : ''}
         </div></div></article>`;
       addViewed(vm.corporate ? 'corporate' : 'person', key, vm.name);
@@ -1025,8 +1035,8 @@
       el.innerHTML = `<div class="page-head"><div><h1>Saved</h1><div class="sub">Companies and people you have saved in this browser, newest first.</div></div></div>
         <div class="panel"><div class="filters" id="savedFilters">
           <nav class="tabs-plain" aria-label="Show">${[['all', 'All'], ['company', 'Companies'], ['person', 'People']].map(([k, l]) => `<a href="#" data-kind="${k}"${k === kind ? ' class="on" aria-current="true"' : ''}>${l}</a>`).join('')}</nav>
-          <label class="grow">Search saved<input class="input" id="savedQ" type="search" value="${esc(text)}"></label>
-          <label>Status<select class="input" id="savedSt"><option value="">Any status</option></select></label>
+          <label class="grow"><span class="sr">Search saved</span><input class="input" id="savedQ" placeholder="Search saved" type="search" value="${esc(text)}"></label>
+          <label><span class="sr">Status</span><select class="input" id="savedSt"><option value="">Any status</option></select></label>
         </div><div id="savedList"></div></div>`;
       el.querySelectorAll('[data-kind]').forEach((a) => a.addEventListener('click', (ev) => { ev.preventDefault(); kind = a.dataset.kind; el.querySelectorAll('[data-kind]').forEach((b) => { b.classList.toggle('on', b === a); if (b === a) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); }); draw(); }));
       el.querySelector('#savedQ').addEventListener('input', (ev) => { text = ev.target.value; draw(); });
@@ -1042,8 +1052,8 @@
       const list = all.filter((x) => (kind === 'all' || x.kind === kind) && (!status || (x.kind === 'company' && x.status === status)) && (!t || [x.name, x.number, x.town, x.sub].join(' ').toLowerCase().includes(t)));
       const when = (x) => (x.noDate ? '' : x.dateOnly ? 'saved ' + N.fmtDate(x.savedAt.slice(0, 10)) : 'saved ' + N.fmtDate(x.savedAt.slice(0, 10)) + ', ' + new Date(x.savedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }));
       const row = (x) => x.kind === 'person'
-        ? `<div class="res"><div class="res-nm">${ic('person')}<a class="nm" href="${esc(x.href)}">${esc(x.name)}</a></div><div class="rt"><button class="lnk" data-rm="${esc(savedKey(x))}">Remove</button></div><div class="meta">${esc([x.sub, when(x)].filter(Boolean).join(' · '))}</div></div>`
-        : `<div class="res"><div class="res-nm">${ic('company')}<a class="nm" href="${esc(U.company(x.number))}">${esc(x.name)}</a></div><div class="rt"><button class="lnk" data-rm="${esc(savedKey(x))}">Remove</button></div><div class="meta">${st(x.status, x.colour)} · ${esc(['No. ' + x.number, x.town, when(x)].filter(Boolean).join(' · '))}</div></div>`;
+        ? `<div class="res"><div class="res-nm">${ic('person')}<a class="nm" href="${esc(x.href)}">${esc(x.name)}</a></div><div class="rt"><button class="remove-icon" type="button" aria-label="Remove ${esc(x.name)} from saved" data-rm="${esc(savedKey(x))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6l-1 14H6L5 6M9 6V3h6v3M10 10v6M14 10v6"/></svg></button></div><div class="meta">${esc([x.sub, when(x)].filter(Boolean).join(' · '))}</div></div>`
+        : `<div class="res"><div class="res-nm">${ic('company')}<a class="nm" href="${esc(U.company(x.number))}">${esc(x.name)}</a></div><div class="rt"><button class="remove-icon" type="button" aria-label="Remove ${esc(x.name)} from saved" data-rm="${esc(savedKey(x))}"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M19 6l-1 14H6L5 6M9 6V3h6v3M10 10v6M14 10v6"/></svg></button></div><div class="meta">${st(x.status, x.colour)} · ${esc(['No. ' + x.number, x.town, when(x)].filter(Boolean).join(' · '))}</div></div>`;
       el.querySelector('#savedList').innerHTML = !all.length ? '<div class="plain-msg">Nothing saved yet. Use Save on a company or person page.</div>' : list.length ? `<div class="res-list">${list.map(row).join('')}</div>` : '<div class="plain-msg">Nothing saved matches.</div>';
       el.querySelectorAll('[data-rm]').forEach((b) => b.addEventListener('click', () => { lsSet(SLOT.saved, saved().filter((x) => savedKey(x) !== b.dataset.rm)); draw(); }));
     };

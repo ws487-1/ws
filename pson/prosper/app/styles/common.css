@@ -1,0 +1,49 @@
+/* app9 style exploration: structure shared by every style (s1..s6). Colours come from each style's tokens. */
+.side-mark { display: flex; align-items: center; gap: 10px; padding: 4px 8px 14px; color: var(--ink-900); }
+.side-mark:hover { text-decoration: none; }
+.side-logo { width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; font: 700 17px/1 var(--font-brand); background: var(--ink-900); color: #fff; }
+.side-name { font: 700 20px/1 var(--font-brand); letter-spacing: -.02em; }
+.side-foot { display: block; margin-top: auto; padding: 12px 10px 4px; font-size: 12px; line-height: 1.45; color: var(--ink-500); }
+.tile-head .aside { display: inline-flex; align-items: center; gap: 10px; }
+.tile-open { display: inline-grid; place-items: center; flex: none; width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--line); color: var(--ink-800); background: var(--surface);
+  transition: background-color 120ms ease-out, color 120ms ease-out, border-color 120ms ease-out, transform 120ms ease-out; }
+.tile-open svg { width: 16px; height: 16px; stroke-width: 2; }
+a.tile-open:hover, a.tile-link:hover .tile-open { background: var(--ink-900); border-color: var(--ink-900); color: #fff; text-decoration: none; }
+a.tile-open:active { transform: scale(.96); }
+.fact { position: relative; }
+.fact .fi { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; margin-bottom: 12px; color: var(--accent-700); background: var(--accent-50); }
+.fact .fi svg { width: 18px; height: 18px; stroke-width: 2; }
+/* charges legend: inline colour is replaced by the style token */
+.chg-sum .legend span:first-child i { background: var(--bar-warn) !important; }
+.chg-sum .legend span:last-child i { background: var(--bar-neutral, var(--ink-300)) !important; }
+.bar > i.neutral { background: var(--bar-neutral, var(--ink-300)); }
+
+/* Year chart (appointments up, resignations down, in post as a number row). Counts only; no estimates. */
+.yc-kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }
+.yc-kpi { display: grid; gap: 2px; }
+.yc-kl { font-size: 12px; color: var(--ink-500); }
+.yc-kpi b { font-size: 26px; line-height: 1.1; font-weight: 600; color: var(--ink-900); letter-spacing: -.02em; }
+.yc { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 0 8px; }
+.yc-axis { display: grid; grid-template-rows: 96px 96px 22px 22px; font-size: 11px; color: var(--ink-500); }
+.yc-al.a { align-self: end; padding-bottom: 4px; } .yc-al.r { align-self: start; padding-top: 4px; } .yc-al.n { grid-row: 4; align-self: center; }
+.yc-cols { display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); gap: 0 6px; }
+.yc-col { display: grid; grid-template-rows: 96px 96px 22px 22px; min-width: 0; }
+.yc-up { padding-top: 18px; display: flex; align-items: flex-end; justify-content: center; border-bottom: 1px solid var(--yc-base, var(--ink-300)); }
+.yc-dn { padding-bottom: 18px; display: flex; align-items: flex-start; justify-content: center; }
+.yc-col i { font-style: normal; position: relative; display: block; width: min(70%, 34px); min-height: 0; }
+.yc-up i { background: var(--yc-a, var(--accent-600)); border-radius: var(--yc-r, 4px) var(--yc-r, 4px) 0 0; }
+.yc-dn i { background: var(--yc-b, var(--ink-300)); border-radius: 0 0 var(--yc-r, 4px) var(--yc-r, 4px); }
+.yc-col i b { position: absolute; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: 600; color: var(--ink-700); font-variant-numeric: tabular-nums; }
+.yc-up i b { bottom: calc(100% + 2px); } .yc-dn i b { top: calc(100% + 2px); }
+.yc-x { align-self: center; text-align: center; font-size: 11px; color: var(--ink-500); font-variant-numeric: tabular-nums; }
+.yc-n { align-self: center; text-align: center; font-size: 12px; font-weight: 600; color: var(--ink-800); }
+.yc-col.now .yc-x { color: var(--ink-900); font-weight: 600; }
+.yc-note { margin-top: 12px; font-size: 12px; color: var(--ink-500); }
+/* Sentence-case labels instead of caps eyebrows in every style */
+.eyebrow { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 500; }
+.table th { text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600; }
+.changes .k, .tl-item .cat, .tl-item.ev .k { text-transform: none; letter-spacing: 0; font-size: 12px; }
+.yc-cols { position: relative; }
+.yc-avg { display: none; position: absolute; left: 0; right: 0; top: calc(18px + 78px * (1 - var(--avg))); border-top: 1.5px dashed var(--ink-500); pointer-events: none; }
+.yc-avg span { position: absolute; right: 0; bottom: 4px; font-size: 11px; font-weight: 600; color: var(--ink-700); background: var(--surface); padding: 1px 6px; border-radius: 6px; border: 1px solid var(--line); }
+.yc-avg-l { display: none; margin-top: 12px; font-size: 12px; color: var(--ink-700); }

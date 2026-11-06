@@ -506,3 +506,6 @@ details[open] > :not(summary) { animation: m-fade var(--dur-2) var(--ease-out) b
   .pg-load.on { animation: m-fade 1ms linear 250ms both !important; }
   .loading { animation: none !important; }
 }
+
+/* app9 style-exploration hooks: hidden in the base look */
+.side-mark, .side-foot, .tile-open, .fact .fi { display: none; }

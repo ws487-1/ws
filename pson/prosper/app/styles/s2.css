@@ -1,0 +1,76 @@
+/* S2 Clear Ledger: after the POS dashboard. The closest to today's Prosper: Inter, navy V4, white sidebar with a pale-blue
+   active item, thin 1px cards set inside pale grey trays, KPI cards with an outlined icon, a divider and a big number. */
+:root {
+  --bg: #F5F6F8; --surface: #FFFFFF; --surface-2: #F9FAFB; --surface-sunk: #F3F4F6; --line: #E4E7EC; --line-soft: #EEF0F3;
+  --ink-900: #101828; --ink-800: #1D2939; --ink-700: #344054; --ink-600: #475467; --ink-500: #5D6B7E; --ink-400: #98A2B3; --ink-300: #C4CAD4; --ink-200: #DDE1E7;
+  --brand-50: #F0F4FA; --brand-100: #E3EAF6; --brand-200: #C9D7EE;
+  --bar-warn: #D9973A; --bar-ok: #3B9C6E; --bar-neutral: #C4CAD4;
+  --r-sm: 8px; --r-md: 12px; --r-lg: 16px;
+  --sh-card: 0 1px 2px rgba(16, 24, 40, .05);
+}
+body { background: var(--bg); }
+.app { grid-template-columns: 248px minmax(0, 1fr); grid-template-rows: 64px minmax(0, 1fr); grid-template-areas: "side top" "side main"; }
+.side { border-right: 1px solid var(--line); background: #fff; }
+.side-in { top: 0; height: 100vh; padding: 18px 16px; gap: 4px; }
+.side-mark { padding: 4px 8px 18px; margin: 0 -16px 10px; padding-left: 24px; border-bottom: 1px solid var(--line); }
+.side-logo { background: var(--brand-800); border-radius: 8px; }
+.nav { gap: 4px; }
+.nav::before { content: 'Menu'; display: block; padding: 4px 10px 6px; font-size: 12px; color: var(--ink-500); font-weight: 500; }
+.nav a { height: 40px; border-radius: 8px; border: 1px solid transparent; color: var(--ink-600); }
+.nav a.on { background: var(--brand-50); border-color: var(--brand-200); color: var(--brand-900); }
+.side-foot { border-top: 1px solid var(--line); margin: auto -16px 0; padding: 14px 24px 0; }
+.top { height: 64px; padding: 0 24px; background: #fff; }
+.top .wordmark { display: none; }
+.search input { height: 38px; border-radius: 8px; background: var(--surface-2); }
+.search .btn { height: 38px; }
+.top .tb { border: 1px solid var(--line); border-radius: 8px; width: 38px; height: 38px; }
+.top .acct { width: 38px; height: 38px; background: var(--brand-100); color: var(--brand-700); }
+.top .acct svg { width: 24px; height: 24px; }
+.content { padding: 24px 28px 40px; }
+.btn { height: 36px; border-radius: 8px; box-shadow: var(--sh-card); }
+.btn.alert-btn { width: 36px; }
+.btn.primary { background: var(--brand-800); border-color: var(--brand-800); }
+
+/* Company: one white sheet, header on top, a pale grey tray holding thin-bordered cards */
+.lay-b .card.shell { border: 1px solid var(--line); border-top: 1px solid var(--line); border-radius: 16px; box-shadow: var(--sh-card); }
+.hdr { background: #fff; border-bottom: 0; padding: 28px 28px 22px; }
+.hdr h1 { font-size: 28px; letter-spacing: -.02em; }
+.bento { margin: 0 16px 16px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface-sunk); gap: 14px; }
+.tile, .panel { border: 1px solid var(--line); border-top: 1px solid var(--line); border-radius: 12px; box-shadow: var(--sh-card); padding: 18px; }
+.bento .tile { box-shadow: var(--sh-card); }
+.tile-head { padding-bottom: 14px; margin: 0 -18px 14px; padding-left: 18px; padding-right: 18px; border-bottom: 1px solid var(--line-soft); }
+.tile-head h3, .tile-head h2.h3 { font-size: 15px; font-weight: 600; }
+.tile-open { width: 30px; height: 30px; border-radius: 8px; box-shadow: var(--sh-card); }
+a.tile-link:hover { border-top-color: var(--ink-300); }
+
+/* KPI card: outlined icon circle, divider, big number */
+.bento .fact, .fact { background: #fff; border: 1px solid var(--line); border-top: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; box-shadow: var(--sh-card); display: grid; grid-template-columns: 36px 1fr; column-gap: 12px; }
+.fact .fi { grid-row: 1; width: 36px; height: 36px; border-radius: 50%; margin: 0; background: #fff; border: 1px solid var(--brand-200); color: var(--brand-700); }
+.fact .eyebrow { grid-row: 1; align-self: center; font-size: 14px; color: var(--ink-700); font-weight: 500; }
+.fact .v, .fact .s { grid-column: 1 / -1; }
+.fact .v { border-top: 1px solid var(--line-soft); margin-top: 14px !important; padding-top: 12px; }
+.bento .fact .v { font-size: 28px; font-weight: 600; letter-spacing: -.02em; }
+.fact.warn { background: #fff; border-color: var(--warn-line); }
+
+.dline { border-radius: 10px; }
+.owner, .charge { border-radius: 10px; }
+.table th { background: var(--surface-2); color: var(--ink-600); }
+.tabs-plain a.on { color: var(--brand-900); border-bottom-color: var(--brand-700); }
+
+/* Year chart: navy appointed, pale navy resigned */
+.yc-tile { --yc-a: #1E3A6E; --yc-b: #A8BDE0; --yc-r: 4px; --yc-base: var(--ink-300); }
+.yc-kpis { padding: 4px 0 14px; border-bottom: 1px solid var(--line-soft); margin-bottom: 18px; gap: 0; }
+.yc-kpi + .yc-kpi { border-left: 1px solid var(--line-soft); padding-left: 16px; }
+.yc-kpi b { font-size: 24px; }
+.yc-al.a::before, .yc-al.r::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; background: #1E3A6E; }
+.yc-al.r::before { background: #A8BDE0; }
+
+/* Pages */
+.page-head h1 { font-size: 26px; }
+.home-hero { background: #fff; border: 1px solid var(--line); border-radius: 16px; padding: 36px 0 26px; margin-bottom: 16px; box-shadow: var(--sh-card); }
+.home-big-l { font: 600 26px/1.2 var(--font-sans); letter-spacing: -.02em; }
+.home-big-r input[type=search] { border-radius: 10px; height: 48px; }
+.home-big-r .btn { height: 48px; border-radius: 10px; }
+.home-bento { padding: 16px; background: var(--surface-sunk); border: 1px solid var(--line); border-radius: 16px; }
+.res-list .res:nth-child(even) { background: transparent; }
+.res { padding: 12px 4px; }

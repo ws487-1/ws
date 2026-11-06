@@ -126,7 +126,7 @@
       name: personName(o.name, corporate), rawName: str(o.name), corporate,
       role, roleLabel: label('officer_role', role) || sentence(role),
       appointed: fmtDate(o.appointed_on) || (o.is_pre_1992_appointment ? 'before 1992' : ''), resigned: fmtDate(o.resigned_on),
-      appointedIso: str(o.appointed_on), resignedIso: str(o.resigned_on),
+      appointedIso: str(o.appointed_on), appointedBefore: str(o.appointed_before), pre1992: !!o.is_pre_1992_appointment, appointmentKey: str(o.links && o.links.self), resignedIso: str(o.resigned_on),
       tenureYears: yearsSince(o.appointed_on, o.resigned_on || undefined),
       occupation: sentence(o.occupation), nationality: str(o.nationality), residence: str(o.country_of_residence),
       born: fmtMonthYear(o.date_of_birth), age: approxAge(o.date_of_birth),
@@ -156,7 +156,7 @@
     const nat = {}; for (const o of active) if (o.nationality) nat[o.nationality] = (nat[o.nationality] || 0) + 1;
     const ages = active.map((o) => o.age).filter((x) => x != null);
     return {
-      available: ok(raw), active, former, changes, all,
+      available: ok(raw), complete: !!raw && raw._complete === true, active, former, changes, all,
       counts: { active: r.active_count != null ? r.active_count : active.length, resigned: r.resigned_count != null ? r.resigned_count : former.length, total: r.total_results || all.length, loaded: all.length },
       roleCounts, nationalities: Object.entries(nat).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ name: k, count: v })),
       medianAge: ages.length ? ages.sort((a, b) => a - b)[Math.floor(ages.length / 2)] : null,
@@ -384,7 +384,7 @@
         status: label('company_status', statusCode), statusCode, colour: statusColour(statusCode),
         role: label('officer_role', a.officer_role) || sentence(a.officer_role), roleCode: str(a.officer_role),
         appointed: fmtDate(appointedIso) || (a.is_pre_1992_appointment ? 'before 1992' : isoOk(a.appointed_before) ? 'before ' + fmtDate(a.appointed_before) : ''),
-        appointedIso, resignedIso, resigned: fmtDate(resignedIso), current: !resignedIso,
+        appointedIso, appointedBefore: str(a.appointed_before), pre1992: !!a.is_pre_1992_appointment, resignedIso, resigned: fmtDate(resignedIso), current: !resignedIso,
         tenureDays, occupation: sentence(a.occupation), nationality: str(a.nationality), residence: str(a.country_of_residence),
         address: address(a.address).oneLine,
       };

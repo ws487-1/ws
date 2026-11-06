@@ -18,7 +18,18 @@
     person: '<path d="M17.925 20.056a6 6 0 0 0-11.851.001"/><circle cx="12" cy="11" r="4"/><circle cx="12" cy="12" r="10"/>',
     bell: '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
     bookmark: '<path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z"/>',
+    /* app9 style exploration: more Lucide glyphs (ISC License) */
+    arrowUpRight: '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
+    calendar: '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+    users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    pie: '<path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"/><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/>',
+    landmark: '<path d="M10 18v-7"/><path d="M11.12 2.198a2 2 0 0 1 1.76.006l7.866 3.847c.476.233.31.949-.22.949H3.474c-.53 0-.695-.716-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/>',
+    briefcase: '<path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/>',
+    archive: '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
+    hourglass: '<path d="M5 22h14"/><path d="M5 2h14"/><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22"/><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"/>',
+    timer: '<line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/>',
   };
+  const STYLE = document.documentElement.dataset.style || '';
   const kindIcon = (kind, label) => `<span class="kic ${kind === 'person' ? 'person' : 'company'}"${label ? ` role="img" aria-label="${label}"` : ' aria-hidden="true"'}>${LU(GLYPH[kind === 'person' ? 'person' : 'company'])}</span>`;
   /* Save button: Lucide bookmark, filled when saved. */
   const saveInner = (on) => `${LU(GLYPH.bookmark, on ? ' class="bm on"' : ' class="bm"')}<span>${on ? 'Saved' : 'Save'}</span>`;
@@ -36,7 +47,9 @@
     psc: (id) => 'officer.html?psc=' + encodeURIComponent(id),
     disq: (kind, id) => 'officer.html?disq=' + encodeURIComponent(id) + (kind === 'corporate' ? '&k=corporate' : ''),
   };
-  const head = (title, count, aside) => `<div class="tile-head"><h3>${esc(title)}${count != null && count !== '' ? `<span class="count">${esc(count)}</span>` : ''}</h3>${aside ? `<span class="aside">${aside}</span>` : ''}</div>`;
+  /* open: optional {href, label} for the arrow-up-right open button (shown only by styles that use it); {span:true} when the whole tile is already a link. */
+  const openBtn = (o, title) => (!o ? '' : o.span ? `<span class="tile-open" aria-hidden="true">${LU(GLYPH.arrowUpRight)}</span>` : `<a class="tile-open" href="${esc(o.href)}" aria-label="${esc(o.label || 'Open ' + title)}">${LU(GLYPH.arrowUpRight)}</a>`);
+  const head = (title, count, aside, open) => `<div class="tile-head"><h3>${esc(title)}${count != null && count !== '' ? `<span class="count">${esc(count)}</span>` : ''}</h3>${aside || open ? `<span class="aside">${aside || ''}${openBtn(open, title)}</span>` : ''}</div>`;
 
   /* Nation of registration, shown at the end of the address row: flag (England, Wales, Scotland) and the nation name as text.
      n = {flag, name} or {text, reg}. reg = true when the text is a place of registration (Northern Ireland, England & Wales). */
@@ -65,7 +78,9 @@
     </header>`;
   }
 
-  const factTile = (f, href) => { const t = `<div class="fact ${f.tone || ''}"><div class="eyebrow">${esc(f.label)}</div><div class="v num">${esc(f.value)}</div><div class="s">${esc(f.sub) || '&nbsp;'}</div></div>`; return href ? `<a class="fact-link" href="${esc(href)}">${t}</a>` : t; };
+  const FACT_ICON = { age: 'calendar', directors: 'users', owners: 'pie', charges: 'landmark', Appointments: 'briefcase', 'Dissolved or in liquidation': 'archive', 'Longest role': 'hourglass', 'Average tenure': 'timer' };
+  const factIcon = (f) => { const g = FACT_ICON[f.key] || FACT_ICON[f.label]; return g ? `<span class="fi" aria-hidden="true">${LU(GLYPH[g])}</span>` : ''; };
+  const factTile = (f, href) => { const t = `<div class="fact ${f.tone || ''}">${factIcon(f)}<div class="eyebrow">${esc(f.label)}</div><div class="v num">${esc(f.value)}</div><div class="s">${esc(f.sub) || '&nbsp;'}</div></div>`; return href ? `<a class="fact-link" href="${esc(href)}">${t}</a>` : t; };
 
   function deadlines(vm) {
     const a = vm.accounts, c = vm.confirmation;
@@ -98,7 +113,7 @@
     const act = of.active.map((p) => personRow(p, vm));
     const former = of.former.slice(0, 20).map((p) => personRow(p, vm));
     const w = vm.officerWord || { many: 'Officers' };
-    return `${head(w.many === 'Officers' ? 'People' : w.many, of.counts.active + ' active', of.counts.resigned ? of.counts.resigned + ' former' : '')}
+    return `${head(w.many === 'Officers' ? 'People' : w.many, of.counts.active + ' active', of.counts.resigned ? of.counts.resigned + ' former' : '', { href: URL.officers(vm.number), label: 'Open the full officers list' })}
       ${!of.active.length ? '' : `<div class="people-sum">${sum}</div>`}
       ${act.length ? `<div class="people compact">${act.slice(0, lim).join('')}</div>` : `<div class="empty">No current ${esc(w.many.toLowerCase())}.${of.counts.resigned ? ' ' + of.counts.resigned + ' former ' + esc((of.counts.resigned === 1 ? w.one || 'officer' : w.many).toLowerCase()) + ' below.' : ''}</div>`}
       ${act.length > lim ? `<details><summary class="more">Show ${act.length - lim} more</summary><div class="people compact">${act.slice(lim).join('')}</div></details>` : ''}
@@ -108,7 +123,7 @@
   /* Officer changes: the whole tile opens the full officers list. */
   function changes(vm) {
     const ch = vm.officers.changes;
-    return `<a class="tile tile-link s5" href="${esc(URL.officers(vm.number))}">${head('Officer changes', 'last 12 months')}${ch.length ? `<ul class="changes">${ch.slice(0, 8).map((c) => `<li><span class="k ${c.kind}">${c.kind}</span><span><b style="font-weight:600;color:var(--ink-900)">${esc(c.name)}</b> <span class="muted">${esc(c.role.toLowerCase())} · ${esc(c.dateText)}</span></span></li>`).join('')}</ul>` : '<div class="empty">No appointments or resignations in the last 12 months.</div>'}<div class="tile-foot">View all officers</div></a>`;
+    return `<a class="tile tile-link s5" href="${esc(URL.officers(vm.number))}">${head('Officer changes', 'last 12 months', '', { span: true })}${ch.length ? `<ul class="changes">${ch.slice(0, 8).map((c) => `<li><span class="k ${c.kind}">${c.kind}</span><span><b style="font-weight:600;color:var(--ink-900)">${esc(c.name)}</b> <span class="muted">${esc(c.role.toLowerCase())} · ${esc(c.dateText)}</span></span></li>`).join('')}</ul>` : '<div class="empty">No appointments or resignations in the last 12 months.</div>'}<div class="tile-foot">View all officers</div></a>`;
   }
 
   /* Ownership: one row per PSC. Names open the PSC's own record (by Companies House PSC ID), or the company for UK corporate PSCs.
@@ -157,12 +172,12 @@
   /* One filing row: date, form type, short description, PDF link. Shared by the tile and the filings page. */
   function filingRow(it, number) {
     const title = it.strong && it.title.startsWith(it.strong) ? `<b>${esc(it.strong)}</b>${esc(it.title.slice(it.strong.length))}` : esc(it.title);
-    return `<div class="fl-row"><span class="dt num">${esc(it.date)}</span><span class="ty" title="${esc(it.categoryLabel)}">${esc(it.typeCode)}</span><span class="ds">${title}</span><span class="pdf">${it.pdfUrl ? `<a href="${esc(it.pdfUrl)}" target="_blank" rel="noopener" title="Download the PDF from Companies House">PDF${it.pages ? ' · ' + it.pages + 'p' : ''}</a>` : ''}</span></div>`;
+    return `<div class="fl-row"><span class="dt num">${esc(it.date)}</span><span class="ty" title="${esc(it.categoryLabel)}">${esc(it.typeCode)}</span><span class="ds">${title}</span><span class="pdf">${it.pdfUrl ? `<a href="${esc(it.pdfUrl)}" target="_blank" rel="noopener" title="Download the PDF">PDF${it.pages ? ' · ' + it.pages + 'p' : ''}</a>` : ''}</span></div>`;
   }
   function filings(vm) {
     const f = vm.filings;
     if (!f.items.length) return `${head('Filing history')}<div class="empty">No filings on record.</div>`;
-    return `${head('Filing history', f.total.toLocaleString('en-GB'), 'latest 5')}
+    return `${head('Filing history', f.total.toLocaleString('en-GB'), 'latest 5', { href: URL.filings(vm.number), label: 'Open the full filing history' })}
       <div>${f.items.slice(0, 5).map((it) => filingRow(it, vm.number)).join('')}</div>
       <div class="tile-foot"><a href="${esc(URL.filings(vm.number))}">View all filings</a></div>`;
   }
@@ -189,6 +204,43 @@
     return `${head('UK establishments', u.length)}${u.length ? `<div class="sim">${u.map((x) => `<div class="sim-row"><a class="nm" href="${esc(URL.company(x.number))}">${esc(x.name)}</a><span class="m">${x.status ? st(x.status, x.colour) : ''}</span><span class="s">${esc(x.town)}</span><span class="m">${esc(x.number)}</span></div>`).join('')}</div>` : '<div class="empty">No UK establishments on record.</div>'}`;
   }
 
+  /* History rendering: conditional event charts, factual fallbacks, no source-disclaimer copy. */
+  const shortDate = (s) => new Date(s + 'T00:00:00Z').toLocaleDateString('en-GB', {day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
+  function history(items, o) {
+    const m = root.ProsperCharts.analyse(items, o);
+    const title = o.kind === 'company' ? 'Board activity' : 'Appointments by year';
+    const opening = head(m.eligible ? title : (o.kind === 'company' ? 'Board activity' : 'Appointment history'), '', '', o.open);
+    if (!m.eligible) {
+      let text;
+      if (m.reason === 'unavailable') text = 'History unavailable.';
+      else if (m.reason === 'partial') text = `History not fully loaded${o.loaded != null && o.total != null ? ': ' + o.loaded + ' of ' + o.total + ' records' : ''}.`;
+      else if (m.reason === 'dates') text = 'Some appointment dates are incomplete or need review. See the individual records for details.';
+      else {
+        const noun = o.kind === 'company' ? 'directorship' : 'appointment';
+        text = m.total + ' recorded ' + noun + (m.total === 1 ? '' : 's');
+        const unique = [...new Set(m.exactDates)];
+        if (m.exactDates.length === m.total && unique.length === 1) text += (m.total === 1 ? ', beginning on ' : ', all beginning on ') + shortDate(unique[0]);
+        else if (!m.events.length) text += '; no dated changes since ' + m.from.slice(0,4);
+        else text += '; ' + m.events.length + ' dated change' + (m.events.length === 1 ? '' : 's') + ' across ' + m.eventYears + ' year' + (m.eventYears === 1 ? '' : 's');
+        text += '.';
+      }
+      return opening + `<p class="history-summary">${esc(text)}</p>`;
+    }
+    const rows=m.rows, sumA=rows.reduce((a,r)=>a+r.a,0), sumR=rows.reduce((a,r)=>a+r.r,0), max=Math.max(1,...rows.flatMap(r=>[r.a,r.r]));
+    const col=r=>`<div class="yc-col${r.y === +m.today.slice(0,4) ? ' now' : ''}"><div class="yc-up"><i class="a" style="height:${r.a/max*100}%">${r.a ? `<b>${r.a}</b>` : ''}</i></div><div class="yc-dn"><i class="r" style="height:${r.r/max*100}%">${r.r ? `<b>${r.r}</b>` : ''}</i></div><span class="yc-x">${r.y}</span>${m.stockSafe ? `<span class="yc-n num">${r.n}</span>` : ''}</div>`;
+    const kpi=(label,n)=>`<div class="yc-kpi"><span class="yc-kl">${esc(label)}</span><b class="num">${n}</b></div>`;
+    const label=rows.map(r=>`${r.y}: ${r.a} appointed, ${r.r} resigned${m.stockSafe ? ', '+r.n+' in post' : ''}`).join('; ');
+    return head(title, rows[0].y + '–' + shortDate(m.today), '', o.open) +
+      `<div class="yc-kpis${m.stockSafe ? '' : ' two'}">${m.stockSafe ? kpi(o.kind==='company' ? 'In post now' : 'Roles held now', rows[rows.length-1].n) : ''}${kpi('Appointed since '+rows[0].y,sumA)}${kpi('Resigned since '+rows[0].y,sumR)}</div>
+      <div class="yc${m.stockSafe ? '' : ' events-only'}" role="img" aria-label="${esc(label)}"><div class="yc-axis" aria-hidden="true"><span class="yc-al a">Appointed</span><span class="yc-al r">Resigned</span>${m.stockSafe ? '<span class="yc-al n">In post</span>' : ''}</div><div class="yc-cols" aria-hidden="true" style="--n:${rows.length}">${rows.map(col).join('')}</div></div>`;
+  }
+  function personHistory(vm, o={}) {
+    return history(vm.items, {kind:'person', complete:o.complete, loaded:vm.loaded,total:vm.total});
+  }
+  function boardChart(vm) {
+    return history(vm.officers.all || [], {kind:'company', available:vm.officers.available, complete:vm.officers.complete, loaded:vm.officers.counts.loaded,total:vm.officers.counts.total, created:vm.created,ceased:vm.ceased,status:vm.status.code,open:{href:URL.officers(vm.number),label:'Open the full officers list'}});
+  }
+
   /* Bento layout B, without the AI summary tile. */
   function companyPage(vm, o = {}) {
     const f = Object.fromEntries(vm.keyFacts.map((x) => [x.key, x]));
@@ -204,10 +256,10 @@
         ${tile('s5', ownership(vm))}
         ${tile('s7', charges(vm, { limit: 3 }))}
         ${changes(vm)}
-        ${tile('s7', filings(vm))}
+        ${STYLE ? tile('s7 yc-tile', boardChart(vm)) + tile('s12', filings(vm)) : tile('s7', filings(vm))}
         ${o.ukEst ? tile('s5', similar()) + tile('s7', ukEstablishments(vm)) : tile('s12', similar())}
       </div></div></article>`;
   }
 
-  root.UI = { kindIcon, saveBtn, alertBtn, saveInner, cp, GLYPH, LU, esc, st, initials, URL, head, header, companyPage, filingRow, personRow, nationHtml, simList, connectedList, pscLink, ICON, factTile, join };
+  root.UI = { history, personHistory, openBtn, STYLE, kindIcon, saveBtn, alertBtn, saveInner, cp, GLYPH, LU, esc, st, initials, URL, head, header, companyPage, filingRow, personRow, nationHtml, simList, connectedList, pscLink, ICON, factTile, join };
 })(window);
