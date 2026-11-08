@@ -153,3 +153,6 @@ html:not([data-layer=base]) .bento { padding-top:10px; }
   .adv .filters label { flex:1 1 100%; min-width:0; }
   .adv .filters .input { width:100%; max-width:100%; min-width:0; box-sizing:border-box; }
 }
+
+/* Active menu marker visible at the 124px menu */
+@media (min-width:761px){ .nav a.on::before { left:-10.5px; } }
