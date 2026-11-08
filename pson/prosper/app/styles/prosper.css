@@ -93,3 +93,63 @@ html:not([data-layer=base]) .bento { padding-top:10px; }
   #savedFilters .grow { min-width:0; flex-basis:100%; }
   .person-overview .dl { grid-template-columns:110px minmax(0,1fr); }
 }
+
+/* app15 Part A. Menu width and general control radius unchanged. */
+/* 1. Home rows: the whole row opens its page, above the tile's stretched open link. */
+.home-bento .res.row-link { position:relative; z-index:2; }
+.home-bento .res.row-link a.nm { position:static; }
+.home-bento .res.row-link a.nm::after { content:''; position:absolute; inset:0; }
+.home-bento .res.row-link:hover a.nm { text-decoration:underline; }
+/* 7. 'See all' / 'All saved' keep the tile outline and the open button's accent fill. */
+.home-bento .expandable-tile:has(.tile-head .aside > a:hover),.home-bento .expandable-tile:has(.tile-head .aside > a:focus-visible) { border-color:var(--brand-700);box-shadow:0 0 0 1px var(--brand-700); }
+.home-bento .expandable-tile:has(.tile-head .aside > a:hover) .tile-open { background:var(--brand-800);border-color:var(--brand-800);color:#fff; }
+/* 2. Director ID: click to copy. */
+.id-copy { display:inline-flex; align-items:center; gap:5px; margin:0; padding:0; border:0; background:none; font:inherit; color:inherit; text-align:left; cursor:copy; overflow-wrap:anywhere; }
+.id-copy-v { min-width:0; }
+.id-copy-i { display:inline-flex; align-items:center; gap:3px; flex:none; color:var(--ink-400); font-size:12px; font-weight:600; }
+.id-copy-i svg { width:14px; height:14px; }
+.id-copy:hover .id-copy-i { color:var(--ink-700); }
+.id-copy.copied .id-copy-i { color:var(--brand-800); }
+.id-copy.copied::after { content:none; }
+.id-copy:focus-visible { outline:2px solid var(--accent-500); outline-offset:2px; }
+/* 4. Option bar centred under the search; square Advanced filter button left of Search. */
+.home-scope { margin-left:auto; margin-right:auto; }
+.btn.adv-sq, .home-big-r .btn.adv-sq { width:var(--compact-control); padding:0; justify-content:center; flex:none; color:var(--ink-700); }
+.btn.adv-sq svg { width:16px; height:16px; }
+.btn.adv-sq:hover { text-decoration:none; color:var(--ink-900); }
+/* 5. Home Search button: white fill = the standard .btn (white, 1px border, ink-800 text); markup no longer uses .primary. */
+/* 6. Top-bar Search button matches the input exactly. */
+.top .search .btn { height:var(--compact-control); border-radius:var(--compact-corner); box-sizing:border-box; }
+/* 8. Hero heading one weight step bolder. */
+.home-big-l { font-weight:700; }
+/* 9. Help and account buttons rounder. */
+.top .tb, .top .acct { border-radius:8px; }
+
+/* app15 round 2 */
+/* Search inputs: no blue focus ring; the border darkens to --ink-300 as the neutral focus state. */
+.search input:focus, .search input:focus-visible,
+.home-big-r input[type=search]:focus, .home-big-r input[type=search]:focus-visible { box-shadow:none; outline:none; border-color:var(--ink-300); }
+/* W3 menu: 124px. The 'Prosper' wordmark no longer fits beside the logo, so only the P mark shows. Item style unchanged. */
+@media (min-width:761px) {
+  .app { grid-template-columns:124px minmax(0,1fr); }
+  .side-name { display:none; }
+  .nav a { padding:0 8px; }
+}
+/* Pronounce name: 15px square button (half the 30px mockup), 9px icon; an invisible 28px hit area keeps it tappable. */
+.hdr h1 .pron-btn { position:relative; display:inline-grid; place-items:center; width:15px; height:15px; margin-left:6px; padding:0; vertical-align:middle; border:1px solid var(--line); border-radius:2px; background:#fff; color:var(--brand-800); cursor:pointer; box-shadow:var(--sh-card); }
+.hdr h1 .pron-btn svg { width:9px; height:9px; stroke-width:2.5; }
+.hdr h1 .pron-btn::before { content:''; position:absolute; inset:-7px; }
+.hdr h1 .pron-btn:hover { background:var(--brand-50); border-color:var(--brand-200); }
+.scrim { display:none; }
+@media (max-width:760px) {
+  /* Home tiles stack full width. */
+  .home-bento > .home-s7, .home-bento > .home-s5 { grid-column:span 12; }
+  /* Menu drawer: solid white panel over a scrim. */
+  .side { background:#fff; border-bottom:1px solid var(--line); box-shadow:0 12px 32px #11141c24; z-index:41; }
+  .side-in { height:auto; }
+  .scrim { position:fixed; left:0; right:0; bottom:0; top:102px; z-index:40; background:rgba(16,24,40,.38); }
+  body.menu-open .scrim { display:block; }
+  /* Advanced panel fits the viewport. */
+  .adv .filters label { flex:1 1 100%; min-width:0; }
+  .adv .filters .input { width:100%; max-width:100%; min-width:0; box-sizing:border-box; }
+}

@@ -81,7 +81,8 @@
     copyText(t).then((ok) => {
       if (!ok) return;
       el.classList.remove('copied'); void el.offsetWidth; el.classList.add('copied');
-      clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('copied'), 1200);
+      if (el.classList.contains('id-copy')) { const i = el.querySelector('.id-copy-i'); i.innerHTML = svg(ICONS.check) + '<span>Copied</span>'; clearTimeout(el._t); el._t = setTimeout(() => { el.classList.remove('copied'); i.innerHTML = svg(ICONS.copy); }, 1500); }
+      else { clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('copied'), 1200); }
       const live = document.getElementById('copyLive');
       if (live) { live.textContent = ''; setTimeout(() => { live.textContent = 'Copied ' + t; }, 30); }
     });
@@ -127,6 +128,10 @@
     x: '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     building: '<path d="M10 12h4"/><path d="M10 8h4"/><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M6 10H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-2"/><path d="M6 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16"/>',
     user: '<path d="M17.925 20.056a6 6 0 0 0-11.851.001"/><circle cx="12" cy="11" r="4"/><circle cx="12" cy="12" r="10"/>',
+    sliders: '<path d="M10 5H3"/><path d="M12 19H3"/><path d="M14 3v4"/><path d="M16 17v4"/><path d="M21 12h-9"/><path d="M21 19h-5"/><path d="M21 5h-7"/><path d="M8 10v4"/><path d="M8 12H3"/>',
+    copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    volume2: '<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/>',
     help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
   };
   const HELP_HTML = `<h2>What is Prosper?</h2>
@@ -136,22 +141,46 @@
 
     <p><a href="https://find-and-update.company-information.service.gov.uk/" target="_blank" rel="noopener">Companies House service</a> · <a href="settings.html">Settings</a></p>`;
   const ACCT_HTML = `<h2>Account</h2><p>Accounts aren't available yet. Your saved items and settings are kept in this browser only.</p><p><a href="settings.html">Settings</a></p>`;
+  /* Square filter button (Lucide sliders-horizontal): opens the Advanced search panel, as the old 'Advanced' link did. */
+  const advSq = () => `<a class="btn adv-sq" href="index.html?view=search&amp;adv=1" aria-label="Advanced search" title="Advanced search">${svg(ICONS.sliders)}</a>`;
+  /* Officer ID that copies on click: copy icon turns into a check plus 'Copied' for 1.5s. */
+  const idCopy = (id) => `<button type="button" class="id-copy" data-copy="${esc(id)}" title="Copy ID" aria-label="Copy ID ${esc(id)}"><span class="id-copy-v">${esc(id)}</span><span class="id-copy-i">${svg(ICONS.copy)}</span></button>`;
+  /* Pronounce name: speaks the name as written with the browser's speech engine (en-GB voice when available). No AI call. */
+  const canSpeak = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
+  const sayable = (name) => {
+    let n = String(name || '').trim();
+    const m = /^([^,]+),\s*(.+)$/.exec(n); if (m) n = m[2] + ' ' + m[1];
+    return n.split(/\s+/).map((w) => (w === w.toUpperCase() && /[A-Z]/.test(w) ? w.toLowerCase().replace(/(^|[-'’])([a-z])/g, (x, a, b) => a + b.toUpperCase()).replace(/^Mc([a-z])/, (x, b) => 'Mc' + b.toUpperCase()) : w)).join(' ');
+  };
+  const pronBtn = (name) => (canSpeak ? `<button type="button" class="pron-btn" data-say="${esc(sayable(name))}" aria-label="Pronounce name" title="Pronounce name">${svg(ICONS.volume2)}</button>` : '');
+  if (canSpeak) document.addEventListener('click', (ev) => {
+    const b = ev.target.closest && ev.target.closest('.pron-btn'); if (!b) return;
+    const ss = window.speechSynthesis; ss.cancel();
+    const u = new SpeechSynthesisUtterance(b.dataset.say); u.lang = 'en-GB';
+    const v = ss.getVoices().find((x) => /^en[-_]GB$/i.test(x.lang)); if (v) u.voice = v;
+    ss.speak(u);
+  });
   const NAV = [['home', 'Home', 'index.html', 'house'], ['saved', 'Saved', 'saved.html', 'bookmark'], ['alerts', 'Alerts', 'alerts.html', 'bell'], ['settings', 'Settings', 'settings.html', 'settings']];
   function shell(active) {
     const q = active === 'search' ? qs.get('q') || '' : '';
     const type = active === 'search' && ['people', 'disqualified'].includes(qs.get('type')) ? qs.get('type') : '';
     document.body.innerHTML = `<div class="app">
       <header class="top"><button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="side">${svg(ICONS.menu)}</button><a class="wordmark" href="index.html">Prosper</a>
-        <form class="search" action="index.html" method="get" role="search"><input name="q" type="search" value="${esc(q)}" placeholder="Search companies or people by name or number" aria-label="Search companies or people">${type ? `<input type="hidden" name="type" value="${type}">` : ''}<button class="btn" type="submit">Search</button></form>
+        <form class="search" action="index.html" method="get" role="search"><input name="q" type="search" value="${esc(q)}" placeholder="Search companies or people by name or number" aria-label="Search companies or people">${type ? `<input type="hidden" name="type" value="${type}">` : ''}${advSq()}<button class="btn" type="submit">Search</button></form>
         <div class="top-r"><button class="tb" id="helpBtn" type="button" aria-label="Help" title="Help" aria-expanded="false" aria-controls="helpPop">${svg(ICONS.help)}</button><button class="acct" id="acctBtn" type="button" aria-label="Account" title="Account" aria-expanded="false" aria-controls="acctPop">${svg(ICONS.user)}</button>
           <div class="top-pop" id="helpPop" role="dialog" aria-label="Help" hidden>${HELP_HTML}</div><div class="top-pop acct-pop" id="acctPop" role="dialog" aria-label="Account" hidden>${ACCT_HTML}</div></div></header>
-      <aside class="side" id="side"><div class="side-in"><a class="side-mark" href="index.html" aria-label="Prosper home"><span class="side-logo" aria-hidden="true">P</span><span class="side-name">Prosper</span></a>
+      <div class="scrim" id="scrim" aria-hidden="true"></div><aside class="side" id="side"><div class="side-in"><a class="side-mark" href="index.html" aria-label="Prosper home"><span class="side-logo" aria-hidden="true">P</span><span class="side-name">Prosper</span></a>
         <nav class="nav" aria-label="Main">${NAV.map(([k, label, href, ic]) => `<a href="${href}"${k === active ? ' class="on" aria-current="page"' : ''}>${svg(ICONS[ic])}<span>${label}</span></a>`).join('')}</nav></div></aside>
       <div class="main">
         <main class="content" id="content"></main><div class="pg-load" id="pgLoad" aria-hidden="true"><span class="spin"></span><span class="pg-load-t">Loading…</span></div><div class="sr" id="copyLive" role="status" aria-live="polite"></div>
       </div></div>`;
     const btn = document.getElementById('menuBtn'), side = document.getElementById('side'), top = document.querySelector('.top');
-    btn.addEventListener('click', () => { side.style.top = top.offsetHeight + 'px'; const open = document.body.classList.toggle('menu-open'); btn.setAttribute('aria-expanded', String(open)); btn.innerHTML = svg(open ? ICONS.x : ICONS.menu); });
+    const scrim = document.getElementById('scrim');
+    const setMenu = (open) => { side.style.top = scrim.style.top = top.offsetHeight + 'px'; document.body.classList.toggle('menu-open', open); btn.setAttribute('aria-expanded', String(open)); btn.innerHTML = svg(open ? ICONS.x : ICONS.menu); };
+    btn.addEventListener('click', () => setMenu(!document.body.classList.contains('menu-open')));
+    /* Mobile drawer: tapping the scrim or a menu item closes it. */
+    scrim.addEventListener('click', () => setMenu(false));
+    side.querySelectorAll('.nav a').forEach((a) => a.addEventListener('click', () => setMenu(false)));
     /* Help and Account popovers: one open at a time; closes on outside click or Escape. */
     const pops = [['helpBtn', 'helpPop'], ['acctBtn', 'acctPop']].map(([b, p]) => [document.getElementById(b), document.getElementById(p)]);
     const closePops = (except) => pops.forEach(([b, p]) => { if (p !== except) { p.hidden = true; b.setAttribute('aria-expanded', 'false'); } });
@@ -333,10 +362,10 @@
     const day = (t) => { const d = new Date(t); return isNaN(d) ? '' : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); };
     const kic = (k) => window.UI.kindIcon(k, k === 'person' ? 'Person' : 'Company');
     const rv = viewedList().slice(0, 6), sv = saved().slice(0, 4);
-    const recent = rv.length ? `<div class="res-list">${rv.map((r) => `<div class="res"><div class="res-nm">${kic(r.type === 'company' ? 'company' : 'person')}<a class="nm" href="${esc(viewHref(r))}">${esc(r.name)}</a></div><div class="rt">${esc(day(r.t))}</div>${r.type === 'person' ? `<div class="meta director-id">Director ID: ${esc(r.id.replace(/^id:/, ''))}</div>` : ''}</div>`).join('')}</div>` : '<div class="plain-msg">Nothing viewed yet.</div>';
-    const savedL = sv.length ? `<div class="res-list">${sv.map((x) => `<div class="res"><div class="res-nm">${kic(x.kind === 'person' ? 'person' : 'company')}<a class="nm" href="${esc(x.kind === 'person' ? x.href : U.company(x.number))}">${esc(x.name)}</a></div><div class="rt">${x.kind === 'person' ? '' : 'No. ' + esc(x.number)}</div>${x.kind === 'person' ? `<div class="meta director-id">Director ID: ${esc((x.key || '').replace(/^id:/, ''))}</div>` : ''}</div>`).join('')}</div>` : '<div class="plain-msg">Nothing saved yet.</div>';
-    el.innerHTML = `<h1 class="sr">Home</h1><div class="home-hero"><form class="home-big" id="homeForm" action="index.html" method="get" role="search"><label class="home-big-l" for="homeQ">Search Companies House</label><div class="home-big-r"><input id="homeQ" name="q" type="search" placeholder="Company name or number, or a person's name"><input type="hidden" name="type" id="homeType" value="${type}"${type === 'companies' ? ' disabled' : ''}><button class="btn primary" type="submit">Search</button></div>
-        <nav class="tabs-plain home-scope" aria-label="Search in">${SEARCH_TYPES.map(([k, l]) => `<a href="#" data-type="${k}"${k === type ? ' class="on" aria-current="true"' : ''}>${l}</a>`).join('')}<a href="index.html?view=search&amp;adv=1">Advanced</a></nav></form></div>
+    const recent = rv.length ? `<div class="res-list">${rv.map((r) => `<div class="res row-link"><div class="res-nm">${kic(r.type === 'company' ? 'company' : 'person')}<a class="nm" href="${esc(viewHref(r))}">${esc(r.name)}</a></div><div class="rt">${r.type === 'company' ? 'No. ' + esc(r.id) : ''}</div></div>`).join('')}</div>` : '<div class="plain-msg">Nothing viewed yet.</div>';
+    const savedL = sv.length ? `<div class="res-list">${sv.map((x) => `<div class="res row-link"><div class="res-nm">${kic(x.kind === 'person' ? 'person' : 'company')}<a class="nm" href="${esc(x.kind === 'person' ? x.href : U.company(x.number))}">${esc(x.name)}</a></div><div class="rt">${x.kind === 'person' ? '' : 'No. ' + esc(x.number)}</div></div>`).join('')}</div>` : '<div class="plain-msg">Nothing saved yet.</div>';
+    el.innerHTML = `<h1 class="sr">Home</h1><div class="home-hero"><form class="home-big" id="homeForm" action="index.html" method="get" role="search"><label class="home-big-l" for="homeQ">Search Prosper</label><div class="home-big-r"><input id="homeQ" name="q" type="search" placeholder="Company name or number, or a person's name"><input type="hidden" name="type" id="homeType" value="${type}"${type === 'companies' ? ' disabled' : ''}>${advSq()}<button class="btn" type="submit">Search</button></div>
+        <nav class="tabs-plain home-scope" aria-label="Search in">${SEARCH_TYPES.map(([k, l]) => `<a href="#" data-type="${k}"${k === type ? ' class="on" aria-current="true"' : ''}>${l}</a>`).join('')}</nav></form></div>
       ${chKey() ? '' : '<div class="panel plain-msg" style="margin-bottom:16px">Add your Companies House API key in <a href="settings.html">Settings</a> to start searching.</div>'}
       <div class="home-bento"><section class="tile home-s7"><div class="tile-head"><h2 class="h3">Recently viewed</h2><span class="aside"><a href="index.html?view=search">See all</a>${window.UI.openBtn({ href: 'index.html?view=search', label: 'Open recently viewed' })}</span></div>${recent}</section>
         <section class="tile home-s5"><div class="tile-head"><h2 class="h3">Saved</h2><span class="aside"><a href="saved.html">All saved</a>${window.UI.openBtn({ href: 'saved.html', label: 'Open saved' })}</span></div>${savedL}</section>
@@ -821,7 +850,7 @@
   const dl = (rows) => `<dl class="dl">${rows.filter((r) => r && r[1]).map(([k, v, raw, copy]) => `<dt>${esc(k)}</dt><dd>${raw ? v : copy ? cp(v) : esc(v)}</dd>`).join('')}</dl>`;
   const pHeader = (name, meta, extra, saveOn, corporate) => `<header class="hdr"><div class="hdr-top"><div style="min-width:0">
       ${extra ? `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">${extra}</div>` : ''}
-      <h1>${cp(name)}</h1><div class="hdr-meta">${window.UI.kindIcon(corporate ? 'company' : 'person', corporate ? 'Company' : 'Person')}${meta.filter(Boolean).map((m) => `<span>${esc(m)}</span>`).join('<span class="sep"></span>')}</div></div>
+      <h1>${cp(name)}${corporate ? "" : pronBtn(name)}</h1><div class="hdr-meta">${window.UI.kindIcon(corporate ? 'company' : 'person', corporate ? 'Company' : 'Person')}${meta.filter(Boolean).map((m) => `<span>${esc(m)}</span>`).join('<span class="sep"></span>')}</div></div>
       <div class="hdr-actions">${window.UI.saveBtn(saveOn)}${window.UI.alertBtn()}</div></div></header>`;
   /* Age from birth month and year: exact outside the birth month; both possible ages in the birth month or when only the year is known. */
   const ageText = (dob) => { const lo = N.approxAge(dob); if (lo == null) return ''; return !dob.month || dob.month === new Date().getMonth() + 1 ? `${lo} or ${lo + 1}` : String(lo); };
@@ -972,8 +1001,8 @@
         ['Nationality', vm.nationalities.join(', ')], ['Country of residence', vm.residences.join(', ')],
         ['First appointed', firstAp ? N.fmtDate(firstAp) : '', false, true],
         ['Last resigned', lastRes ? N.fmtDate(lastRes) : '', false, true],
-        ['Correspondence address', vm.addresses.map((a) => cp(a)).join('<br>'), true],
-        ['Former names', vm.formerNames.join(', ')], ['Director ID', apIds.join(', ')]]);
+        ['Correspondence address(s)', vm.addresses.map((a) => cp(a)).join('<br>'), true],
+        ['Former names', vm.formerNames.join(', ')], ['Director ID', apIds.map(idCopy).join(' '), true]]);
       const many = vm.total > AP_FEW;
       const apTable = `<div class="table-wrap"><table class="table"><thead><tr><th>Company</th><th>Status</th><th>Role</th><th class="nowrap">Appointed</th><th class="nowrap">Resigned</th></tr></thead><tbody id="apBody">${many ? '' : vm.items.map(apRow).join('')}</tbody></table></div>`;
       const apTools = many ? `<div class="ap-tools">
@@ -1005,7 +1034,7 @@
   async function pscOnlyPage(el, pscId, pn) {
     setTitle(pn.name || 'Owner');
     const names = await companyNames(pn.items.map((x) => x.number)).catch(() => ({}));
-    const details = dl([['Name', pn.name, false, true], ['Other names on record', pn.names.filter((x) => x !== pn.name).join(', ')], ['Nationality', pn.nationality], ['Country of residence', pn.residence], ['Born', pn.born, false, true], ['Age', ageText(pn.dob)], ['Correspondence address', pn.address, false, true]]);
+    const details = dl([['Name', pn.name, false, true], ['Other names on record', pn.names.filter((x) => x !== pn.name).join(', ')], ['Nationality', pn.nationality], ['Country of residence', pn.residence], ['Born', pn.born, false, true], ['Age', ageText(pn.dob)], ['Correspondence address(s)', pn.address, false, true]]);
     el.innerHTML = `<article class="lay-b"><div class="card shell">
       ${pHeader(pn.name || 'Owner', ['Owner details only', pn.born && 'Born ' + pn.born, pn.current.length + ' current'], '', isSaved('p:psc:' + pscId), pn.corporate)}
       <div class="bento">
