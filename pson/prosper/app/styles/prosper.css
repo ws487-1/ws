@@ -129,10 +129,11 @@ html:not([data-layer=base]) .bento { padding-top:10px; }
 /* Search inputs: no blue focus ring; the border darkens to --ink-300 as the neutral focus state. */
 .search input:focus, .search input:focus-visible,
 .home-big-r input[type=search]:focus, .home-big-r input[type=search]:focus-visible { box-shadow:none; outline:none; border-color:var(--ink-300); }
-/* W3 menu: 124px. The 'Prosper' wordmark no longer fits beside the logo, so only the P mark shows. Item style unchanged. */
+/* W3 menu: 124px. The A2 ZULI wordmark fits in this width; the old 'Prosper' text did not. Item style unchanged. */
 @media (min-width:761px) {
   .app { grid-template-columns:124px minmax(0,1fr); }
-  .side-name { display:none; }
+  .side-name, .side-logo { display:none; }
+  .side-wordmark { display:block; }
   .nav a { padding:0 8px; }
 }
 /* Pronounce name: 15px square button (half the 30px mockup), 9px icon; an invisible 28px hit area keeps it tappable. */
@@ -156,3 +157,15 @@ html:not([data-layer=base]) .bento { padding-top:10px; }
 
 /* Active menu marker visible at the 124px menu */
 @media (min-width:761px){ .nav a.on::before { left:-10.5px; } }
+
+/* A2 ZULI wordmark. On desktop it fits in the 124px sidebar (the old 'Prosper' text did not).
+   On mobile the header wordmark is shown, because the sidebar is a closed drawer. */
+.side-wordmark { display:none; height:22px; width:auto; flex:none; }
+.top .wordmark { line-height:0; }
+.top .wordmark img { display:block; height:20px; width:auto; }
+@media (min-width:761px) {
+  .side-wordmark { display:block; }
+}
+@media (max-width:760px) {
+  .top .wordmark { display:flex; align-items:center; width:auto; padding-left:0; flex:none; }
+}

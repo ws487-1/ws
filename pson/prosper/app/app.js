@@ -165,11 +165,11 @@
     const q = active === 'search' ? qs.get('q') || '' : '';
     const type = active === 'search' && ['people', 'disqualified'].includes(qs.get('type')) ? qs.get('type') : '';
     document.body.innerHTML = `<div class="app">
-      <header class="top"><button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="side">${svg(ICONS.menu)}</button><a class="wordmark" href="index.html">Prosper</a>
+      <header class="top"><button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="side">${svg(ICONS.menu)}</button><a class="wordmark" href="index.html" aria-label="Zuli home"><img src="zuli-wordmark.svg?v=app17" alt="Zuli" width="84" height="20"></a>
         <form class="search" action="index.html" method="get" role="search"><input name="q" type="search" value="${esc(q)}" placeholder="Search companies or people by name or number" aria-label="Search companies or people">${type ? `<input type="hidden" name="type" value="${type}">` : ''}${advSq()}<button class="btn" type="submit">Search</button></form>
         <div class="top-r"><button class="tb" id="helpBtn" type="button" aria-label="Help" title="Help" aria-expanded="false" aria-controls="helpPop">${svg(ICONS.help)}</button><button class="acct" id="acctBtn" type="button" aria-label="Account" title="Account" aria-expanded="false" aria-controls="acctPop">${svg(ICONS.user)}</button>
           <div class="top-pop" id="helpPop" role="dialog" aria-label="Help" hidden>${HELP_HTML}</div><div class="top-pop acct-pop" id="acctPop" role="dialog" aria-label="Account" hidden>${ACCT_HTML}</div></div></header>
-      <div class="scrim" id="scrim" aria-hidden="true"></div><aside class="side" id="side"><div class="side-in"><a class="side-mark" href="index.html" aria-label="Prosper home"><span class="side-logo" aria-hidden="true">P</span><span class="side-name">Prosper</span></a>
+      <div class="scrim" id="scrim" aria-hidden="true"></div><aside class="side" id="side"><div class="side-in"><a class="side-mark" href="index.html" aria-label="Zuli home"><img class="side-wordmark" src="zuli-wordmark.svg?v=app17" alt="" width="92" height="22"><span class="side-logo" aria-hidden="true">Z</span><span class="side-name">Zuli</span></a>
         <nav class="nav" aria-label="Main">${NAV.map(([k, label, href, ic]) => `<a href="${href}"${k === active ? ' class="on" aria-current="page"' : ''}>${svg(ICONS[ic])}<span>${label}</span></a>`).join('')}</nav></div></aside>
       <div class="main">
         <main class="content" id="content"></main><div class="pg-load" id="pgLoad" aria-hidden="true"><span class="spin"></span><span class="pg-load-t">Loading…</span></div><div class="sr" id="copyLive" role="status" aria-live="polite"></div>
@@ -205,7 +205,7 @@
     el.innerHTML = `<div class="panel"><div class="err">${esc(msg)}</div>${e && (e.code === 'nokey' || e.code === '401') ? '<div style="margin-top:8px"><a href="settings.html">Open Settings</a></div>' : ''}</div>`;
     if (!(e instanceof ApiError)) console.error(e);
   }
-  const setTitle = (t) => { document.title = t ? t + ' · Prosper' : 'Prosper'; };
+  const setTitle = (t) => { document.title = t ? t + ' · Zuli' : 'Zuli'; };
   const pager = (page, pages, total, from, to, hrefFor) => `<div class="pager"><span>${total ? `Showing ${from.toLocaleString('en-GB')}–${to.toLocaleString('en-GB')} of ${total.toLocaleString('en-GB')}` : ''}</span><span class="btns">${page > 1 ? `<a class="btn sm" href="${esc(hrefFor(page - 1))}">Previous</a>` : '<button class="btn sm" disabled>Previous</button>'}${page < pages ? `<a class="btn sm" href="${esc(hrefFor(page + 1))}">Next</a>` : '<button class="btn sm" disabled>Next</button>'}</span></div>`;
   const withParams = (base, params) => base + '?' + new URLSearchParams(Object.entries(params).filter(([k, v]) => v != null && v !== '' && !(k === 'page' && +v === 1))).toString();
 
