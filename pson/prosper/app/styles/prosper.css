@@ -135,6 +135,8 @@ html:not([data-layer=base]) .bento { padding-top:10px; }
   .side-name, .side-logo { display:none; }
   .side-wordmark { display:block; }
   .nav a { padding:0 8px; }
+  /* 33px-tall logo is 97px wide; drop side-mark horizontal padding so it fits in the 124px sidebar (side-in still has 10.5px). */
+  .side-mark { padding-left:0; padding-right:0; }
 }
 /* Pronounce name: 15px square button (half the 30px mockup), 9px icon; an invisible 28px hit area keeps it tappable. */
 .hdr h1 .pron-btn { position:relative; display:inline-grid; place-items:center; width:15px; height:15px; margin-left:6px; padding:0; vertical-align:middle; border:1px solid var(--line); border-radius:2px; background:#fff; color:var(--brand-800); cursor:pointer; box-shadow:var(--sh-card); }
@@ -160,9 +162,9 @@ html:not([data-layer=base]) .bento { padding-top:10px; }
 
 /* A2 ZULI wordmark. On desktop it fits in the 124px sidebar (the old 'Prosper' text did not).
    On mobile the header wordmark is shown, because the sidebar is a closed drawer. */
-.side-wordmark { display:none; height:22px; width:auto; flex:none; }
+.side-wordmark { display:none; height:33px; width:auto; flex:none; }
 .top .wordmark { line-height:0; }
-.top .wordmark img { display:block; height:20px; width:auto; }
+.top .wordmark img { display:block; height:30px; width:auto; }
 @media (min-width:761px) {
   .side-wordmark { display:block; }
 }
