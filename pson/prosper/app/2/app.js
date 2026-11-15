@@ -145,7 +145,7 @@
     <p><a href="https://find-and-update.company-information.service.gov.uk/" target="_blank" rel="noopener">Companies House service</a> · <a href="settings.html">Settings</a></p>`;
   const ACCT_HTML = `<h2>Account</h2><p>Accounts aren't available yet. Your saved items and settings are kept in this browser only.</p><p><a href="settings.html">Settings</a></p>`;
   /* Square filter button (Lucide sliders-horizontal): opens the Advanced search panel, as the old 'Advanced' link did. */
-  const advSq = () => `<a class="btn adv-sq" href="index.html?view=search&amp;adv=1" aria-label="Advanced search" title="Advanced search">${svg(ICONS.sliders)}</a>`;
+  const advSq = () => `<button class="btn adv-sq" type="button" data-open-filters aria-controls="fd" aria-label="More filters" title="More filters">${svg(ICONS.sliders)}</button>`;
   /* Officer ID that copies on click: copy icon turns into a check plus 'Copied' for 1.5s. */
   const idCopy = (id) => `<button type="button" class="id-copy" data-copy="${esc(id)}" title="Copy ID" aria-label="Copy ID ${esc(id)}"><span class="id-copy-v">${esc(id)}</span><span class="id-copy-i">${svg(ICONS.copy)}</span></button>`;
   /* Pronounce name: speaks the name as written with the browser's speech engine (en-GB voice when available). No AI call. */
@@ -168,15 +168,16 @@
     const q = active === 'search' ? qs.get('q') || '' : '';
     const type = active === 'search' && ['people', 'disqualified'].includes(qs.get('type')) ? qs.get('type') : '';
     document.body.innerHTML = `<div class="app">
-      <header class="top"><button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="side">${svg(ICONS.menu)}</button><a class="wordmark" href="index.html" aria-label="Zuli home"><img src="zuli-logo-indigo.png?v=app2a" alt="Zuli" width="68" height="23"></a>
-        <form class="search" action="index.html" method="get" role="search"><input name="q" type="search" value="${esc(q)}" placeholder="Search companies or people by name or number" aria-label="Search companies or people">${type ? `<input type="hidden" name="type" value="${type}">` : ''}${advSq()}<button class="btn" type="submit">Search</button></form>
+      <header class="top"><button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="side">${svg(ICONS.menu)}</button><a class="wordmark" href="index.html" aria-label="Zuli home"><img src="zuli-logo-indigo.png?v=app2b" alt="Zuli" width="68" height="23"></a>
+        <form class="search" action="index.html" method="get" role="search"><input name="q" type="search" value="${esc(q)}" placeholder="Search companies or people by name or number" aria-label="Search companies or people">${type ? `<input type="hidden" name="type" value="${type}">` : ''}<button class="btn" type="submit">Search</button><button class="more-filters" type="button" data-open-filters aria-controls="fd" aria-expanded="false" title="More filters">${svg(ICONS.sliders)}<span>More filters</span></button></form>
         <div class="top-r"><button class="tb" id="helpBtn" type="button" aria-label="Help" title="Help" aria-expanded="false" aria-controls="helpPop">${svg(ICONS.help)}</button><button class="acct" id="acctBtn" type="button" aria-label="Account" title="Account" aria-expanded="false" aria-controls="acctPop">${svg(ICONS.userRound)}</button>
-          <div class="top-pop" id="helpPop" role="dialog" aria-label="Help" hidden>${HELP_HTML}</div><div class="top-pop acct-pop" id="acctPop" role="dialog" aria-label="Account" hidden>${ACCT_HTML}</div></div></header>
-      <div class="scrim" id="scrim" aria-hidden="true"></div><aside class="side" id="side"><div class="side-in"><a class="side-mark" href="index.html" aria-label="Zuli home"><img class="side-wordmark" src="zuli-logo-indigo.png?v=app2a" alt="" width="74" height="25"><span class="side-logo" aria-hidden="true">Z</span><span class="side-name">Zuli</span></a>
+          <div class="top-pop" id="helpPop" role="dialog" aria-label="Help" hidden>${HELP_HTML}</div><div class="top-pop acct-pop" id="acctPop" role="dialog" aria-label="Account and experimental settings" hidden>${xpHtml()}</div></div></header>
+      <div class="scrim" id="scrim" aria-hidden="true"></div><aside class="side" id="side"><div class="side-in"><a class="side-mark" href="index.html" aria-label="Zuli home"><img class="side-wordmark" src="zuli-logo-indigo.png?v=app2b" alt="" width="74" height="25"><span class="side-logo" aria-hidden="true">Z</span><span class="side-name">Zuli</span></a>
         <nav class="nav" aria-label="Main">${NAV.map(([k, label, href, ic]) => `<a href="${href}"${k === active ? ' class="on" aria-current="page"' : ''}>${svg(ICONS[ic])}<span>${label}</span></a>`).join('')}</nav></div></aside>
       <div class="main">
         <main class="content" id="content"></main><div class="pg-load" id="pgLoad" aria-hidden="true"><span class="spin"></span><span class="pg-load-t">Loading…</span></div><div class="sr" id="copyLive" role="status" aria-live="polite"></div>
       </div>
+      <div class="fd-scrim" id="fdScrim" aria-hidden="true"></div><aside class="fd" id="fd" role="dialog" aria-modal="true" aria-labelledby="fdTitle">${filterDrawer()}</aside>
       <nav class="tabbar" aria-label="Main">${NAV.map(([k, label, href, ic]) => `<a href="${href}"${k === active ? ' class="on" aria-current="page"' : ''}>${svg(ICONS[ic])}<span>${label}</span></a>`).join('')}</nav></div>`;
     const btn = document.getElementById('menuBtn'), side = document.getElementById('side'), top = document.querySelector('.top');
     const scrim = document.getElementById('scrim');
@@ -194,6 +195,7 @@
     /* Page loading overlay: shown by loading(content) after a 250ms CSS delay, faded out as soon as the page content replaces the placeholder. */
     const content = document.getElementById('content'), pg = document.getElementById('pgLoad');
     new MutationObserver(() => { if (!content.querySelector('.pg-ph')) { pg.classList.remove('on'); pg.setAttribute('aria-hidden', 'true'); } }).observe(content, { childList: true });
+    wireDrawer(); wireXp();
     return content;
   }
   const loading = (el, t) => {
@@ -212,6 +214,169 @@
   const setTitle = (t) => { document.title = t ? t + ' · Zuli' : 'Zuli'; };
   const pager = (page, pages, total, from, to, hrefFor) => `<div class="pager"><span>${total ? `Showing ${from.toLocaleString('en-GB')}–${to.toLocaleString('en-GB')} of ${total.toLocaleString('en-GB')}` : ''}</span><span class="btns">${page > 1 ? `<a class="btn sm" href="${esc(hrefFor(page - 1))}">Previous</a>` : '<button class="btn sm" disabled>Previous</button>'}${page < pages ? `<a class="btn sm" href="${esc(hrefFor(page + 1))}">Next</a>` : '<button class="btn sm" disabled>Next</button>'}</span></div>`;
   const withParams = (base, params) => base + '?' + new URLSearchParams(Object.entries(params).filter(([k, v]) => v != null && v !== '' && !(k === 'page' && +v === 1))).toString();
+
+  /* ---------- More filters drawer (replaces the separate Advanced search page) ----------
+     A right-hand sheet on every page, opened by 'More filters' in the top bar or the filter square on Home.
+     Simple filters first, then the technical ones, then the A–Z / dissolved-name lists. Nothing is shown under the search bar. */
+  function filterDrawer() {
+    const g = (k) => qs.get(k) || '';
+    const E2 = window.CH_ENUMS || {};
+    const kind = ['people', 'disqualified'].includes(g('type')) ? g('type') : 'companies';
+    const adv = g('mode') === 'advanced';
+    const st0 = g('status'), simpleSt = ['', 'active', 'dissolved'].includes(st0) ? st0 : '', exactSt = simpleSt === st0 ? '' : st0;
+    const name = adv ? g('includes') : (g('mode') ? '' : g('q'));
+    const sics = g('sic').split(',').filter((c) => E2.sic2007 && E2.sic2007[c]);
+    const o = (map, cur, any) => `<option value="">${esc(any)}</option>` + Object.entries(map || {}).sort((a, b) => a[1].localeCompare(b[1])).map(([k, v]) => `<option value="${esc(k)}"${k === cur ? ' selected' : ''}>${esc(v)}</option>`).join('');
+    const seg = (nm, items, cur) => `<div class="seg" role="radiogroup">${items.map(([v, l]) => `<label><input type="radio" name="${nm}" value="${v}"${v === cur ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
+    return `<div class="fd-head"><h2 id="fdTitle">Filters</h2><button class="fd-x" type="button" data-close-filters aria-label="Close filters">${svg(ICONS.x)}</button></div>
+      <form class="fd-body" id="fdForm" novalidate>
+        <div class="fd-sec"><h3>Looking for</h3>${seg('fdKind', [['companies', 'Companies'], ['people', 'People'], ['disqualified', 'Disqualified']], kind)}
+          <label class="f"><span id="fdNameL">${kind === 'companies' ? 'Name contains' : 'Name'}</span><input class="input" id="fdName" value="${esc(name)}" autocomplete="off" placeholder="${kind === 'companies' ? 'Optional' : 'Person’s name'}"></label>
+          <p class="fd-note" data-for="people disqualified">People and disqualified directors can be searched by name only.</p></div>
+        <div class="fd-sec" data-for="companies"><h3>Company filters</h3>
+          <span class="f" style="display:block;font-size:var(--fs-sm);font-weight:600;color:var(--ink-800);margin-bottom:5px">Status</span>${seg('fdStatus', [['', 'Any'], ['active', 'Active'], ['dissolved', 'Dissolved']], simpleSt)}
+          <label class="f">Location<input class="input" id="fdLoc" value="${esc(g('loc'))}" placeholder="Town or postcode district, e.g. Leeds or E14"></label>
+          <label class="f">Industry (SIC code)<input class="input" id="fdSicIn" list="fdSicList" placeholder="Type a code or an activity" autocomplete="off"></label>
+          <datalist id="fdSicList">${Object.entries(E2.sic2007 || {}).map(([c, d]) => `<option value="${esc(c + ' ' + d)}"></option>`).join('')}</datalist>
+          <input type="hidden" id="fdSic" value="${esc(sics.join(','))}"><div class="sic-picked" id="fdSicPicked" aria-live="polite"></div></div>
+        <div class="fd-sec" data-for="companies"><h3>More options</h3>
+          <label class="f">Name excludes<input class="input" id="fdExcl" value="${esc(g('excludes'))}"></label>
+          <label class="f">Exact status<select class="input" id="fdXStatus">${o(E2.company_status, exactSt, 'Use the status above')}</select></label>
+          <label class="f">Company type<select class="input" id="fdType">${o(E2.company_type, g('ctype'), 'Any type')}</select></label>
+          <label class="f">Subtype<select class="input" id="fdSub">${o(E2.company_subtype, g('subtype'), 'Any subtype')}</select></label>
+          <div class="row2"><label class="f">Incorporated from<input class="input" type="date" id="fdIncF" value="${esc(g('incf'))}"></label><label class="f">Incorporated to<input class="input" type="date" id="fdIncT" value="${esc(g('inct'))}"></label></div>
+          <div class="row2"><label class="f">Dissolved from<input class="input" type="date" id="fdDisF" value="${esc(g('disf'))}"></label><label class="f">Dissolved to<input class="input" type="date" id="fdDisT" value="${esc(g('dist'))}"></label></div></div>
+        <div class="fd-sec" data-for="companies"><h3>Browse by name</h3>
+          <label class="f">Starting from name<input class="input" id="fdBq" value="${esc(['az', 'dissolved'].includes(g('mode')) ? g('q') : '')}"></label>
+          ${seg('fdBmode', [['az', 'A–Z, all companies'], ['dissolved', 'Dissolved names']], g('mode') === 'dissolved' ? 'dissolved' : 'az')}
+          <label class="check"><input type="checkbox" id="fdPrev"${g('prev') ? ' checked' : ''}>Include previous names (dissolved only)</label>
+          <button class="btn" type="button" id="fdBrowse">Browse list</button></div>
+        <button type="submit" hidden></button>
+      </form>
+      <div class="fd-foot"><button class="btn" type="button" id="fdClear">Clear all</button><button class="btn primary" type="button" id="fdGo">Show results</button></div>`;
+  }
+  function wireDrawer() {
+    const fd = document.getElementById('fd'), scrim = document.getElementById('fdScrim');
+    if (!fd) return;
+    const $ = (sel) => fd.querySelector(sel);
+    const E2 = window.CH_ENUMS || {};
+    const openers = () => document.querySelectorAll('[data-open-filters]');
+    let last = null;
+    const open = (on, from) => {
+      document.body.classList.toggle('fd-open', on);
+      openers().forEach((b) => b.setAttribute('aria-expanded', String(on)));
+      if (on) { last = from || document.activeElement; setTimeout(() => { const f = kind() === 'companies' && !$('#fdName').value ? $('#fdLoc') : $('#fdName'); f.focus(); }, 60); }
+      else if (last && last.focus) last.focus();
+    };
+    document.addEventListener('click', (ev) => { const b = ev.target.closest('[data-open-filters]'); if (b) { ev.preventDefault(); open(true, b); } });
+    fd.querySelectorAll('[data-close-filters]').forEach((b) => b.addEventListener('click', () => open(false)));
+    scrim.addEventListener('click', () => open(false));
+    document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && document.body.classList.contains('fd-open')) open(false); });
+    const kind = () => (fd.querySelector('input[name=fdKind]:checked') || {}).value || 'companies';
+    const showKind = () => {
+      const k = kind();
+      fd.querySelectorAll('[data-for]').forEach((x) => x.classList.toggle('on', x.dataset.for.split(' ').includes(k)));
+      $('#fdNameL').textContent = k === 'companies' ? 'Name contains' : 'Name';
+      $('#fdName').placeholder = k === 'companies' ? 'Optional' : 'Person’s name';
+    };
+    fd.querySelectorAll('input[name=fdKind]').forEach((r) => r.addEventListener('change', showKind));
+    showKind();
+    // SIC picker
+    const hidden = $('#fdSic'), picked = $('#fdSicPicked'), inp = $('#fdSicIn');
+    const codes = () => hidden.value.split(',').filter(Boolean);
+    const draw = () => {
+      picked.innerHTML = codes().map((c) => `<div class="sic-p"><b class="mono">${esc(c)}</b><span>${esc((E2.sic2007 || {})[c] || '')}</span><button type="button" data-rmsic="${esc(c)}" aria-label="Remove SIC ${esc(c)}">${svg(ICONS.x).replace('<svg ', '<svg width="14" height="14" ')}</button></div>`).join('');
+      picked.querySelectorAll('[data-rmsic]').forEach((b) => b.addEventListener('click', () => { hidden.value = codes().filter((c) => c !== b.dataset.rmsic).join(','); draw(); inp.focus(); }));
+    };
+    const add = () => {
+      const m = /^\s*(\d{5})\b/.exec(inp.value), map = E2.sic2007 || {};
+      let code = m && map[m[1]] ? m[1] : '';
+      if (!code && inp.value.trim()) { const t = inp.value.trim().toLowerCase(); const hit = Object.entries(map).find(([, d]) => d.toLowerCase() === t); if (hit) code = hit[0]; }
+      if (code && !codes().includes(code)) { hidden.value = codes().concat(code).join(','); draw(); }
+      if (code) inp.value = '';
+    };
+    inp.addEventListener('change', add);
+    inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); add(); } });
+    draw();
+    const go = () => {
+      const k = kind(), name = $('#fdName').value.trim();
+      if (k !== 'companies') { if (!name) { $('#fdName').focus(); return; } location.href = withParams('index.html', { q: name, type: k }); return; }
+      add();
+      const status = $('#fdXStatus').value || (fd.querySelector('input[name=fdStatus]:checked') || {}).value || '';
+      const p = { mode: 'advanced', includes: name, excludes: $('#fdExcl').value.trim(), status, ctype: $('#fdType').value, subtype: $('#fdSub').value, sic: hidden.value, loc: $('#fdLoc').value.trim(), incf: $('#fdIncF').value, inct: $('#fdIncT').value, disf: $('#fdDisF').value, dist: $('#fdDisT').value };
+      if (qs.get('mode') === 'advanced' && qs.get('near')) { p.near = qs.get('near'); p.neartown = qs.get('neartown') || ''; }
+      if (!ADV_FIELDS.some((f) => p[f])) { $('#fdName').focus(); $('#fdName').placeholder = 'Add a name or at least one filter'; return; }
+      location.href = withParams('index.html', p);
+    };
+    $('#fdGo').addEventListener('click', go);
+    $('#fdForm').addEventListener('submit', (ev) => { ev.preventDefault(); go(); });
+    $('#fdBrowse').addEventListener('click', () => {
+      const q = $('#fdBq').value.trim(); if (!q) { $('#fdBq').focus(); return; }
+      const m = (fd.querySelector('input[name=fdBmode]:checked') || {}).value || 'az';
+      location.href = withParams('index.html', { mode: m, q, prev: m === 'dissolved' && $('#fdPrev').checked ? 1 : '' });
+    });
+    $('#fdClear').addEventListener('click', () => {
+      fd.querySelectorAll('.input').forEach((i) => { if (i.tagName === 'SELECT') i.selectedIndex = 0; else i.value = ''; });
+      hidden.value = ''; draw(); $('#fdPrev').checked = false;
+      const a = fd.querySelector('input[name=fdStatus][value=""]'); if (a) a.checked = true;
+    });
+    if (qs.get('adv') === '1') open(true);
+  }
+  /* Plain-text summary of the applied filters for the results page (no badges). */
+  function filterSummary() {
+    const g = (k) => qs.get(k) || '', E2 = window.CH_ENUMS || {}, lab = (m, k) => (E2[m] && E2[m][k]) || k;
+    const parts = [];
+    if (g('sic')) parts.push(g('sic').split(',').map((c) => `<b>${esc(c)}</b> ${esc((E2.sic2007 || {})[c] || '')}`).join('; '));
+    if (g('status')) parts.push(esc(lab('company_status', g('status'))));
+    if (g('loc')) parts.push('in <b>' + esc(g('loc')) + '</b>');
+    if (g('includes')) parts.push('name contains “' + esc(g('includes')) + '”');
+    if (g('excludes')) parts.push('name excludes “' + esc(g('excludes')) + '”');
+    if (g('ctype')) parts.push(esc(lab('company_type', g('ctype'))));
+    if (g('subtype')) parts.push(esc(lab('company_subtype', g('subtype'))));
+    if (g('incf') || g('inct')) parts.push('incorporated ' + esc([g('incf') && 'from ' + N.fmtDate(g('incf')), g('inct') && 'to ' + N.fmtDate(g('inct'))].filter(Boolean).join(' ')));
+    if (g('disf') || g('dist')) parts.push('dissolved ' + esc([g('disf') && 'from ' + N.fmtDate(g('disf')), g('dist') && 'to ' + N.fmtDate(g('dist'))].filter(Boolean).join(' ')));
+    return `<div class="f-sum"><span class="f-txt">${parts.join(' · ') || 'No filters'}</span><span class="f-act"><button class="lnk" type="button" data-open-filters aria-controls="fd">Edit filters</button><a href="index.html">Clear</a></span></div>`;
+  }
+
+  /* ---------- Experimental settings panel (account button). Temporary, for testing the look. ---------- */
+  const XP_SL = [
+    ['Shape', [['rCard', 'Card corners', 0, 40, 1], ['rCtl', 'Control corners', 0, 24, 1]]],
+    ['Size', [['cardPad', 'Card padding', 6, 40, 1], ['ctlH', 'Control height', 28, 56, 1], ['fs', 'Base font size', 12, 18, 0.5], ['maxW', 'Content width', 900, 2400, 10], ['gap', 'Gap between cards', 0, 32, 1]]],
+    ['Left menu', [['sideW', 'Menu width', 160, 320, 1], ['navH', 'Item height', 30, 60, 1], ['navPad', 'Item padding', 4, 24, 1], ['navGap', 'Item spacing', 0, 16, 1]]],
+  ];
+  const XP_PRESETS = [['Indigo', '#4F46E5'], ['Blue', '#3140A5'], ['Pink', '#D92B6B']];
+  const XP_SEG = [['initials', 'Director initials', [['grey', 'Grey'], ['blue', 'Blue shades']]], ['iconSq', 'Icon squares', [['tinted', 'Tinted'], ['plain', 'Plain']]], ['shadows', 'Shadows', [['on', 'On'], ['off', 'Off']]], ['borders', 'Card borders', [['off', 'Off'], ['on', 'On']]]];
+  function xpHtml() {
+    const T = window.ZuliTweaks; if (!T) return ACCT_HTML;
+    const v = T.get();
+    const sl = ([k, l, mn, mx, stp]) => `<label class="xp-r"><span>${esc(l)}</span><input type="range" min="${mn}" max="${mx}" step="${stp}" value="${esc(v[k])}" data-xk="${k}" aria-label="${esc(l)}"><input type="number" min="${mn}" max="${mx}" step="${stp}" value="${esc(v[k])}" data-xn="${k}" aria-label="${esc(l)} in pixels"></label>`;
+    return `<div class="xp-head"><div><h2>Experimental settings</h2><span class="xp-sub">Saved in this browser. Applies to every page.</span></div><button class="btn sm" type="button" id="xpReset">Reset to defaults</button></div>
+      <div class="xp-body">${XP_SL.map(([h, rows]) => `<div class="xp-sec"><h3>${esc(h)}</h3>${rows.map(sl).join('')}</div>`).join('')}
+        <div class="xp-sec"><h3>Accent colour</h3><label class="xp-r"><span>Accent</span><input type="color" value="${esc(v.accent)}" id="xpCol" aria-label="Accent colour"><input type="text" value="${esc(v.accent)}" id="xpHex" maxlength="7" aria-label="Accent hex"></label>
+          <div class="xp-pre">${XP_PRESETS.map(([n, c]) => `<button type="button" data-xpre="${c}"><i style="background:${c}"></i>${n}</button>`).join('')}</div></div>
+        <div class="xp-sec"><h3>Toggles</h3>${XP_SEG.map(([k, l, ops]) => `<div class="xp-r"><span>${esc(l)}</span><div class="seg2" role="group" aria-label="${esc(l)}">${ops.map(([val, t]) => `<button type="button" data-xs="${k}" data-xv="${val}" class="${v[k] === val ? 'on' : ''}" aria-pressed="${v[k] === val}">${t}</button>`).join('')}</div></div>`).join('')}</div></div>
+      <div class="xp-foot"><span>Accounts aren't available yet.</span><a href="settings.html">Settings</a></div>`;
+  }
+  function wireXp() {
+    const pop = document.getElementById('acctPop'), T = window.ZuliTweaks;
+    if (!pop || !T) return;
+    const put = (k, val) => { const v = T.get(); v[k] = val; T.set(v); };
+    const wire = () => {
+      pop.querySelectorAll('[data-xk]').forEach((r) => r.addEventListener('input', () => { const n = pop.querySelector(`[data-xn="${r.dataset.xk}"]`); n.value = r.value; put(r.dataset.xk, +r.value); }));
+      pop.querySelectorAll('[data-xn]').forEach((n) => n.addEventListener('input', () => { if (n.value === '' || !isFinite(+n.value)) return; const r = pop.querySelector(`[data-xk="${n.dataset.xn}"]`); r.value = n.value; put(n.dataset.xn, +n.value); }));
+      const col = pop.querySelector('#xpCol'), hex = pop.querySelector('#xpHex');
+      const setCol = (c) => { col.value = c; hex.value = c; put('accent', c.toUpperCase()); };
+      col.addEventListener('input', () => setCol(col.value));
+      hex.addEventListener('input', () => { const c = hex.value.trim(); if (/^#[0-9a-f]{6}$/i.test(c)) { col.value = c; put('accent', c.toUpperCase()); } });
+      pop.querySelectorAll('[data-xpre]').forEach((b) => b.addEventListener('click', () => setCol(b.dataset.xpre)));
+      pop.querySelectorAll('[data-xs]').forEach((b) => b.addEventListener('click', () => {
+        put(b.dataset.xs, b.dataset.xv);
+        pop.querySelectorAll(`[data-xs="${b.dataset.xs}"]`).forEach((x) => { const on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-pressed', String(on)); });
+      }));
+      pop.querySelector('#xpReset').addEventListener('click', (ev) => { ev.stopPropagation(); T.set({}); pop.innerHTML = xpHtml(); wire(); pop.querySelector('#xpReset').focus(); });
+    };
+    wire();
+  }
 
   /* ---------- Search: Companies / People / Disqualified tabs, Advanced panel, A–Z browse, dissolved names ---------- */
   const E = window.CH_ENUMS || {};
@@ -299,60 +464,6 @@
     draw();
   }
   const opts = (map, cur, any) => `<option value="">${esc(any)}</option>` + Object.entries(map || {}).sort((a, b) => a[1].localeCompare(b[1])).map(([k, v]) => `<option value="${esc(k)}"${k === cur ? ' selected' : ''}>${esc(v)}</option>`).join('');
-  function advancedPanel(mode, open) {
-    const g = (k) => qs.get(k) || '';
-    const sics = g('sic').split(',').filter((c) => E.sic2007 && E.sic2007[c]);
-    return `<div class="panel adv" id="adv"${open ? '' : ' hidden'}>
-      <h2>Filter companies</h2>
-      <form class="filters" id="advForm" method="get" action="index.html"><input type="hidden" name="mode" value="advanced">
-        <label class="grow">Name includes<input class="input" name="includes" value="${esc(g('includes'))}"></label>
-        <label class="grow">Name excludes<input class="input" name="excludes" value="${esc(g('excludes'))}"></label>
-        <label>Status<select class="input" name="status">${opts(E.company_status, g('status'), 'Any status')}</select></label>
-        <label>Type<select class="input" name="ctype">${opts(E.company_type, g('ctype'), 'Any type')}</select></label>
-        <label>Subtype<select class="input" name="subtype">${opts(E.company_subtype, g('subtype'), 'Any subtype')}</select></label>
-        <label class="grow">Location<input class="input" name="loc" value="${esc(g('loc'))}" placeholder="Town or postcode district"></label>
-        <label class="grow">Activity (SIC 2007)<input class="input" id="sicIn" list="sicList" placeholder="Type a code or an activity" autocomplete="off"></label>
-        <datalist id="sicList">${Object.entries(E.sic2007 || {}).map(([c, d]) => `<option value="${esc(c + ' ' + d)}"></option>`).join('')}</datalist>
-        <input type="hidden" name="sic" id="sicHidden" value="${esc(sics.join(','))}">
-        <label>Incorporated from<input class="input" type="date" name="incf" value="${esc(g('incf'))}"></label>
-        <label>Incorporated to<input class="input" type="date" name="inct" value="${esc(g('inct'))}"></label>
-        <label>Dissolved from<input class="input" type="date" name="disf" value="${esc(g('disf'))}"></label>
-        <label>Dissolved to<input class="input" type="date" name="dist" value="${esc(g('dist'))}"></label>
-        <button class="btn primary" type="submit">Search</button>${mode === 'advanced' ? '<a class="btn ghost" href="index.html?mode=advanced">Clear</a>' : ''}
-      </form>
-      <div class="sic-picked" id="sicPicked" aria-live="polite"></div>
-      <h2 style="margin-top:16px">Browse by name</h2>
-      <form class="filters" id="listForm" method="get" action="index.html">
-        <label class="grow">Name<input class="input" name="q" value="${esc(mode === 'az' || mode === 'dissolved' ? g('q') : '')}" required></label>
-        <label>List<select class="input" name="mode"><option value="az"${mode === 'az' ? ' selected' : ''}>A–Z, all companies</option><option value="dissolved"${mode === 'dissolved' ? ' selected' : ''}>Dissolved companies</option></select></label>
-        <label style="display:flex;gap:6px;align-items:center;font-size:var(--fs-sm);color:var(--ink-700)"><input type="checkbox" name="prev" value="1"${g('prev') ? ' checked' : ''}>Search previous names (dissolved companies)</label>
-        <button class="btn" type="submit">Browse</button>
-      </form></div>`;
-  }
-  function wireAdvanced(el) {
-    const btn = el.querySelector('#advBtn'), panel = el.querySelector('#adv');
-    btn.addEventListener('click', () => { const open = panel.hidden; panel.hidden = !open; btn.setAttribute('aria-expanded', String(open)); if (open) panel.querySelector('input:not([type=hidden])').focus(); });
-    const hidden = el.querySelector('#sicHidden'), picked = el.querySelector('#sicPicked'), inp = el.querySelector('#sicIn');
-    const codes = () => hidden.value.split(',').filter(Boolean);
-    const draw = () => {
-      picked.innerHTML = codes().map((c) => `<span class="chip"><b class="mono">${esc(c)}</b>${esc(E.sic2007[c] || '')}<button type="button" class="lnk" data-rmsic="${esc(c)}" aria-label="Remove SIC ${esc(c)}">${svg(ICONS.x).replace('<svg ', '<svg width="12" height="12" ')}</button></span>`).join('');
-      picked.querySelectorAll('[data-rmsic]').forEach((b) => b.addEventListener('click', () => { hidden.value = codes().filter((c) => c !== b.dataset.rmsic).join(','); draw(); inp.focus(); }));
-    };
-    const add = () => {
-      const m = /^\s*(\d{5})\b/.exec(inp.value);
-      let code = m && E.sic2007[m[1]] ? m[1] : '';
-      if (!code && inp.value.trim()) { const t = inp.value.trim().toLowerCase(); const hit = Object.entries(E.sic2007).find(([, d]) => d.toLowerCase() === t); if (hit) code = hit[0]; }
-      if (code && !codes().includes(code)) { hidden.value = codes().concat(code).join(','); draw(); }
-      if (code) inp.value = '';
-    };
-    inp.addEventListener('change', add);
-    inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); add(); } });
-    draw();
-    el.querySelectorAll('#advForm, #listForm').forEach((f) => f.addEventListener('submit', (ev) => {
-      if (f.id === 'advForm') add();
-      f.querySelectorAll('input, select').forEach((i) => { if (!i.value && i.name) i.disabled = true; });
-    }));
-  }
   const resRow = (c, extra) => `<div class="res"><div class="res-nm">${window.UI.kindIcon('company')}<a class="nm" href="${esc(U.company(c.number))}">${esc(c.name)}</a></div><div class="rt">${st(c.status, c.colour)}</div>
     <div class="meta">${esc(['No. ' + c.number, c.type, c.created && 'Incorporated ' + c.created, c.ceased && 'Ceased ' + c.ceased].filter(Boolean).join(' · '))}</div><div></div>
     ${c.address ? `<div class="addr">${esc(c.address)}</div>` : ''}${extra || ''}</div>`;
@@ -393,23 +504,22 @@
     const type = ['people', 'disqualified'].includes(qs.get('type')) ? qs.get('type') : 'companies';
     const mode = ['advanced', 'az', 'dissolved'].includes(qs.get('mode')) ? qs.get('mode') : '';
     const page = Math.max(1, parseInt(qs.get('page'), 10) || 1);
-    const advBtn = (open) => `<button class="btn" type="button" id="advBtn" aria-expanded="${open}" aria-controls="adv">Advanced</button>`;
     if (q && !mode && page === 1) {
       const go = pastedTarget(q);
       if (go) { location.replace(go); return; }
       if (type === 'companies' && isNumber(q)) { location.replace(U.company(normNumber(q))); return; }
     }
     if (!q && !mode) {
-      setTitle('Search');
-      el.innerHTML = `<div class="page-head"><div><h1>Search</h1><div class="sub">Search Companies House by company name or number, or by a person's name. You can also paste a Companies House link or officer ID.</div></div><div>${advBtn(false)}</div></div>${chKey() ? '' : '<div class="panel plain-msg" style="margin-bottom:16px">Add your Companies House API key in <a href="settings.html">Settings</a> to start searching.</div>'}${advancedPanel('', qs.get('adv') === '1')}<div id="viewedBox"></div>`;
-      wireAdvanced(el);
-      if (qs.get('adv') === '1') el.querySelector('#advBtn').setAttribute('aria-expanded', 'true');
+      setTitle('Recently viewed');
+      el.innerHTML = `<div class="page-head"><div><h1>Recently viewed</h1><div class="sub">Search by company name or number, or a person's name, in the bar above. You can also paste a Companies House link or officer ID.</div></div></div>${chKey() ? '' : '<div class="panel plain-msg" style="margin-bottom:16px">Add your Companies House API key in <a href="settings.html">Settings</a> to start searching.</div>'}<div id="viewedBox"></div>`;
       wireViewed(el);
-      (qs.get('adv') === '1' ? el.querySelector('#adv input:not([type=hidden])') : document.querySelector('.search input')).focus();
+      if (!el.querySelector('#viewedList')) el.querySelector('#viewedBox').innerHTML = '<div class="panel plain-msg">Nothing viewed yet.</div>';
+      if (qs.get('adv') !== '1') document.querySelector('.search input').focus();
       return;
     }
     let title, tabs = '';
-    if (mode === 'advanced') title = 'Filtered companies';
+    const sicOnly = qs.get('sic') && !qs.get('sic').includes(',') && !qs.get('includes');
+    if (mode === 'advanced') title = sicOnly && E.sic2007 && E.sic2007[qs.get('sic')] ? E.sic2007[qs.get('sic')] : 'Filtered companies';
     else if (mode === 'az') title = `A–Z from “${q}”`;
     else if (mode === 'dissolved') title = `Dissolved companies${qs.get('prev') ? ' with a previous name like' : ' named'} “${q}”`;
     else {
@@ -417,8 +527,12 @@
       tabs = `<nav class="tabs-plain" aria-label="Result type">${SEARCH_TYPES.map(([k, l]) => `<a href="${esc(withParams('index.html', { q, type: k === 'companies' ? '' : k }))}"${k === type ? ' class="on" aria-current="page"' : ''}>${l}</a>`).join('')}</nav>`;
     }
     setTitle(title);
-    el.innerHTML = `<div class="page-head"><div><h1>${esc(title)}</h1></div><div>${advBtn(!!mode)}</div></div>${advancedPanel(mode, !!mode)}${tabs}<div class="panel" id="res"></div>`;
-    wireAdvanced(el);
+    /* SIC searches opened from a company page: nationwide by default, one tap to narrow to that company's area. */
+    const near = mode === 'advanced' ? (qs.get('near') || '').trim() : '';
+    const nearTabs = near ? (() => { const base = Object.fromEntries(ADV_FIELDS.concat(['near', 'neartown']).map((k) => [k, qs.get(k)])); const here = (qs.get('loc') || '') === near; const town = qs.get('neartown');
+      return `<nav class="tabs-plain scope-row" aria-label="Area"><a href="${esc(withParams('index.html', Object.assign({ mode }, base, { loc: '' })))}"${here ? '' : ' class="on" aria-current="page"'}>Whole UK</a><a href="${esc(withParams('index.html', Object.assign({ mode }, base, { loc: near })))}"${here ? ' class="on" aria-current="page"' : ''}>Near ${esc(near)}${town && town.toUpperCase() !== near.toUpperCase() ? ' (' + esc(town) + ')' : ''}</a></nav>`; })() : '';
+    const sub = mode === 'advanced' ? filterSummary() : (mode ? `<div class="f-sum"><span class="f-act"><button class="lnk" type="button" data-open-filters aria-controls="fd">Edit filters</button></span></div>` : '');
+    el.innerHTML = `<div class="page-head"><div><h1>${esc(title)}</h1></div></div>${sub}${nearTabs}${tabs}<div class="panel" id="res"></div>`;
     const res = document.getElementById('res');
     loading(res, 'Searching…');
     try {
@@ -432,7 +546,7 @@
         if (!r.items.length) { res.innerHTML = '<div class="plain-msg">No companies match these filters.</div>'; return; }
         const total = Math.min(r.total, 10000);
         res.innerHTML = `<div class="res-list">${r.items.map((c) => resRow(c, c.sic.length ? `<div class="addr">SIC ${esc(c.sic.join(', '))}</div>` : '')).join('')}</div>
-          ${pager(page, Math.ceil(total / per), r.total, (page - 1) * per + 1, (page - 1) * per + r.items.length, (p) => withParams('index.html', Object.assign({ mode }, Object.fromEntries(ADV_FIELDS.map((k) => [k, qs.get(k)])), { page: p })))}`;
+          ${pager(page, Math.ceil(total / per), r.total, (page - 1) * per + 1, (page - 1) * per + r.items.length, (p) => withParams('index.html', Object.assign({ mode }, Object.fromEntries(ADV_FIELDS.concat(['near', 'neartown']).map((k) => [k, qs.get(k)])), { page: p })))}`;
         return;
       }
       if (mode === 'az') {
@@ -1019,15 +1133,19 @@
       const apMore = many ? '<div class="more-row center"><button class="btn" type="button" id="apMore">Show 25 more</button><button class="btn" type="button" id="apLoad">Load more appointments</button></div>' : '';
       const names = pnv ? await companyNames(pnv.items.map((x) => x.number)).catch(() => ({})) : {};
       vm.items.forEach((a) => { if (a.number && !names[a.number]) names[a.number] = a.company; });
-      el.innerHTML = `<article class="lay-b"><div class="card shell">
-        ${pHeader(vm.name, [vm.roles.join(', ')], '', isSaved('p:' + key), vm.corporate)}
-        <div class="person-overview">${details}</div>
+      /* One layout with the company page: header card, four stat tiles, then Details beside Appointments,
+         then the year chart and owner controls full width. (The old overview strip sat between the header and the grid.) */
+      const curN = vm.items.filter((x) => x.current).length;
+      el.innerHTML = `<article class="lay-b person-page"><div class="card shell">
+        ${pHeader(vm.name, [vm.roles.join(', '), vm.born && 'Born ' + vm.born, vm.nationalities[0]], '', isSaved('p:' + key), vm.corporate)}
         <div class="bento">
-          <div class="s4">${f('Dissolved or in liquidation', String(vm.finished), 'Companies appointed to', vm.finished ? 'warn' : '')}</div>
-          <div class="s4">${f('Longest role', vm.longest ? vm.longest.years + (vm.longest.years === 1 ? ' year' : ' years') : '—', vm.longest ? vm.longest.company : 'No complete dates')}</div>
-          <div class="s4">${f('Average tenure', reliableAvg ? vm.averageYears + (vm.averageYears === 1 ? ' year' : ' years') : '—', reliableAvg ? 'Across ' + vm.tenureBase + ' appointments' : (vm.loaded < vm.total ? 'Not shown: not all appointments loaded' : vm.tenureBase < 2 ? 'Not shown: needs two or more dated roles' : 'Not shown: dates incomplete'))}</div>
+          <div class="s3">${f('Appointments', String(vm.total), curN + ' current' + (vm.loaded < vm.total ? ' of those loaded' : ''))}</div>
+          <div class="s3">${f('Dissolved or in liquidation', String(vm.finished), 'Companies appointed to', vm.finished ? 'warn' : '')}</div>
+          <div class="s3">${f('Longest role', vm.longest ? vm.longest.years + (vm.longest.years === 1 ? ' year' : ' years') : '—', vm.longest ? vm.longest.company : 'No complete dates')}</div>
+          <div class="s3">${f('Average tenure', reliableAvg ? vm.averageYears + (vm.averageYears === 1 ? ' year' : ' years') : '—', reliableAvg ? 'Across ' + vm.tenureBase + ' appointments' : (vm.loaded < vm.total ? 'Not shown: not all appointments loaded' : vm.tenureBase < 2 ? 'Not shown: needs two or more dated roles' : 'Not shown: dates incomplete'))}</div>
           <div class="tile s12" id="disqTile" hidden></div>
-          <div class="tile s12 appointments-tile">${window.UI.head('Appointments', vm.total)}${apTools}${apTable}${apMore}</div>
+          <div class="tile s4 person-dl">${window.UI.head('Details')}${details}</div>
+          <div class="tile s8 appointments-tile">${window.UI.head('Appointments', vm.total)}${apTools}${apTable}${apMore}</div>
           <div class="tile s12 yc-tile person-chart">${window.UI.personHistory(vm, { complete: good.length === raws.length && good.every(r => r._complete === true) })}</div>
           ${pnv ? `<div class="tile s12">${controlsTile(pnv, names)}</div>` : ''}
         </div></div></article>`;

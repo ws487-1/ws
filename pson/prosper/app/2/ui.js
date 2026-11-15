@@ -33,6 +33,8 @@
     chart: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
     fileText: '<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
     shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
+    userRound: '<circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/>',
+    search: '<path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/>',
     timer: '<line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/>',
   };
   const STYLE = document.documentElement.dataset.style || '';
@@ -56,7 +58,7 @@
   /* open: optional {href, label} for the arrow-up-right open button (shown only by styles that use it); {span:true} when the whole tile is already a link. */
   const openBtn = (o, title) => (!o ? '' : o.span ? `<span class="tile-open" aria-hidden="true">${LU(GLYPH.arrowUpRight)}</span>` : `<a class="tile-open" href="${esc(o.href)}" aria-label="${esc(o.label || 'Open ' + title)}">${LU(GLYPH.arrowUpRight)}</a>`);
   /* app2: each tile title gets a tinted Lucide icon square (Lucide, ISC License). */
-  const TI = { 'Deadlines': ['calendarClock','indigo'], 'People': ['usersRound','sky'], 'Directors': ['usersRound','sky'], 'Officers': ['usersRound','sky'], 'Members': ['usersRound','sky'], 'Partners': ['usersRound','sky'], 'Ownership': ['pie','teal'], 'Charges': ['landmark','amber'], 'Officer changes': ['arrows','sky'], 'Board activity': ['chart','indigo'], 'Appointments by year': ['chart','indigo'], 'Appointment history': ['chart','indigo'], 'Filing history': ['fileText','indigo'], 'Similar companies': ['company','teal'], 'UK establishments': ['company','teal'], 'Insolvency': ['shield','rose'], 'Appointments': ['briefcase','indigo'], 'Companies this person controls': ['pie','teal'], 'Disqualified director': ['shield','rose'], 'Owner details only': ['pie','teal'] };
+  const TI = { 'Deadlines': ['calendarClock','indigo'], 'People': ['usersRound','sky'], 'Directors': ['usersRound','sky'], 'Officers': ['usersRound','sky'], 'Members': ['usersRound','sky'], 'Partners': ['usersRound','sky'], 'Ownership': ['pie','teal'], 'Charges': ['landmark','amber'], 'Officer changes': ['arrows','sky'], 'Board activity': ['chart','indigo'], 'Appointments by year': ['chart','indigo'], 'Appointment history': ['chart','indigo'], 'Filing history': ['fileText','indigo'], 'Similar companies': ['company','teal'], 'UK establishments': ['company','teal'], 'Insolvency': ['shield','rose'], 'Appointments': ['briefcase','indigo'], 'Companies this person controls': ['pie','teal'], 'Disqualified director': ['shield','rose'], 'Owner details only': ['pie','teal'], 'Details': ['userRound','slate'] };
   const tIcon = (title) => { const t = TI[title]; return t ? `<span class="ti ${t[1]}" aria-hidden="true">${LU(GLYPH[t[0]])}</span>` : ''; };
   const head = (title, count, aside, open) => `<div class="tile-head"><h3>${tIcon(title)}${esc(title)}${count != null && count !== '' ? `<span class="count">${esc(count)}</span>` : ''}</h3>${aside || open ? `<span class="aside">${aside || ''}${openBtn(open, title)}</span>` : ''}</div>`;
 
@@ -69,17 +71,26 @@
     return `<span class="nat" title="Registered office: ${esc(n.text)}"><span>Registered office: ${esc(n.text)}</span></span>`;
   }
 
+  /* SIC row link: a filtered company search for that code. Nationwide and active by default; 'near' carries this company's
+     postcode district (or town) so the results page can offer a one-tap 'Near …' narrowing. */
+  const sicHref = (code, vm) => {
+    const pc = (/^([A-Z]{1,2}\d[A-Z\d]?)\s*\d[A-Z]{2}$/.exec(String(vm.address.postcode || '').toUpperCase().trim()) || [])[1] || '';
+    const p = new URLSearchParams({ mode: 'advanced', sic: code, status: 'active' });
+    if (pc || vm.address.town) p.set('near', pc || vm.address.town);
+    if (vm.address.town && pc) p.set('neartown', vm.address.town);
+    return 'index.html?' + p.toString();
+  };
   /* Overview header: status as bold coloured text, no external link buttons. */
   function header(vm, o = {}) {
     const meta = [cp(vm.type.label), esc(vm.type.subtype), vm.number && `No. ${cp(vm.number)}`, vm.createdText && `Incorporated ${cp(vm.createdText)}`, vm.ceasedText && `Ceased ${cp(vm.ceasedText)}`].filter(Boolean);
     return `<header class="hdr">
-      <div class="hdr-top"><span class="mono-av" aria-hidden="true">${esc(initials(String(vm.name || '').replace(/\b(LIMITED|LTD|PLC|LLP|CIC)\b\.?/gi, '')))}</span><div style="min-width:0;flex:1">
+      <div class="hdr-top"><div style="min-width:0;flex:1">
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">${st(vm.status.label, vm.status.colour)}${vm.status.detail ? st(vm.status.detail, vm.status.detailColour) : ''}</div>
         <h1>${cp(vm.name)}</h1>
         <div class="hdr-meta">${kindIcon('company', 'Company')}${meta.map((m) => `<span>${m}</span>`).join('<span class="sep"></span>')}</div>
         <div class="hdr-addr"${vm.address.oneLine ? '' : ' hidden'}>${ICON.pin}${vm.address.oneLine ? `<span class="addr-txt">${cp(vm.address.oneLine)}</span>` : ''}<span class="ro-nation" id="roNation">${nationHtml(o.nation)}</span></div>
         ${vm.otherRegister ? `<div class="hdr-addr"><span>Also registered with the <a href="${esc(vm.otherRegister.url)}" target="_blank" rel="noopener">${esc(vm.otherRegister.body)}</a>.</span></div>` : ''}
-        ${vm.sic.length ? `<div class="hdr-sic">${vm.sic.map((s) => `<span class="chip"><b class="mono">${cp(s.code)}</b>${esc(s.desc)}</span>`).join('')}</div>` : ''}
+        ${vm.sic.length ? `<div class="hdr-sic">${vm.sic.map((s) => `<a class="sic-row" href="${esc(sicHref(s.code, vm))}" title="Find companies with SIC ${esc(s.code)}"><b class="mono">${esc(s.code)}</b><span class="sic-d">${esc(s.desc)}</span><span class="sic-go" aria-hidden="true">${LU(GLYPH.search)}</span></a>`).join('')}</div>` : ''}
       </div>
       <div class="hdr-actions">${saveBtn(o.saved, ` data-co="${esc(vm.number)}"`)}${alertBtn()}</div></div>
       ${vm.verdict.length ? `<div class="verdict ${vm.verdict.some((v) => v.tone === 'bad') ? 'bad' : vm.verdict.some((v) => v.tone === 'warn') ? 'warn' : 'neutral'}"><b>Heads up</b><span>${vm.verdict.map((v) => esc(v.text)).join(' · ')}</span></div>` : ''}
@@ -106,7 +117,7 @@
   /* People: names open that person's appointments; other appointments link to those companies. */
   function personName(p) { return p.officerId ? `<a href="${esc(URL.person(p.officerId))}">${esc(p.name)}</a>` : esc(p.name); }
   /* app2: initials avatar, tint picked from the name so the same person always gets the same colour. */
-  const AV = ['indigo', 'sky', 'teal', 'amber', 'rose', 'slate'];
+  const AV = ['b1', 'b2', 'b3', 'b4', 'b5', 'b6'];
   const tint = (n) => { let h = 0; for (const c of String(n || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0; return AV[h % AV.length]; };
   const avatar = (n) => `<span class="av ${tint(n)}" aria-hidden="true">${esc(initials(n))}</span>`;
   function personRow(p, vm) {
