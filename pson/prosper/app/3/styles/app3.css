@@ -1,0 +1,123 @@
+/* Zuli app3: the main build (spacing, font sizes, tiles) with selected app2 pieces, all in one Zuli blue.
+   Zuli blue = the main build's accent, --brand-600 (#245091). No container sizes, gaps or font sizes change here. */
+:root { --zb: var(--brand-600); --sic-h: 26px;
+  /* Keyboard focus: neutral grey, never blue. Mouse clicks and inputs show no ring. */
+  --ring: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink-300); }
+
+/* ---------- One Zuli blue for solid accents ---------- */
+.btn.primary { background: var(--zb); border-color: var(--zb); } .btn.primary:hover { background: var(--brand-700); border-color: var(--brand-700); }
+.nav a.on::before { background: var(--zb); } .nav a.on svg { color: var(--zb); }
+.side-logo { background: var(--zb); }
+.tabs-plain a.on { border-bottom-color: var(--zb); }
+.fact .fi { color: var(--zb); }
+.bar > i:not(.ok):not(.warn):not(.neutral) { background: var(--zb); }
+.yc-tile { --yc-a: var(--zb); }
+.yc-al.a::before { background: var(--zb) !important; }
+.id-copy.copied .id-copy-i { color: var(--zb); }
+
+/* ---------- Company and person markers in Zuli blue ---------- */
+.kic { color: var(--zb); }
+.kic.person .pv { display: none; }
+.kic.person .pv-circle { display: block; }
+html[data-picon=round] .kic.person .pv-circle, html[data-picon=user] .kic.person .pv-circle,
+html[data-picon=initials] .kic.person:not(.no-ini) .pv-circle, html[data-picon=initials] .kic.person.no-ini .pv-circle { display: none; }
+html[data-picon=round] .kic.person .pv-round, html[data-picon=initials] .kic.person.no-ini .pv-round { display: block; }
+html[data-picon=user] .kic.person .pv-user { display: block; }
+html[data-picon=initials] .kic.person .pv-ini { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; background: var(--zb); color: #fff; font-size: 7px; font-weight: 700; line-height: 1; letter-spacing: -.02em; }
+.person > .kic .pv-ini, .psc > .kic .pv-ini { font-size: 8px; }
+
+/* ---------- Square 'open' buttons: Zuli blue on every tile (incl. Officer changes) ---------- */
+.tile-open { border-color: var(--brand-200) !important; color: var(--zb) !important; background: var(--surface) !important; }
+a.tile-open:hover, a.tile-link:hover .tile-open, .expandable-tile:has(.tile-open:hover) .tile-open,
+.home-bento .expandable-tile:has(.tile-head .aside > a:hover) .tile-open { background: var(--zb) !important; border-color: var(--zb) !important; color: #fff !important; }
+.expandable-tile:has(.tile-open:hover), .home-bento .expandable-tile:has(.tile-head .aside > a:hover), a.tile-link:hover { border-color: var(--zb) !important; box-shadow: 0 0 0 1px var(--zb) !important; }
+html[data-openbtn=filled] .tile-open { background: var(--zb) !important; border-color: var(--zb) !important; color: #fff !important; }
+html[data-openbtn=filled] a.tile-open:hover, html[data-openbtn=filled] a.tile-link:hover .tile-open, html[data-openbtn=filled] .expandable-tile:has(.tile-open:hover) .tile-open { background: var(--brand-700) !important; border-color: var(--brand-700) !important; }
+
+/* ---------- Tile header icon squares (app2 idea, Zuli blue). Negative margins keep the header height unchanged. ---------- */
+.tile-head h3, .tile-head h2.h3 { display: flex; align-items: center; gap: 8px; }
+.ti { flex: none; display: inline-grid; place-items: center; width: 26px; height: 26px; margin: -4px 0; border-radius: var(--compact-corner, 3px); background: var(--brand-50); color: var(--zb); box-shadow: inset 0 0 0 1px var(--brand-100); }
+.ti svg { width: 15px; height: 15px; stroke-width: 2; }
+.ti-r { display: none; }
+html[data-tipos=right] .ti-l { display: none; }
+html[data-tipos=right] .ti-r { display: inline-grid; }
+html[data-tistyle=plain] .ti { background: none; box-shadow: none; width: 18px; }
+html[data-tistyle=plain] .ti svg { width: 17px; height: 17px; }
+
+/* ---------- Director initials: six Zuli-blue variants (by name), or one blue, or grey ---------- */
+.av { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; font-size: 9.5px; font-weight: 700; line-height: 1; letter-spacing: -.01em; }
+.av.b1 { background: color-mix(in srgb, var(--zb) 10%, #fff); color: var(--zb); }
+.av.b2 { background: color-mix(in srgb, var(--zb) 16%, #fff); color: color-mix(in srgb, var(--zb) 75%, #000); }
+.av.b3 { background: color-mix(in srgb, var(--zb) 7%, #fff); color: color-mix(in srgb, var(--zb) 80%, #fff); }
+.av.b4 { background: color-mix(in srgb, var(--zb) 22%, #fff); color: color-mix(in srgb, var(--zb) 60%, #000); }
+.av.b5 { background: color-mix(in srgb, var(--zb) 13%, #fff); color: color-mix(in srgb, var(--zb) 90%, #fff); }
+.av.b6 { background: color-mix(in srgb, var(--zb) 19%, #fff); color: color-mix(in srgb, var(--zb) 88%, #000); }
+html[data-initials=single] .av { background: color-mix(in srgb, var(--zb) 12%, #fff) !important; color: var(--zb) !important; }
+html[data-initials=grey] .av { background: #EEF0F3 !important; color: var(--ink-600) !important; }
+
+/* ---------- SIC rows (app2), shorter, no search icon, Zuli blue tint. Same 12px text as the old chips. ---------- */
+.hdr-sic { display: grid; gap: 4px; max-width: 640px; }
+.sic-row { display: flex; align-items: center; gap: 8px; min-height: var(--sic-h); box-sizing: border-box; padding: 2px 10px; border-radius: var(--r-sm); background: var(--brand-50); color: var(--ink-700); font-size: var(--fs-xs); line-height: 1.35; text-decoration: none !important; transition: background-color 120ms ease-out; }
+.sic-row b { color: var(--zb); font-weight: var(--fw-semibold); }
+.sic-row .sic-d { min-width: 0; }
+.sic-row:hover { background: var(--brand-100); color: var(--ink-900); }
+.scope-row { margin-bottom: var(--sp-4); }
+
+/* ---------- Filing history rows ---------- */
+.fl-row { grid-template-columns: 86px 92px minmax(0, 1fr) auto; align-items: center; }
+.fl-row .ty { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fl-row .pdf { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.fl-row .pg { font-size: var(--fs-xs); color: var(--ink-500); white-space: nowrap; }
+.dl-btn { display: inline-grid; place-items: center; width: 24px; height: 24px; margin: -3px 0; box-sizing: border-box; border: 1px solid var(--brand-200); border-radius: var(--compact-corner, 3px); background: var(--surface); color: var(--zb); }
+.dl-btn svg { width: 14px; height: 14px; stroke-width: 1.75; }
+.dl-btn:hover { background: var(--zb); border-color: var(--zb); color: #fff; text-decoration: none; }
+
+/* ---------- Person page: Details tile (app2) ---------- */
+.person-dl .dl { grid-template-columns: minmax(96px, max-content) minmax(0, 1fr); }
+.person-dl .dl dd { overflow-wrap: anywhere; min-width: 0; }
+.person-page .appointments-tile .table-wrap { overflow-x: auto; }
+
+/* ---------- Back button on expanded tile pages ---------- */
+.back-btn { display: inline-flex; align-items: center; gap: 6px; height: var(--compact-control, 32px); box-sizing: border-box; padding: 0 10px 0 8px; margin-bottom: var(--sp-3); border: 1px solid var(--brand-200); border-radius: var(--compact-corner, 3px); background: var(--surface); color: var(--zb); font-size: var(--fs-sm); font-weight: var(--fw-semibold); max-width: 100%; }
+.back-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.back-btn svg { width: 16px; height: 16px; flex: none; }
+.back-btn:hover { background: var(--zb); border-color: var(--zb); color: #fff; text-decoration: none; }
+.page-head > div:first-child:has(.back-btn) { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: 100%; }
+
+/* ---------- No blue focus rings. Inputs: border darkens only. Keyboard focus elsewhere: thin grey ring. ---------- */
+input:focus, input:focus-visible, select:focus, select:focus-visible, textarea:focus, textarea:focus-visible, .input:focus, .input:focus-visible { outline: none !important; box-shadow: none !important; border-color: var(--ink-300) !important; }
+:focus:not(:focus-visible) { outline: none; box-shadow: none; }
+.cp:focus-visible, .id-copy:focus-visible { outline: 2px solid var(--ink-300); }
+html { -webkit-tap-highlight-color: transparent; }
+
+/* ---------- Experimental settings popup ---------- */
+.top-pop.acct-pop { width: 380px; max-height: calc(100vh - 90px); overflow-y: auto; overscroll-behavior: contain; padding: 0; }
+.xp-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 15px 10px; background: var(--surface); border-bottom: 1px solid var(--line-soft); }
+.xp-head h2 { margin: 0 !important; }
+.xp-sub { display: block; font-size: var(--fs-xs); color: var(--ink-500); margin-top: 2px; }
+#xpReset { white-space: nowrap; flex: none; }
+.xp-body { padding: 4px 15px 10px; }
+.xp-sec { padding: 9px 0 4px; border-top: 1px solid var(--line-soft); }
+.xp-sec:first-child { border-top: 0; }
+.xp-sec h3 { margin: 0 0 8px; font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--ink-500); }
+.xp-r { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: center; gap: 8px; margin-bottom: 8px; font-size: var(--fs-sm); color: var(--ink-800); }
+.xp-col { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 6px; }
+.xp-col input[type=color] { width: 40px; height: 28px; padding: 0; border: 1px solid var(--line); border-radius: 3px; background: #fff; cursor: pointer; }
+.xp-col input[type=text], .xp-sl input[type=number] { height: 28px; min-width: 0; box-sizing: border-box; border: 1px solid var(--line); border-radius: 3px; padding: 0 6px; font: inherit; font-size: var(--fs-xs); }
+.xp-sl { display: grid; grid-template-columns: minmax(0, 1fr) 56px; gap: 8px; align-items: center; }
+.xp-sl input[type=range] { width: 100%; accent-color: var(--zb); }
+.seg2 { display: flex; flex-wrap: wrap; padding: 2px; gap: 2px; background: var(--surface-sunk); border-radius: 3px; }
+.seg2 button { flex: 1 1 auto; min-height: 26px; padding: 0 6px; border: 0; border-radius: 2px; background: none; font: inherit; font-size: var(--fs-xs); font-weight: var(--fw-semibold); color: var(--ink-600); cursor: pointer; white-space: nowrap; }
+.seg2 button.on { background: var(--surface); color: var(--zb); box-shadow: 0 1px 2px rgba(16, 24, 40, .12); }
+.xp-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 15px 13px; border-top: 1px solid var(--line-soft); font-size: var(--fs-xs); color: var(--ink-500); }
+
+@media (max-width: 760px) {
+  .fl-row { grid-template-columns: 78px minmax(0, 1fr) auto; }
+  .fl-row .pg { display: none; }
+  .top-pop.acct-pop { position: fixed; top: 60px; left: 8px; right: 8px; width: auto; max-width: none; max-height: calc(100vh - 80px); }
+  .xp-r { grid-template-columns: 96px minmax(0, 1fr); }
+  .person-dl .dl { grid-template-columns: 110px minmax(0, 1fr); }
+}
+.kic.person .pv-ini { width: 16px !important; height: 16px !important; }
+.person > .kic .pv-ini, .psc > .kic .pv-ini { width: 20px !important; height: 20px !important; }
+.dir-id { word-break: break-all; }
