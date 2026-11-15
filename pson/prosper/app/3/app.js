@@ -132,6 +132,7 @@
     copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
     check: '<path d="M20 6 9 17l-5-5"/>',
     volume2: '<path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/>',
+    clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6h4"/>',
     arrowLeft: '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
     help: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
   };
@@ -142,8 +143,8 @@
 
     <p><a href="https://find-and-update.company-information.service.gov.uk/" target="_blank" rel="noopener">Companies House service</a> · <a href="settings.html">Settings</a></p>`;
   const ACCT_HTML = `<h2>Account</h2><p>Accounts aren't available yet. Your saved items and settings are kept in this browser only.</p><p><a href="settings.html">Settings</a></p>`;
-  /* Square filter button (Lucide sliders-horizontal): opens the Advanced search panel, as the old 'Advanced' link did. */
-  const advSq = () => `<a class="btn adv-sq" href="index.html?view=search&amp;adv=1" aria-label="Advanced search" title="Advanced search">${svg(ICONS.sliders)}</a>`;
+  /* Square filter button (Lucide sliders-horizontal): opens the More filters drawer (app2), which replaces the old Advanced page. */
+  const advSq = () => `<button class="btn adv-sq" type="button" data-open-filters aria-controls="fd" aria-expanded="false" aria-label="More filters" title="More filters">${svg(ICONS.sliders)}</button>`;
   /* Officer ID that copies on click: copy icon turns into a check plus 'Copied' for 1.5s. */
   const idCopy = (id) => `<button type="button" class="id-copy" data-copy="${esc(id)}" title="Copy ID" aria-label="Copy ID ${esc(id)}"><span class="id-copy-v">${esc(id)}</span><span class="id-copy-i">${svg(ICONS.copy)}</span></button>`;
   const NAV = [['home', 'Home', 'index.html', 'house'], ['saved', 'Saved', 'saved.html', 'bookmark'], ['alerts', 'Alerts', 'alerts.html', 'bell'], ['settings', 'Settings', 'settings.html', 'settings']];
@@ -151,15 +152,16 @@
     const q = active === 'search' ? qs.get('q') || '' : '';
     const type = active === 'search' && ['people', 'disqualified'].includes(qs.get('type')) ? qs.get('type') : '';
     document.body.innerHTML = `<div class="app">
-      <header class="top"><button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="side">${svg(ICONS.menu)}</button><a class="wordmark" href="index.html" aria-label="Zuli home"><img src="zuli-logo.png?v=app3a" alt="Zuli" width="68" height="23"></a>
+      <header class="top"><button class="icon-btn menu-btn" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="side">${svg(ICONS.menu)}</button><a class="wordmark" href="index.html" aria-label="Zuli home"><img src="zuli-logo.png?v=app3b" alt="Zuli" width="68" height="23"></a>
         <form class="search" action="index.html" method="get" role="search"><input name="q" type="search" value="${esc(q)}" placeholder="Search companies or people by name or number" aria-label="Search companies or people">${type ? `<input type="hidden" name="type" value="${type}">` : ''}${advSq()}<button class="btn" type="submit">Search</button></form>
         <div class="top-r"><button class="tb" id="helpBtn" type="button" aria-label="Help" title="Help" aria-expanded="false" aria-controls="helpPop">${svg(ICONS.help)}</button><button class="acct" id="acctBtn" type="button" aria-label="Account" title="Account" aria-expanded="false" aria-controls="acctPop">${svg(ICONS.user)}</button>
           <div class="top-pop" id="helpPop" role="dialog" aria-label="Help" hidden>${HELP_HTML}</div><div class="top-pop acct-pop" id="acctPop" role="dialog" aria-label="Account and experimental settings" hidden>${xpHtml()}</div></div></header>
-      <div class="scrim" id="scrim" aria-hidden="true"></div><aside class="side" id="side"><div class="side-in"><a class="side-mark" href="index.html" aria-label="Zuli home"><img class="side-wordmark" src="zuli-logo.png?v=app3a" alt="" width="74" height="25"><span class="side-logo" aria-hidden="true">Z</span><span class="side-name">Zuli</span></a>
+      <div class="scrim" id="scrim" aria-hidden="true"></div><aside class="side" id="side"><div class="side-in"><a class="side-mark" href="index.html" aria-label="Zuli home"><img class="side-wordmark" src="zuli-logo.png?v=app3b" alt="" width="74" height="25"><span class="side-logo" aria-hidden="true">Z</span><span class="side-name">Zuli</span></a>
         <nav class="nav" aria-label="Main">${NAV.map(([k, label, href, ic]) => `<a href="${href}"${k === active ? ' class="on" aria-current="page"' : ''}>${svg(ICONS[ic])}<span>${label}</span></a>`).join('')}</nav></div></aside>
       <div class="main">
         <main class="content" id="content"></main><div class="pg-load" id="pgLoad" aria-hidden="true"><span class="spin"></span><span class="pg-load-t">Loading…</span></div><div class="sr" id="copyLive" role="status" aria-live="polite"></div>
-      </div></div>`;
+      </div>
+      <div class="fd-scrim" id="fdScrim" aria-hidden="true"></div><aside class="fd" id="fd" role="dialog" aria-modal="true" aria-labelledby="fdTitle">${filterDrawer()}</aside></div>`;
     const btn = document.getElementById('menuBtn'), side = document.getElementById('side'), top = document.querySelector('.top');
     const scrim = document.getElementById('scrim');
     const setMenu = (open) => { side.style.top = scrim.style.top = top.offsetHeight + 'px'; document.body.classList.toggle('menu-open', open); btn.setAttribute('aria-expanded', String(open)); btn.innerHTML = svg(open ? ICONS.x : ICONS.menu); };
@@ -176,7 +178,7 @@
     /* Page loading overlay: shown by loading(content) after a 250ms CSS delay, faded out as soon as the page content replaces the placeholder. */
     const content = document.getElementById('content'), pg = document.getElementById('pgLoad');
     new MutationObserver(() => { if (!content.querySelector('.pg-ph')) { pg.classList.remove('on'); pg.setAttribute('aria-hidden', 'true'); } addBack(content); }).observe(content, { childList: true });
-    wireXp();
+    wireDrawer(); wireXp();
     return content;
   }
   const loading = (el, t) => {
@@ -221,23 +223,158 @@
     ph.insertAdjacentHTML('afterbegin', `<a class="back-btn" href="${esc(b.from)}">${svg(ICONS.arrowLeft)}<span>Back to ${esc(b.name || 'profile')}</span></a>`);
   }
 
+  /* ---------- More filters drawer (replaces the separate Advanced search page) ----------
+     A right-hand sheet on every page, opened by 'More filters' in the top bar or the filter square on Home.
+     Simple filters first, then the technical ones, then the A–Z / dissolved-name lists. Nothing is shown under the search bar. */
+  function filterDrawer() {
+    const g = (k) => qs.get(k) || '';
+    const E2 = window.CH_ENUMS || {};
+    const kind = ['people', 'disqualified'].includes(g('type')) ? g('type') : 'companies';
+    const adv = g('mode') === 'advanced';
+    const st0 = g('status'), simpleSt = ['', 'active', 'dissolved'].includes(st0) ? st0 : '', exactSt = simpleSt === st0 ? '' : st0;
+    const name = adv ? g('includes') : (g('mode') ? '' : g('q'));
+    const sics = g('sic').split(',').filter((c) => E2.sic2007 && E2.sic2007[c]);
+    const o = (map, cur, any) => `<option value="">${esc(any)}</option>` + Object.entries(map || {}).sort((a, b) => a[1].localeCompare(b[1])).map(([k, v]) => `<option value="${esc(k)}"${k === cur ? ' selected' : ''}>${esc(v)}</option>`).join('');
+    const seg = (nm, items, cur) => `<div class="seg" role="radiogroup">${items.map(([v, l]) => `<label><input type="radio" name="${nm}" value="${v}"${v === cur ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
+    return `<div class="fd-head"><h2 id="fdTitle">Filters</h2><button class="fd-x" type="button" data-close-filters aria-label="Close filters">${svg(ICONS.x)}</button></div>
+      <form class="fd-body" id="fdForm" novalidate>
+        <div class="fd-sec"><h3>Looking for</h3>${seg('fdKind', [['companies', 'Companies'], ['people', 'People'], ['disqualified', 'Disqualified']], kind)}
+          <label class="f"><span id="fdNameL">${kind === 'companies' ? 'Name contains' : 'Name'}</span><input class="input" id="fdName" value="${esc(name)}" autocomplete="off" placeholder="${kind === 'companies' ? 'Optional' : 'Person’s name'}"></label>
+          <p class="fd-note" data-for="people disqualified">People and disqualified directors can be searched by name only.</p></div>
+        <div class="fd-sec" data-for="companies"><h3>Company filters</h3>
+          <span class="f" style="display:block;font-size:var(--fs-sm);font-weight:600;color:var(--ink-800);margin-bottom:5px">Status</span>${seg('fdStatus', [['', 'Any'], ['active', 'Active'], ['dissolved', 'Dissolved']], simpleSt)}
+          <label class="f">Location<input class="input" id="fdLoc" value="${esc(g('loc'))}" placeholder="Town or postcode district, e.g. Leeds or E14"></label>
+          <label class="f">Industry (SIC code)<input class="input" id="fdSicIn" list="fdSicList" placeholder="Type a code or an activity" autocomplete="off"></label>
+          <datalist id="fdSicList">${Object.entries(E2.sic2007 || {}).map(([c, d]) => `<option value="${esc(c + ' ' + d)}"></option>`).join('')}</datalist>
+          <input type="hidden" id="fdSic" value="${esc(sics.join(','))}"><div class="sic-picked" id="fdSicPicked" aria-live="polite"></div></div>
+        <div class="fd-sec" data-for="companies"><h3>More options</h3>
+          <label class="f">Name excludes<input class="input" id="fdExcl" value="${esc(g('excludes'))}"></label>
+          <label class="f">Exact status<select class="input" id="fdXStatus">${o(E2.company_status, exactSt, 'Use the status above')}</select></label>
+          <label class="f">Company type<select class="input" id="fdType">${o(E2.company_type, g('ctype'), 'Any type')}</select></label>
+          <label class="f">Subtype<select class="input" id="fdSub">${o(E2.company_subtype, g('subtype'), 'Any subtype')}</select></label>
+          <div class="row2"><label class="f">Incorporated from<input class="input" type="date" id="fdIncF" value="${esc(g('incf'))}"></label><label class="f">Incorporated to<input class="input" type="date" id="fdIncT" value="${esc(g('inct'))}"></label></div>
+          <div class="row2"><label class="f">Dissolved from<input class="input" type="date" id="fdDisF" value="${esc(g('disf'))}"></label><label class="f">Dissolved to<input class="input" type="date" id="fdDisT" value="${esc(g('dist'))}"></label></div></div>
+        <div class="fd-sec" data-for="companies"><h3>Browse by name</h3>
+          <label class="f">Starting from name<input class="input" id="fdBq" value="${esc(['az', 'dissolved'].includes(g('mode')) ? g('q') : '')}"></label>
+          ${seg('fdBmode', [['az', 'A–Z, all companies'], ['dissolved', 'Dissolved names']], g('mode') === 'dissolved' ? 'dissolved' : 'az')}
+          <label class="check"><input type="checkbox" id="fdPrev"${g('prev') ? ' checked' : ''}>Include previous names (dissolved only)</label>
+          <button class="btn" type="button" id="fdBrowse">Browse list</button></div>
+        <button type="submit" hidden></button>
+      </form>
+      <div class="fd-foot"><button class="btn" type="button" id="fdClear">Clear all</button><button class="btn primary" type="button" id="fdGo">Show results</button></div>`;
+  }
+  function wireDrawer() {
+    const fd = document.getElementById('fd'), scrim = document.getElementById('fdScrim');
+    if (!fd) return;
+    const $ = (sel) => fd.querySelector(sel);
+    const E2 = window.CH_ENUMS || {};
+    const openers = () => document.querySelectorAll('[data-open-filters]');
+    let last = null;
+    const open = (on, from) => {
+      document.body.classList.toggle('fd-open', on);
+      openers().forEach((b) => b.setAttribute('aria-expanded', String(on)));
+      if (on) { last = from || document.activeElement; setTimeout(() => { const f = kind() === 'companies' && !$('#fdName').value ? $('#fdLoc') : $('#fdName'); f.focus(); }, 60); }
+      else if (last && last.focus) last.focus();
+    };
+    document.addEventListener('click', (ev) => { const b = ev.target.closest('[data-open-filters]'); if (b) { ev.preventDefault(); open(true, b); } });
+    fd.querySelectorAll('[data-close-filters]').forEach((b) => b.addEventListener('click', () => open(false)));
+    scrim.addEventListener('click', () => open(false));
+    document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && document.body.classList.contains('fd-open')) open(false); });
+    const kind = () => (fd.querySelector('input[name=fdKind]:checked') || {}).value || 'companies';
+    const showKind = () => {
+      const k = kind();
+      fd.querySelectorAll('[data-for]').forEach((x) => x.classList.toggle('on', x.dataset.for.split(' ').includes(k)));
+      $('#fdNameL').textContent = k === 'companies' ? 'Name contains' : 'Name';
+      $('#fdName').placeholder = k === 'companies' ? 'Optional' : 'Person’s name';
+    };
+    fd.querySelectorAll('input[name=fdKind]').forEach((r) => r.addEventListener('change', showKind));
+    showKind();
+    // SIC picker
+    const hidden = $('#fdSic'), picked = $('#fdSicPicked'), inp = $('#fdSicIn');
+    const codes = () => hidden.value.split(',').filter(Boolean);
+    const draw = () => {
+      picked.innerHTML = codes().map((c) => `<div class="sic-p"><b class="mono">${esc(c)}</b><span>${esc((E2.sic2007 || {})[c] || '')}</span><button type="button" data-rmsic="${esc(c)}" aria-label="Remove SIC ${esc(c)}">${svg(ICONS.x).replace('<svg ', '<svg width="14" height="14" ')}</button></div>`).join('');
+      picked.querySelectorAll('[data-rmsic]').forEach((b) => b.addEventListener('click', () => { hidden.value = codes().filter((c) => c !== b.dataset.rmsic).join(','); draw(); inp.focus(); }));
+    };
+    const add = () => {
+      const m = /^\s*(\d{5})\b/.exec(inp.value), map = E2.sic2007 || {};
+      let code = m && map[m[1]] ? m[1] : '';
+      if (!code && inp.value.trim()) { const t = inp.value.trim().toLowerCase(); const hit = Object.entries(map).find(([, d]) => d.toLowerCase() === t); if (hit) code = hit[0]; }
+      if (code && !codes().includes(code)) { hidden.value = codes().concat(code).join(','); draw(); }
+      if (code) inp.value = '';
+    };
+    inp.addEventListener('change', add);
+    inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); add(); } });
+    draw();
+    const go = () => {
+      const k = kind(), name = $('#fdName').value.trim();
+      if (k !== 'companies') { if (!name) { $('#fdName').focus(); return; } location.href = withParams('index.html', { q: name, type: k }); return; }
+      add();
+      const status = $('#fdXStatus').value || (fd.querySelector('input[name=fdStatus]:checked') || {}).value || '';
+      const p = { mode: 'advanced', includes: name, excludes: $('#fdExcl').value.trim(), status, ctype: $('#fdType').value, subtype: $('#fdSub').value, sic: hidden.value, loc: $('#fdLoc').value.trim(), incf: $('#fdIncF').value, inct: $('#fdIncT').value, disf: $('#fdDisF').value, dist: $('#fdDisT').value };
+      if (qs.get('mode') === 'advanced' && qs.get('near')) { p.near = qs.get('near'); p.neartown = qs.get('neartown') || ''; }
+      if (!ADV_FIELDS.some((f) => p[f])) { $('#fdName').focus(); $('#fdName').placeholder = 'Add a name or at least one filter'; return; }
+      location.href = withParams('index.html', p);
+    };
+    $('#fdGo').addEventListener('click', go);
+    $('#fdForm').addEventListener('submit', (ev) => { ev.preventDefault(); go(); });
+    $('#fdBrowse').addEventListener('click', () => {
+      const q = $('#fdBq').value.trim(); if (!q) { $('#fdBq').focus(); return; }
+      const m = (fd.querySelector('input[name=fdBmode]:checked') || {}).value || 'az';
+      location.href = withParams('index.html', { mode: m, q, prev: m === 'dissolved' && $('#fdPrev').checked ? 1 : '' });
+    });
+    $('#fdClear').addEventListener('click', () => {
+      fd.querySelectorAll('.input').forEach((i) => { if (i.tagName === 'SELECT') i.selectedIndex = 0; else i.value = ''; });
+      hidden.value = ''; draw(); $('#fdPrev').checked = false;
+      const a = fd.querySelector('input[name=fdStatus][value=""]'); if (a) a.checked = true;
+    });
+    if (qs.get('adv') === '1') open(true);
+  }
+  /* Plain-text summary of the applied filters for the results page (no badges). */
+  function filterSummary() {
+    const g = (k) => qs.get(k) || '', E2 = window.CH_ENUMS || {}, lab = (m, k) => (E2[m] && E2[m][k]) || k;
+    const parts = [];
+    if (g('sic')) parts.push(g('sic').split(',').map((c) => `<b>${esc(c)}</b> ${esc((E2.sic2007 || {})[c] || '')}`).join('; '));
+    if (g('status')) parts.push(esc(lab('company_status', g('status'))));
+    if (g('loc')) parts.push('in <b>' + esc(g('loc')) + '</b>');
+    if (g('includes')) parts.push('name contains “' + esc(g('includes')) + '”');
+    if (g('excludes')) parts.push('name excludes “' + esc(g('excludes')) + '”');
+    if (g('ctype')) parts.push(esc(lab('company_type', g('ctype'))));
+    if (g('subtype')) parts.push(esc(lab('company_subtype', g('subtype'))));
+    if (g('incf') || g('inct')) parts.push('incorporated ' + esc([g('incf') && 'from ' + N.fmtDate(g('incf')), g('inct') && 'to ' + N.fmtDate(g('inct'))].filter(Boolean).join(' ')));
+    if (g('disf') || g('dist')) parts.push('dissolved ' + esc([g('disf') && 'from ' + N.fmtDate(g('disf')), g('dist') && 'to ' + N.fmtDate(g('dist'))].filter(Boolean).join(' ')));
+    return `<div class="f-sum"><span class="f-txt">${parts.join(' · ') || 'No filters'}</span><span class="f-act"><button class="lnk" type="button" data-open-filters aria-controls="fd">Edit filters</button><a href="index.html">Clear</a></span></div>`;
+  }
+
   /* ---------- Experimental settings popup (account button). Temporary, for trying out this round's choices. ---------- */
-  const XP_SEG = [
-    ['tipos', 'Tile icon position', [['left', 'Left'], ['right', 'Right']]],
-    ['tistyle', 'Tile icon style', [['tinted', 'Tinted blue'], ['plain', 'Plain']]],
-    ['initials', 'Director initials', [['variants', 'Blue variants'], ['single', 'Single blue'], ['grey', 'Grey']]],
-    ['picon', 'Person icon', [['circle', 'Circle user'], ['round', 'User round'], ['user', 'User'], ['initials', 'Initials']]],
-    ['openbtn', 'Open buttons', [['outline', 'Outline'], ['filled', 'Filled']]],
-  ];
+  const XP_SEG = {
+    ststyle: ['Style', [['current', 'Current'], ['thin', 'Thin'], ['centred', 'Centred'], ['accent', 'Accent border'], ['plain', 'Plain']]],
+    stpos: ['Icon position', [['left', 'Top-left'], ['right', 'Top-right']]],
+    tistyle: ['Header icons', [['tinted', 'Tinted blue'], ['plain', 'Plain']]],
+    openbtn: ['Open buttons', [['outline', 'Outline'], ['filled', 'Filled']]],
+    initials: ['Initials colour', [['variants', 'Blue variants'], ['single', 'Single blue'], ['grey', 'Grey']]],
+    picon: ['Person icon', [['circle', 'Circle user'], ['round', 'User round'], ['user', 'User'], ['initials', 'Initials']]],
+  };
+  /* Sliders: key -> [label, min, max, step, unit]. */
+  const XP_SL = {
+    tk: ['Highlight strength', 0, 200, 5, '%'],
+    scale: ['UI scale', 80, 120, 1, '%'],
+    avSize: ['Initials size', 20, 44, 1, 'px'],
+    sicH: ['Row height', 20, 40, 1, 'px'],
+  };
   function xpHtml() {
     const T = window.ZuliTweaks; if (!T) return ACCT_HTML;
     const v = T.get(), D = T.DEF;
-    const seg = ([k, l, ops]) => `<div class="xp-r"><span>${esc(l)}</span><div class="seg2" role="group" aria-label="${esc(l)}">${ops.map(([val, t]) => `<button type="button" data-xs="${k}" data-xv="${val}" class="${v[k] === val ? 'on' : ''}" aria-pressed="${v[k] === val}">${t}</button>`).join('')}</div></div>`;
+    const seg = (k) => { const [l, ops] = XP_SEG[k]; return `<div class="xp-r"><span>${esc(l)}</span><div class="seg2" role="group" aria-label="${esc(l)}">${ops.map(([val, t]) => `<button type="button" data-xs="${k}" data-xv="${val}" class="${v[k] === val ? 'on' : ''}" aria-pressed="${v[k] === val}">${t}</button>`).join('')}</div></div>`; };
+    const sl = (k) => { const [l, mn, mx, step, u] = XP_SL[k]; return `<label class="xp-r"><span>${esc(l)}</span><span class="xp-sl"><input type="range" min="${mn}" max="${mx}" step="${step}" value="${esc(v[k])}" data-xk="${k}" aria-label="${esc(l)}"><span class="xp-num"><input type="number" min="${mn}" max="${mx}" step="${step}" value="${esc(v[k])}" data-xn="${k}" aria-label="${esc(l)} in ${u === '%' ? 'per cent' : 'pixels'}"><i>${u}</i></span></span></label>`; };
     return `<div class="xp-head"><div><h2>Experimental settings</h2><span class="xp-sub">Saved in this browser. Applies to every page.</span></div><button class="btn sm" type="button" id="xpReset">Reset to defaults</button></div>
       <div class="xp-body">
-        <div class="xp-sec"><h3>Zuli blue</h3><div class="xp-r"><span>Accent</span><div class="xp-col"><input type="color" value="${esc(v.accent)}" id="xpCol" aria-label="Accent colour"><input type="text" value="${esc(v.accent)}" id="xpHex" maxlength="7" aria-label="Accent hex" spellcheck="false"><button class="btn sm" type="button" id="xpColReset" title="Back to ${esc(D.accent)}">Reset</button></div></div></div>
-        <div class="xp-sec"><h3>Tiles and people</h3>${XP_SEG.map(seg).join('')}</div>
-        <div class="xp-sec"><h3>SIC rows</h3><label class="xp-r"><span>Row height</span><span class="xp-sl"><input type="range" min="20" max="40" step="1" value="${esc(v.sicH)}" data-xk="sicH" aria-label="SIC row height"><input type="number" min="20" max="40" step="1" value="${esc(v.sicH)}" data-xn="sicH" aria-label="SIC row height in pixels"></span></label></div>
+        <div class="xp-sec"><h3>Zuli blue</h3><div class="xp-r"><span>Accent</span><div class="xp-col"><input type="color" value="${esc(v.accent)}" id="xpCol" aria-label="Accent colour"><input type="text" value="${esc(v.accent)}" id="xpHex" maxlength="7" aria-label="Accent hex" spellcheck="false"><button class="btn sm" type="button" id="xpColReset" title="Back to ${esc(D.accent)}">Reset</button></div></div>${sl('tk')}</div>
+        <div class="xp-sec"><h3>Size</h3>${sl('scale')}</div>
+        <div class="xp-sec"><h3>Stat tiles</h3>${seg('ststyle')}${seg('stpos')}</div>
+        <div class="xp-sec"><h3>Section tiles</h3>${seg('tistyle')}${seg('openbtn')}</div>
+        <div class="xp-sec"><h3>People</h3>${seg('initials')}${sl('avSize')}${seg('picon')}</div>
+        <div class="xp-sec"><h3>SIC rows</h3>${sl('sicH')}</div>
       </div>
       <div class="xp-foot"><span>Accounts aren't available yet.</span><a href="settings.html">Settings</a></div>`;
   }
@@ -348,60 +485,6 @@
     draw();
   }
   const opts = (map, cur, any) => `<option value="">${esc(any)}</option>` + Object.entries(map || {}).sort((a, b) => a[1].localeCompare(b[1])).map(([k, v]) => `<option value="${esc(k)}"${k === cur ? ' selected' : ''}>${esc(v)}</option>`).join('');
-  function advancedPanel(mode, open) {
-    const g = (k) => qs.get(k) || '';
-    const sics = g('sic').split(',').filter((c) => E.sic2007 && E.sic2007[c]);
-    return `<div class="panel adv" id="adv"${open ? '' : ' hidden'}>
-      <h2>Filter companies</h2>
-      <form class="filters" id="advForm" method="get" action="index.html"><input type="hidden" name="mode" value="advanced">
-        <label class="grow">Name includes<input class="input" name="includes" value="${esc(g('includes'))}"></label>
-        <label class="grow">Name excludes<input class="input" name="excludes" value="${esc(g('excludes'))}"></label>
-        <label>Status<select class="input" name="status">${opts(E.company_status, g('status'), 'Any status')}</select></label>
-        <label>Type<select class="input" name="ctype">${opts(E.company_type, g('ctype'), 'Any type')}</select></label>
-        <label>Subtype<select class="input" name="subtype">${opts(E.company_subtype, g('subtype'), 'Any subtype')}</select></label>
-        <label class="grow">Location<input class="input" name="loc" value="${esc(g('loc'))}" placeholder="Town or postcode district"></label>
-        <label class="grow">Activity (SIC 2007)<input class="input" id="sicIn" list="sicList" placeholder="Type a code or an activity" autocomplete="off"></label>
-        <datalist id="sicList">${Object.entries(E.sic2007 || {}).map(([c, d]) => `<option value="${esc(c + ' ' + d)}"></option>`).join('')}</datalist>
-        <input type="hidden" name="sic" id="sicHidden" value="${esc(sics.join(','))}">
-        <label>Incorporated from<input class="input" type="date" name="incf" value="${esc(g('incf'))}"></label>
-        <label>Incorporated to<input class="input" type="date" name="inct" value="${esc(g('inct'))}"></label>
-        <label>Dissolved from<input class="input" type="date" name="disf" value="${esc(g('disf'))}"></label>
-        <label>Dissolved to<input class="input" type="date" name="dist" value="${esc(g('dist'))}"></label>
-        <button class="btn primary" type="submit">Search</button>${mode === 'advanced' ? '<a class="btn ghost" href="index.html?mode=advanced">Clear</a>' : ''}
-      </form>
-      <div class="sic-picked" id="sicPicked" aria-live="polite"></div>
-      <h2 style="margin-top:16px">Browse by name</h2>
-      <form class="filters" id="listForm" method="get" action="index.html">
-        <label class="grow">Name<input class="input" name="q" value="${esc(mode === 'az' || mode === 'dissolved' ? g('q') : '')}" required></label>
-        <label>List<select class="input" name="mode"><option value="az"${mode === 'az' ? ' selected' : ''}>A–Z, all companies</option><option value="dissolved"${mode === 'dissolved' ? ' selected' : ''}>Dissolved companies</option></select></label>
-        <label style="display:flex;gap:6px;align-items:center;font-size:var(--fs-sm);color:var(--ink-700)"><input type="checkbox" name="prev" value="1"${g('prev') ? ' checked' : ''}>Search previous names (dissolved companies)</label>
-        <button class="btn" type="submit">Browse</button>
-      </form></div>`;
-  }
-  function wireAdvanced(el) {
-    const btn = el.querySelector('#advBtn'), panel = el.querySelector('#adv');
-    btn.addEventListener('click', () => { const open = panel.hidden; panel.hidden = !open; btn.setAttribute('aria-expanded', String(open)); if (open) panel.querySelector('input:not([type=hidden])').focus(); });
-    const hidden = el.querySelector('#sicHidden'), picked = el.querySelector('#sicPicked'), inp = el.querySelector('#sicIn');
-    const codes = () => hidden.value.split(',').filter(Boolean);
-    const draw = () => {
-      picked.innerHTML = codes().map((c) => `<span class="chip"><b class="mono">${esc(c)}</b>${esc(E.sic2007[c] || '')}<button type="button" class="lnk" data-rmsic="${esc(c)}" aria-label="Remove SIC ${esc(c)}">${svg(ICONS.x).replace('<svg ', '<svg width="12" height="12" ')}</button></span>`).join('');
-      picked.querySelectorAll('[data-rmsic]').forEach((b) => b.addEventListener('click', () => { hidden.value = codes().filter((c) => c !== b.dataset.rmsic).join(','); draw(); inp.focus(); }));
-    };
-    const add = () => {
-      const m = /^\s*(\d{5})\b/.exec(inp.value);
-      let code = m && E.sic2007[m[1]] ? m[1] : '';
-      if (!code && inp.value.trim()) { const t = inp.value.trim().toLowerCase(); const hit = Object.entries(E.sic2007).find(([, d]) => d.toLowerCase() === t); if (hit) code = hit[0]; }
-      if (code && !codes().includes(code)) { hidden.value = codes().concat(code).join(','); draw(); }
-      if (code) inp.value = '';
-    };
-    inp.addEventListener('change', add);
-    inp.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); add(); } });
-    draw();
-    el.querySelectorAll('#advForm, #listForm').forEach((f) => f.addEventListener('submit', (ev) => {
-      if (f.id === 'advForm') add();
-      f.querySelectorAll('input, select').forEach((i) => { if (!i.value && i.name) i.disabled = true; });
-    }));
-  }
   const resRow = (c, extra) => `<div class="res"><div class="res-nm">${window.UI.kindIcon('company')}<a class="nm" href="${esc(U.company(c.number))}">${esc(c.name)}</a></div><div class="rt">${st(c.status, c.colour)}</div>
     <div class="meta">${esc(['No. ' + c.number, c.type, c.created && 'Incorporated ' + c.created, c.ceased && 'Ceased ' + c.ceased].filter(Boolean).join(' · '))}</div><div></div>
     ${c.address ? `<div class="addr">${esc(c.address)}</div>` : ''}${extra || ''}</div>`;
@@ -417,12 +500,16 @@
     const rv = viewedList().slice(0, 6), sv = saved().slice(0, 4);
     const recent = rv.length ? `<div class="res-list">${rv.map((r) => `<div class="res row-link"><div class="res-nm">${kic(r.type === 'company' ? 'company' : 'person', r.name)}<a class="nm" href="${esc(viewHref(r))}">${esc(r.name)}</a></div><div class="rt">${r.type === 'company' ? 'No. ' + esc(r.id) : ''}</div></div>`).join('')}</div>` : '<div class="plain-msg">Nothing viewed yet.</div>';
     const savedL = sv.length ? `<div class="res-list">${sv.map((x) => `<div class="res row-link"><div class="res-nm">${kic(x.kind === 'person' ? 'person' : 'company', x.name)}<a class="nm" href="${esc(x.kind === 'person' ? x.href : U.company(x.number))}">${esc(x.name)}</a></div><div class="rt">${x.kind === 'person' ? '' : 'No. ' + esc(x.number)}</div></div>`).join('')}</div>` : '<div class="plain-msg">Nothing saved yet.</div>';
-    el.innerHTML = `<h1 class="sr">Home</h1><div class="home-hero"><form class="home-big" id="homeForm" action="index.html" method="get" role="search"><label class="home-big-l" for="homeQ">Search</label><div class="home-big-r"><input id="homeQ" name="q" type="search" placeholder="Company name or number, or a person's name"><input type="hidden" name="type" id="homeType" value="${type}"${type === 'companies' ? ' disabled' : ''}>${advSq()}<button class="btn" type="submit">Search</button></div>
+    /* app2 home, fitted to the main build: Zuli-blue banner with a greeting, floating search, then shortcut cards. */
+    const hr = new Date().getHours(), greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+    const ic = (g) => `<span class="ti" aria-hidden="true">${svg(g)}</span>`;
+    const card = (href, g, n, l) => `<a class="hcard" href="${href}"><span class="hc-ic" aria-hidden="true">${svg(g)}</span><span class="hc-t"><b class="num">${n}</b><span>${l}</span></span></a>`;
+    el.innerHTML = `<h1 class="sr">Home</h1><div class="home-hero home-z"><form class="home-big" id="homeForm" action="index.html" method="get" role="search"><p class="home-greet">${greet}</p><label class="home-big-l" for="homeQ">Look up any UK company</label><div class="home-big-r"><span class="home-big-ic" aria-hidden="true">${svg(ICONS.search)}</span><input id="homeQ" name="q" type="search" placeholder="Company name or number, or a person's name"><input type="hidden" name="type" id="homeType" value="${type}"${type === 'companies' ? ' disabled' : ''}>${advSq()}<button class="btn primary" type="submit">Search</button></div>
         <nav class="tabs-plain home-scope" aria-label="Search in">${SEARCH_TYPES.map(([k, l]) => `<a href="#" data-type="${k}"${k === type ? ' class="on" aria-current="true"' : ''}>${l}</a>`).join('')}</nav></form></div>
       ${chKey() ? '' : '<div class="panel plain-msg" style="margin-bottom:16px">Add your Companies House API key in <a href="settings.html">Settings</a> to start searching.</div>'}
-      <div class="home-bento"><section class="tile home-s7"><div class="tile-head"><h2 class="h3">Recently viewed</h2><span class="aside"><a href="index.html?view=search">See all</a>${window.UI.openBtn({ href: 'index.html?view=search', label: 'Open recently viewed' })}</span></div>${recent}</section>
-        <section class="tile home-s5"><div class="tile-head"><h2 class="h3">Saved</h2><span class="aside"><a href="saved.html">All saved</a>${window.UI.openBtn({ href: 'saved.html', label: 'Open saved' })}</span></div>${savedL}</section>
-        <section class="tile home-s12"><div class="tile-head"><h2 class="h3">Alerts</h2></div><div class="plain-msg">Alerts are coming soon. You'll be able to watch a company or person with the bell next to Save.</div></section></div>`;
+      <div class="home-cards">${card('index.html?view=search', ICONS.clock, viewedList().length, 'Recently viewed')}${card('saved.html', ICONS.bookmark, saved().length, 'Saved')}${card('alerts.html', ICONS.bell, 'Soon', 'Alerts')}</div>
+      <div class="home-bento"><section class="tile home-s7"><div class="tile-head"><h2 class="h3">${ic(ICONS.clock)}Recently viewed</h2><span class="aside"><a href="index.html?view=search">See all</a>${window.UI.openBtn({ href: 'index.html?view=search', label: 'Open recently viewed' })}</span></div>${recent}</section>
+        <section class="tile home-s5"><div class="tile-head"><h2 class="h3">${ic(ICONS.bookmark)}Saved</h2><span class="aside"><a href="saved.html">All saved</a>${window.UI.openBtn({ href: 'saved.html', label: 'Open saved' })}</span></div>${savedL}</section></div>`;
     const hid = el.querySelector('#homeType');
     el.querySelectorAll('[data-type]').forEach((a) => a.addEventListener('click', (ev) => {
       ev.preventDefault(); type = a.dataset.type;
@@ -440,7 +527,6 @@
     const type = ['people', 'disqualified'].includes(qs.get('type')) ? qs.get('type') : 'companies';
     const mode = ['advanced', 'az', 'dissolved'].includes(qs.get('mode')) ? qs.get('mode') : '';
     const page = Math.max(1, parseInt(qs.get('page'), 10) || 1);
-    const advBtn = (open) => `<button class="btn" type="button" id="advBtn" aria-expanded="${open}" aria-controls="adv">Advanced</button>`;
     if (q && !mode && page === 1) {
       const go = pastedTarget(q);
       if (go) { location.replace(go); return; }
@@ -448,11 +534,9 @@
     }
     if (!q && !mode) {
       setTitle('Search');
-      el.innerHTML = `<div class="page-head"><div><h1>Search</h1><div class="sub">Search Companies House by company name or number, or by a person's name. You can also paste a Companies House link or officer ID.</div></div><div>${advBtn(false)}</div></div>${chKey() ? '' : '<div class="panel plain-msg" style="margin-bottom:16px">Add your Companies House API key in <a href="settings.html">Settings</a> to start searching.</div>'}${advancedPanel('', qs.get('adv') === '1')}<div id="viewedBox"></div>`;
-      wireAdvanced(el);
-      if (qs.get('adv') === '1') el.querySelector('#advBtn').setAttribute('aria-expanded', 'true');
+      el.innerHTML = `<div class="page-head"><div><h1>Search</h1><div class="sub">Search Companies House by company name or number, or by a person's name. You can also paste a Companies House link or officer ID. For filters, use the filter button next to the search box.</div></div></div>${chKey() ? '' : '<div class="panel plain-msg" style="margin-bottom:16px">Add your Companies House API key in <a href="settings.html">Settings</a> to start searching.</div>'}<div id="viewedBox"></div>`;
       wireViewed(el);
-      (qs.get('adv') === '1' ? el.querySelector('#adv input:not([type=hidden])') : document.querySelector('.search input')).focus();
+      if (qs.get('adv') !== '1') document.querySelector('.search input').focus();
       return;
     }
     let title, tabs = '';
@@ -469,8 +553,8 @@
     const near = mode === 'advanced' ? (qs.get('near') || '').trim() : '';
     const nearTabs = near ? (() => { const base = Object.fromEntries(ADV_FIELDS.concat(['near', 'neartown']).map((k) => [k, qs.get(k)])); const here = (qs.get('loc') || '') === near; const town = qs.get('neartown');
       return `<nav class="tabs-plain scope-row" aria-label="Area"><a href="${esc(withParams('index.html', Object.assign({ mode }, base, { loc: '' })))}"${here ? '' : ' class="on" aria-current="page"'}>Whole UK</a><a href="${esc(withParams('index.html', Object.assign({ mode }, base, { loc: near })))}"${here ? ' class="on" aria-current="page"' : ''}>Near ${esc(near)}${town && town.toUpperCase() !== near.toUpperCase() ? ' (' + esc(town) + ')' : ''}</a></nav>`; })() : '';
-    el.innerHTML = `<div class="page-head"><div><h1>${esc(title)}</h1></div><div>${advBtn(!!mode && !near)}</div></div>${advancedPanel(mode, !!mode && !near)}${nearTabs}${tabs}<div class="panel" id="res"></div>`;
-    wireAdvanced(el);
+    const sub = mode === 'advanced' ? filterSummary() : (mode ? `<div class="f-sum"><span class="f-act"><button class="lnk" type="button" data-open-filters aria-controls="fd">Edit filters</button></span></div>` : '');
+    el.innerHTML = `<div class="page-head"><div><h1>${esc(title)}</h1></div></div>${sub}${nearTabs}${tabs}<div class="panel" id="res"></div>`;
     const res = document.getElementById('res');
     loading(res, 'Searching…');
     try {

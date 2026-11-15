@@ -65,8 +65,8 @@
   const openBtn = (o, title) => (!o ? '' : o.span ? `<span class="tile-open" aria-hidden="true">${LU(GLYPH.arrowUpRight)}</span>` : `<a class="tile-open" href="${esc(o.href)}" aria-label="${esc(o.label || 'Open ' + title)}">${LU(GLYPH.arrowUpRight)}</a>`);
   /* app3: tinted Zuli-blue icon square per tile title. Rendered on both sides; <html data-tipos=right> shows the right one. */
   const TI = { 'Deadlines': 'calendarClock', 'People': 'usersRound', 'Directors': 'usersRound', 'Officers': 'usersRound', 'Members': 'usersRound', 'Partners': 'usersRound', 'Ownership': 'pie', 'Charges': 'landmark', 'Officer changes': 'arrows', 'Board activity': 'chart', 'Appointments by year': 'chart', 'Appointment history': 'chart', 'Filing history': 'fileText', 'Similar companies': 'company', 'UK establishments': 'company', 'Insolvency': 'shield', 'Appointments': 'briefcase', 'Companies this person controls': 'pie', 'Disqualified director': 'shield', 'Owner details only': 'pie', 'Details': 'personRound' };
-  const tIcon = (title, side) => (TI[title] ? `<span class="ti ti-${side}" aria-hidden="true">${LU(GLYPH[TI[title]])}</span>` : '');
-  const head = (title, count, aside, open) => `<div class="tile-head"><h3>${tIcon(title, 'l')}${esc(title)}${count != null && count !== '' ? `<span class="count">${esc(count)}</span>` : ''}</h3><span class="aside">${aside || ''}${tIcon(title, 'r')}${openBtn(open, title)}</span></div>`;
+  const tIcon = (title) => (TI[title] ? `<span class="ti" aria-hidden="true">${LU(GLYPH[TI[title]])}</span>` : '');
+  const head = (title, count, aside, open) => `<div class="tile-head"><h3>${tIcon(title)}${esc(title)}${count != null && count !== '' ? `<span class="count">${esc(count)}</span>` : ''}</h3>${aside || open ? `<span class="aside">${aside || ''}${openBtn(open, title)}</span>` : ''}</div>`;
 
   /* Nation of registration, shown at the end of the address row: flag (England, Wales, Scotland) and the nation name as text.
      n = {flag, name} or {text, reg}. reg = true when the text is a place of registration (Northern Ireland, England & Wales). */
