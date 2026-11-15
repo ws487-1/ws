@@ -1,0 +1,2 @@
+/* Zuli app2: S2 / Soft compact C4 base plus the app2 indigo layer. */
+(function(){const h=document.documentElement;h.dataset.style='s2';h.dataset.layer='soft';h.dataset.resigned='hatched';h.dataset.person='A';document.write('<link rel="stylesheet" href="styles/common.css?v=app2a"><link rel="stylesheet" href="styles/s2.css?v=app2a"><link rel="stylesheet" href="styles/prosper.css?v=app2a"><link rel="stylesheet" href="styles/app2.css?v=app2a">')})();
