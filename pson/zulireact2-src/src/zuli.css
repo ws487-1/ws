@@ -1,0 +1,80 @@
+/* Zuli React v2: only what stock shadcn doesn't cover. Everything here is driven by the experimental settings
+   (attributes on <html>, see lib/tweaks.ts). Unlayered, so it wins over utility classes where it needs to. */
+html { font-size: calc(16px * var(--fs, 1)); }
+html[data-font=inter] { --z-font: 'Inter Variable'; }
+html[data-font=geist] { --z-font: 'Geist Variable'; }
+
+/* Density: gap between cards and card padding (stock card padding is the default). */
+html[data-density=compact] { --gap: .625rem; }
+html[data-density=compact] [data-slot=card] { --card-spacing: 1rem; }
+html[data-density=comfortable] { --gap: 1.5rem; }
+html[data-density=comfortable] [data-slot=card] { --card-spacing: 1.875rem; }
+
+/* Cards: shadow and border (ring) toggles. */
+html[data-shadow=none] [data-slot=card] { --tw-shadow: 0 0 #0000; }
+html[data-shadow=soft] [data-slot=card] { --tw-shadow: 0 4px 14px -4px rgb(0 0 0 / .08), 0 1px 2px rgb(0 0 0 / .04); }
+html[data-shadow=lifted] [data-slot=card] { --tw-shadow: 0 12px 32px -12px rgb(0 0 0 / .18), 0 2px 6px rgb(0 0 0 / .05); }
+html[data-border=off] [data-slot=card] { --tw-ring-shadow: 0 0 #0000; }
+html[data-cardbg=muted] [data-slot=card] { background: color-mix(in oklab, var(--muted) 55%, var(--card)); }
+
+/* Tables: optional zebra striping. */
+html[data-stripe=on] [data-slot=table-body] tr:nth-child(even) { background: color-mix(in oklab, var(--muted) 70%, transparent); }
+
+/* Sidebar menu items as real buttons. outline (default): bordered buttons, active filled with primary.
+   secondary: filled grey buttons. solid: plain items, active filled. ghost: stock shadcn. */
+html[data-nav=outline] [data-sidebar=menu-button][data-size=default] { background: var(--background); box-shadow: 0 0 0 1px var(--sidebar-border), 0 1px 2px rgb(0 0 0 / .04); }
+html[data-nav=secondary] [data-sidebar=menu-button][data-size=default] { background: var(--secondary); color: var(--secondary-foreground); }
+html[data-nav=outline] [data-sidebar=menu-button][data-size=default]:hover, html[data-nav=secondary] [data-sidebar=menu-button][data-size=default]:hover { background: var(--sidebar-accent); }
+html:is([data-nav=outline], [data-nav=secondary], [data-nav=solid]) [data-sidebar=menu-button][data-size=default][data-active=true] { background: var(--primary); color: var(--primary-foreground); box-shadow: 0 1px 2px rgb(0 0 0 / .1); font-weight: 500; }
+html:is([data-nav=outline], [data-nav=secondary]) [data-sidebar=menu] { gap: .375rem; }
+/* Top-bar layout nav: same styles on the header buttons. */
+.z-topnav a[data-active=true] { background: var(--primary); color: var(--primary-foreground); }
+
+/* Logo: black (white in dark mode) by default, or the original artwork. */
+html[data-logo=ink] .z-logo { filter: brightness(0); }
+html.dark[data-logo=ink] .z-logo { filter: brightness(0) invert(1); }
+
+/* Status: bold text, never a pill. */
+.st { font-weight: 600; white-space: nowrap; }
+.st.green { color: var(--ok); }
+.st.amber { color: oklch(0.555 0.163 48.998); }
+.st.red { color: var(--destructive); }
+.st.grey { color: var(--muted-foreground); }
+.dark .st.amber { color: oklch(0.828 0.189 84.429); }
+
+/* Initials (shadcn Avatar fallback): neutral greys or six shades of the primary colour. */
+[data-slot=avatar-fallback].ini { font-weight: 600; font-size: .7rem; letter-spacing: .02em; }
+html[data-initials=neutral] .ini { background: var(--muted); color: var(--foreground); }
+html[data-initials=primary] .ini { color: var(--primary); }
+html[data-initials=primary] .ini.b1 { background: color-mix(in oklab, var(--primary) 8%, var(--background)); }
+html[data-initials=primary] .ini.b2 { background: color-mix(in oklab, var(--primary) 13%, var(--background)); }
+html[data-initials=primary] .ini.b3 { background: color-mix(in oklab, var(--primary) 18%, var(--background)); }
+html[data-initials=primary] .ini.b4 { background: color-mix(in oklab, var(--primary) 24%, var(--background)); }
+html[data-initials=primary] .ini.b5 { background: var(--primary); color: var(--primary-foreground); }
+html[data-initials=primary] .ini.b6 { background: color-mix(in oklab, var(--primary) 70%, var(--foreground)); color: var(--primary-foreground); }
+html[data-initials=solid] .ini { background: var(--primary); color: var(--primary-foreground); }
+
+/* Copy-on-click values. */
+.cp { cursor: copy; border-radius: calc(var(--radius) * .4); transition: background .15s; }
+.cp:hover { background: var(--accent); }
+.cp.copied { background: color-mix(in oklab, var(--ok) 18%, transparent); }
+
+/* Bento grid: 12 columns, collapses to one on phones. */
+.bento { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: var(--gap); }
+.bento > * { min-width: 0; }
+.s3 { grid-column: span 3; } .s4 { grid-column: span 4; } .s5 { grid-column: span 5; } .s6 { grid-column: span 6; } .s7 { grid-column: span 7; } .s8 { grid-column: span 8; } .s12 { grid-column: span 12; }
+@media (max-width: 1100px) { .s3 { grid-column: span 6; } .s4, .s5, .s7, .s8 { grid-column: span 12; } }
+@media (max-width: 640px) { .bento > * { grid-column: span 12 !important; } .bento > .s3 { grid-column: span 6 !important; } }
+.z-stack { display: grid; gap: var(--gap); }
+
+/* Definition lists in Details-style cards. */
+.z-dl { display: grid; grid-template-columns: minmax(7.5rem, 40%) minmax(0, 1fr); gap: .375rem .75rem; font-size: .875rem; }
+.z-dl dt { color: var(--muted-foreground); }
+.z-dl dd { overflow-wrap: anywhere; }
+
+/* Board activity mini chart fallback text and kpis */
+.z-kpi { display: grid; gap: .125rem; }
+
+/* Content width option */
+html[data-width=narrow] .z-content { max-width: 1240px; margin-inline: auto; width: 100%; }
+html[data-font=system] { --z-font: system-ui; }
