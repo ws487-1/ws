@@ -23,7 +23,7 @@ export function settingsText(v) {
   const diff = Object.fromEntries(Object.keys(DEF).filter((k) => v[k] !== DEF[k]).map((k) => [k, v[k]]))
   const ks = Object.keys(diff)
   if (!ks.length) return { text: 'No changes from default', n: 0 }
-  const f = (x) => (x === '' ? 'stock' : String(x))
+  const f = (x) => (x === '' ? 'near-black (stock)' : String(x))
   return { text: ['Zuli React v2 settings (changed from default)'].concat(ks.map((k) => `${k}: ${f(diff[k])} (default: ${f(DEF[k])})`), ['JSON: ' + JSON.stringify(diff)]).join('\n'), n: ks.length }
 }
 async function copyText(t) {
@@ -70,6 +70,9 @@ export function XpSheet({ open, onOpenChange }) {
         </div></Row>
         {sl('radius', 'Radius', 0, 1.25, 0.125, (x) => x + 'rem')}
         <Row label="Initials avatars" id="xp-initials">{sel('initials', [['neutral', 'Neutral grey'], ['primary', 'Tints of primary'], ['solid', 'Solid primary']], 'Initials avatars')}</Row>
+        <Row label="Status text" id="xp-status">{sel('status', [['bold', 'Bold colour (current)'], ['dot', 'Dot and text'], ['plain', 'Plain colour']], 'Status text')}</Row>
+        <Row label="Primary buttons">{seg('btn', [['solid', 'Solid'], ['soft', 'Soft tint']], 'Primary buttons')}</Row>
+        <Row label="Chart colours" id="xp-chartPal">{sel('chartPal', [['theme', 'Theme (primary + grey)'], ['shades', 'Shades of primary'], ['mono', 'Monochrome'], ['stock', 'shadcn chart palette']], 'Chart colours')}</Row>
         <Separator />
         <H desc="Sidebar, navigation and page width">Layout</H>
         <Row label="Navigation">{seg('layout', [['sidebar', 'Sidebar'], ['topbar', 'Top bar only']], 'Navigation')}</Row>
@@ -80,7 +83,12 @@ export function XpSheet({ open, onOpenChange }) {
           {v.collapsible !== 'none' ? sw('startCollapsed', 'Start collapsed') : null}
         </> : null}
         <Row label="Menu buttons" id="xp-nav">{sel('nav', [['outline', 'Outline buttons'], ['secondary', 'Filled grey buttons'], ['solid', 'Plain, solid active'], ['ghost', 'Stock ghost']], 'Menu buttons')}</Row>
-        <Row label="Content width">{seg('width', [['full', 'Full'], ['narrow', 'Contained']], 'Content width')}</Row>
+        <Row label="Active menu item" id="xp-navActive">{sel('navActive', [['stock', 'Stock'], ['primary', 'Primary fill'], ['bar', 'Left bar'], ['bold', 'Bold text only']], 'Active menu item')}</Row>
+        {sw('sbLabels', 'Sidebar section labels')}
+        {sw('sbSeps', 'Lines between sidebar sections')}
+        {sw('sticky', 'Sticky top bar')}
+        <Row label="Content width">{seg('width', [['full', 'Full'], ['wide', '1440'], ['narrow', '1240'], ['tight', '1080']], 'Content width')}</Row>
+        <Row label="Home search">{seg('homeSearch', [['hero', 'Large hero'], ['compact', 'Compact']], 'Home search')}</Row>
         {sw('breadcrumbs', 'Breadcrumbs')}
         {sw('kbd', 'Keyboard hints')}
         <Separator />
@@ -88,15 +96,31 @@ export function XpSheet({ open, onOpenChange }) {
         <Row label="Font">{seg('font', [['geist', 'Geist'], ['inter', 'Inter'], ['system', 'System']], 'Font')}</Row>
         {sl('fs', 'Text size', 87.5, 112.5, 2.5, (x) => x + '%')}
         <Row label="Density">{seg('density', [['compact', 'Compact'], ['default', 'Default'], ['comfortable', 'Roomy']], 'Density')}</Row>
+        <Row label="Page title size">{seg('headSize', [['small', 'Small'], ['default', 'Default'], ['large', 'Large']], 'Page title size')}</Row>
+        <Row label="Heading weight">{seg('headWeight', [['medium', 'Medium'], ['semibold', 'Semibold'], ['bold', 'Bold']], 'Heading weight')}</Row>
+        <Row label="Heading tracking">{seg('tracking', [['normal', 'Normal'], ['tight', 'Tight'], ['tighter', 'Tighter']], 'Heading tracking')}</Row>
         <Separator />
         <H desc="Cards, stats, tables and charts">Components</H>
         <Row label="Stat tiles" id="xp-stat">{sel('stat', [['default', 'Dashboard (stock)'], ['compact', 'Compact'], ['icon', 'Icon left'], ['centred', 'Centred']], 'Stat tiles')}</Row>
+        {sw('statIcon', 'Stat tile icons')}
+        <Row label="Stat figure size">{seg('statSize', [['small', 'Small'], ['default', 'Default'], ['large', 'Large']], 'Stat figure size')}</Row>
+        {sw('cardHead', 'Divider under card headers', 'divider', 'plain')}
         <Row label="Card shadow">{seg('shadow', [['none', 'None'], ['stock', 'Stock'], ['soft', 'Soft'], ['lifted', 'Lifted']], 'Card shadow')}</Row>
         {sw('border', 'Card borders')}
         {sw('cardbg', 'Muted card background', 'muted', 'plain')}
         {sw('stripe', 'Striped tables')}
+        {sw('rowHover', 'Highlight table rows on hover')}
+        <Row label="Table row height">{seg('rows', [['compact', 'Compact'], ['default', 'Default'], ['relaxed', 'Relaxed']], 'Table row height')}</Row>
+        <Row label="Avatar shape">{seg('avatar', [['circle', 'Circle'], ['rounded', 'Rounded'], ['square', 'Square']], 'Avatar shape')}</Row>
         <Row label="History chart">{seg('chart', [['grouped', 'Grouped'], ['stacked', 'Stacked']], 'History chart')}</Row>
+        {sl('barRadius', 'Chart bar corners', 0, 12, 1, (x) => x + 'px')}
         {sw('logo', 'Monochrome logo', 'ink', 'colour')}
+        <Separator />
+        <H desc="Links, focus, motion and scrolling">Interaction</H>
+        <Row label="Links" id="xp-links">{sel('links', [['hover', 'Underline on hover (stock)'], ['always', 'Always underlined'], ['primary', 'Primary colour']], 'Links')}</Row>
+        <Row label="Focus ring">{seg('focus', [['stock', 'Stock'], ['subtle', 'Subtle'], ['none', 'None']], 'Focus ring')}</Row>
+        <Row label="Motion">{seg('motion', [['stock', 'Stock'], ['fast', 'Fast'], ['off', 'Off']], 'Motion')}</Row>
+        <Row label="Scrollbars">{seg('scrollbar', [['stock', 'Stock'], ['thin', 'Thin']], 'Scrollbars')}</Row>
       </div></ScrollArea>
       <SheetFooter className="border-t"><CopySettings v={v} /><Button variant="outline" onClick={() => setTweaks({})}><RotateCcw />Reset to defaults</Button></SheetFooter>
     </SheetContent></Sheet>

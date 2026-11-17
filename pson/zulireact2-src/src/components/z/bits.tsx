@@ -19,7 +19,7 @@ const tint = (n) => { let h = 0; for (const c of String(n || '')) h = (h * 31 + 
 /* Initials in a shadcn Avatar; colours come from the 'Initials' setting (CSS). */
 export const Ini = ({ name, className = '' }) => <Avatar className={cn('size-8', className)} aria-hidden="true"><AvatarFallback className={'ini ' + tint(name)}>{initials(name)}</AvatarFallback></Avatar>
 /* Company marker: the building icon in a muted rounded square, same footprint as an Avatar. */
-export const CoMark = ({ className = '' }) => <span className={cn('grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground', className)} aria-hidden="true"><Building2 className="size-4" /></span>
+export const CoMark = ({ className = '' }) => <span className={cn('z-mark grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground', className)} aria-hidden="true"><Building2 className="size-4" /></span>
 export const Mark = ({ kind, name, className = '' }) => (kind === 'company' ? <CoMark className={className} /> : <Ini name={name} className={className} />)
 
 export function Cp({ v, children }: { v: string; children?: ReactNode }) {
@@ -45,7 +45,7 @@ export function MoreLink({ href, children }) {
 
 /* Section card: icon + title, a muted count line, optional action (open button), then content. */
 export function Section({ icon: Ic, title, desc, action, children, footer, className = '', contentClass = '' }: any) {
-  return <Card className={cn('h-full', className)}>
+  return <Card className={cn('z-sec h-full', className)}>
     <CardHeader><CardTitle className="flex items-center gap-2">{Ic ? <Ic className="size-4 text-muted-foreground" /> : null}{title}</CardTitle>{desc ? <CardDescription>{desc}</CardDescription> : null}{action ? <CardAction className="flex items-center gap-2">{action}</CardAction> : null}</CardHeader>
     <CardContent className={cn('flex-1', contentClass)}>{children}</CardContent>
     {footer ? <CardFooter>{footer}</CardFooter> : null}
@@ -55,11 +55,11 @@ export function Section({ icon: Ic, title, desc, action, children, footer, class
 /* Stat card. Styles from the 'Stat tiles' setting: default (shadcn dashboard), compact, icon, centred. */
 export function Stat({ label, value, sub, icon: Ic, tone, href, style = 'default' }: any) {
   const prof = useProfile()
-  const v = <span className={cn('font-semibold tabular-nums tracking-tight', style === 'compact' ? 'text-xl' : 'text-2xl @[250px]/card:text-3xl', tone === 'warn' && 'text-amber-700 dark:text-amber-400')}>{value}</span>
+  const v = <span className={cn('z-stat-v font-semibold tabular-nums tracking-tight', style === 'compact' ? 'text-xl' : 'text-2xl @[250px]/card:text-3xl', tone === 'warn' && 'text-amber-700 dark:text-amber-400')}>{value}</span>
   let body
-  if (style === 'icon') body = <CardContent className="flex items-center gap-4">{Ic ? <span className="grid size-11 shrink-0 place-items-center rounded-lg bg-muted"><Ic className="size-5" /></span> : null}<div className="min-w-0"><div className="text-sm text-muted-foreground">{label}</div>{v}<div className="truncate text-xs text-muted-foreground">{sub || '\u00a0'}</div></div></CardContent>
-  else if (style === 'centred') body = <CardContent className="grid justify-items-center gap-1 text-center">{Ic ? <Ic className="size-5 text-muted-foreground" /> : null}<div className="text-sm text-muted-foreground">{label}</div>{v}<div className="text-xs text-muted-foreground">{sub || '\u00a0'}</div></CardContent>
-  else body = <><CardHeader><CardDescription>{label}</CardDescription><CardTitle>{v}</CardTitle>{Ic ? <CardAction><Ic className="size-4 text-muted-foreground" /></CardAction> : null}</CardHeader>
+  if (style === 'icon') body = <CardContent className="flex items-center gap-4">{Ic ? <span className="z-stat-ic grid size-11 shrink-0 place-items-center rounded-lg bg-muted"><Ic className="size-5" /></span> : null}<div className="min-w-0"><div className="text-sm text-muted-foreground">{label}</div>{v}<div className="truncate text-xs text-muted-foreground">{sub || '\u00a0'}</div></div></CardContent>
+  else if (style === 'centred') body = <CardContent className="grid justify-items-center gap-1 text-center">{Ic ? <Ic className="z-stat-ic size-5 text-muted-foreground" /> : null}<div className="text-sm text-muted-foreground">{label}</div>{v}<div className="text-xs text-muted-foreground">{sub || '\u00a0'}</div></CardContent>
+  else body = <><CardHeader><CardDescription>{label}</CardDescription><CardTitle>{v}</CardTitle>{Ic ? <CardAction className="z-stat-ic"><Ic className="size-4 text-muted-foreground" /></CardAction> : null}</CardHeader>
     {style === 'compact' ? <CardContent><div className="truncate text-xs text-muted-foreground">{sub || '\u00a0'}</div></CardContent> : <CardFooter className="text-sm text-muted-foreground"><span className="truncate">{sub || '\u00a0'}</span></CardFooter>}</>
   const card = <Card size={style === 'compact' ? 'sm' : 'default'} className={cn('@container/card h-full', href && 'transition-colors hover:bg-accent/50')}>{body}</Card>
   return href ? <a href={href} className="block h-full" onClick={() => prof && rememberBack(href, prof.here, prof.name)}>{card}</a> : card

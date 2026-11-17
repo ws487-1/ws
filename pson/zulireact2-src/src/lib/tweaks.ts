@@ -3,13 +3,20 @@
    Applied as attributes and CSS variables on <html>, so most changes need no re-render. */
 import { createContext, useContext, useEffect, useState } from 'react'
 const KEY = 'zulireact2.tweaks'
-export const PRESETS = [['default', 'Default', ''], ['zuli', 'Zuli blue', '#245091'], ['blue', 'Blue', '#2563EB'], ['sky', 'Sky', '#0284C7'], ['teal', 'Teal', '#0D9488'], ['green', 'Green', '#16A34A'], ['amber', 'Amber', '#D97706'], ['orange', 'Orange', '#EA580C'], ['red', 'Red', '#DC2626'], ['rose', 'Rose', '#E11D48']]
+export const PRESETS = [['default', 'Near-black (stock)', ''], ['zuli', 'Zuli blue', '#245091'], ['blue', 'Blue', '#2563EB'], ['sky', 'Sky', '#0284C7'], ['teal', 'Teal', '#0D9488'], ['green', 'Green', '#16A34A'], ['amber', 'Amber', '#D97706'], ['orange', 'Orange', '#EA580C'], ['red', 'Red', '#DC2626'], ['rose', 'Rose', '#E11D48']]
 export const DEF = {
-  base: 'neutral', primary: '', mode: 'light', radius: 0.625,
-  layout: 'sidebar', sidebarVariant: 'inset', collapsible: 'icon', nav: 'outline', sidebarWidth: 15, startCollapsed: false,
-  density: 'default', fs: 100, font: 'geist', width: 'full',
-  stat: 'default', shadow: 'stock', border: 'on', cardbg: 'plain', stripe: 'off',
-  initials: 'neutral', logo: 'ink', chart: 'grouped', breadcrumbs: 'on', kbd: 'on',
+  /* Defaults from Will's copied settings, 17 Nov 2026. */
+  base: 'slate', primary: '#245091', mode: 'light', radius: 0.375,
+  layout: 'sidebar', sidebarVariant: 'inset', collapsible: 'offcanvas', nav: 'ghost', sidebarWidth: 13.5, startCollapsed: false,
+  density: 'compact', fs: 95, font: 'geist', width: 'full',
+  stat: 'default', shadow: 'soft', border: 'on', cardbg: 'plain', stripe: 'off',
+  initials: 'primary', logo: 'ink', chart: 'grouped', breadcrumbs: 'on', kbd: 'off',
+  /* Round 3 settings */
+  status: 'bold', btn: 'solid', chartPal: 'theme',
+  navActive: 'stock', sbLabels: 'on', sbSeps: 'off', sticky: 'on', homeSearch: 'hero',
+  headSize: 'default', headWeight: 'semibold', tracking: 'tight',
+  cardHead: 'plain', statIcon: 'on', statSize: 'default', rows: 'default', rowHover: 'on', barRadius: 4, avatar: 'circle',
+  links: 'hover', focus: 'stock', motion: 'stock', scrollbar: 'stock',
 }
 export type Tweaks = typeof DEF
 export function getTweaks(): Tweaks { let v = {}; try { v = JSON.parse(localStorage.getItem(KEY) || '{}') || {} } catch { v = {} } return Object.assign({}, DEF, v) }
@@ -22,6 +29,7 @@ export function applyTweaks(v: Tweaks) {
   h.classList.toggle('dark', dark)
   h.style.colorScheme = dark ? 'dark' : 'light'
   for (const k of ['base', 'density', 'font', 'width', 'shadow', 'border', 'cardbg', 'stripe', 'initials', 'logo', 'nav', 'layout']) h.dataset[k] = String(v[k])
+  for (const k of Object.keys(DEF)) if (typeof DEF[k] === 'string') h.setAttribute('data-t-' + k.toLowerCase(), String(v[k]))
   h.style.setProperty('--radius', v.radius + 'rem')
   h.style.setProperty('--fs', String(v.fs / 100))
   const p = /^#[0-9a-f]{6}$/i.test(v.primary) ? v.primary : ''

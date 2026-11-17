@@ -99,7 +99,7 @@ function TopBar({ active, tools, routeKey }) {
   const [open, setOpen] = useState(false)
   useEffect(() => setOpen(false), [routeKey])
   const nav = (cls) => NAV.map(([k, h, l, Ic]) => <Button key={k} variant={'ghost'} size="sm" asChild className={cls}><a href={h} data-active={active === k} aria-current={active === k ? 'page' : undefined}><Ic />{l}</a></Button>)
-  return <header className="sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
+  return <header className="z-hdr sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
     <div className="z-content flex h-14 items-center gap-3 px-4 md:px-6">
       <Button variant="ghost" size="icon-sm" className="md:hidden" onClick={() => setOpen(true)} aria-label="Menu"><Menu /></Button>
       <a href="#/" aria-label="Zuli home" className="shrink-0"><img src={LOGO} alt="Zuli" className="z-logo h-6 w-auto" /></a>
@@ -143,7 +143,7 @@ export default function App() {
       <SidebarProvider open={sbOpen} onOpenChange={setSbOpen} style={{ '--sidebar-width': tw.sidebarWidth + 'rem' }}>
         <AppSidebar active={active} tw={tw} openXp={openXp} routeKey={route.key} />
         <SidebarInset className="min-w-0">
-          <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur md:rounded-t-[inherit]">
+          <header className="z-hdr sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur md:rounded-t-[inherit]">
             <SidebarTrigger className={cn('-ml-1', tw.collapsible === 'none' && 'md:hidden')} />
             {tw.breadcrumbs === 'on' ? <><Separator orientation="vertical" className="mr-1 h-4! self-center!" /><Crumbs /></> : null}
             {tools}

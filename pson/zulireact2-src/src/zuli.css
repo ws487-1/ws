@@ -78,3 +78,57 @@ html[data-initials=solid] .ini { background: var(--primary); color: var(--primar
 /* Content width option */
 html[data-width=narrow] .z-content { max-width: 1240px; margin-inline: auto; width: 100%; }
 html[data-font=system] { --z-font: system-ui; }
+
+/* ---- Round 3 experimental settings (html[data-t-*], set by applyTweaks) ---- */
+/* Status text: bold (default), dot + text, or plain coloured text. Never a pill. */
+html[data-t-status=dot] .st, html[data-t-status=plain] .st { font-weight: 500; }
+html[data-t-status=dot] .st::before { content: ''; display: inline-block; width: .5em; height: .5em; border-radius: 50%; background: currentColor; margin-right: .4em; vertical-align: .08em; }
+/* Primary buttons: solid (stock) or soft tint. */
+html[data-t-btn=soft] [data-slot=button][data-variant=default] { background: color-mix(in oklab, var(--primary) 12%, var(--background)); color: color-mix(in oklab, var(--primary) 85%, var(--foreground)); box-shadow: none; }
+html[data-t-btn=soft] [data-slot=button][data-variant=default]:hover { background: color-mix(in oklab, var(--primary) 20%, var(--background)); }
+/* Sidebar active item: stock, primary fill, left bar, or bold text only. */
+html[data-t-navactive=primary] [data-sidebar=menu-button][data-size=default][data-active=true] { background: var(--primary); color: var(--primary-foreground); font-weight: 500; }
+html[data-t-navactive=bar] [data-sidebar=menu-button][data-size=default][data-active=true] { background: transparent; color: var(--foreground); box-shadow: inset 3px 0 0 var(--primary); font-weight: 600; border-radius: 0 calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0; }
+html[data-t-navactive=bold] [data-sidebar=menu-button][data-size=default][data-active=true] { background: transparent; color: var(--foreground); box-shadow: none; font-weight: 700; }
+html[data-t-sblabels=off] [data-sidebar=group-label] { display: none; }
+html[data-t-sbseps=on] [data-sidebar=group] + [data-sidebar=group] { border-top: 1px solid var(--sidebar-border); }
+/* Sticky top bar on/off. */
+html[data-t-sticky=off] .z-hdr { position: static; }
+/* Content width options (narrow = 1240 above). */
+html[data-width=wide] .z-content { max-width: 1440px; margin-inline: auto; width: 100%; }
+html[data-width=tight] .z-content { max-width: 1080px; margin-inline: auto; width: 100%; }
+/* Headings: page title size, weight and tracking (card titles follow weight and tracking). */
+html[data-t-headsize=small] .z-content h1:not(.z-hero) { font-size: 1.375rem; line-height: 1.3; }
+html[data-t-headsize=large] .z-content h1:not(.z-hero) { font-size: 2.25rem; line-height: 1.15; }
+@media (max-width: 640px) { html[data-t-headsize=large] .z-content h1:not(.z-hero) { font-size: 1.875rem; } }
+html[data-t-headweight=medium] :is(.z-content h1, .z-sec [data-slot=card-title]) { font-weight: 500; }
+html[data-t-headweight=bold] :is(.z-content h1, .z-sec [data-slot=card-title]) { font-weight: 700; }
+html[data-t-tracking=normal] :is(.z-content h1, .z-stat-v) { letter-spacing: normal; }
+html[data-t-tracking=tighter] :is(.z-content h1, .z-stat-v) { letter-spacing: -0.04em; }
+/* Section cards: divider under the header. */
+html[data-t-cardhead=divider] .z-sec > [data-slot=card-header] { border-bottom: 1px solid var(--border); padding-bottom: calc(var(--card-spacing, 1.5rem) * .75); }
+/* Stat tiles: icons on/off, figure size. */
+html[data-t-staticon=off] .z-stat-ic { display: none; }
+html[data-t-statsize=small] .z-stat-v { font-size: 1.25rem; }
+html[data-t-statsize=large] .z-stat-v { font-size: 2.25rem; line-height: 1.1; }
+/* Tables: row height and hover. */
+html[data-t-rows=compact] [data-slot=table-cell] { padding-block: .25rem; }
+html[data-t-rows=relaxed] [data-slot=table-cell] { padding-block: .75rem; }
+html[data-t-rowhover=off] [data-slot=table-row]:hover { background: transparent; }
+html[data-t-rowhover=off][data-stripe=on] [data-slot=table-body] tr:nth-child(even):hover { background: color-mix(in oklab, var(--muted) 70%, transparent); }
+/* Avatar / marker shape. */
+html[data-t-avatar=rounded] :is([data-slot=avatar], [data-slot=avatar-fallback], .z-mark) { border-radius: calc(var(--radius) + 2px); }
+html[data-t-avatar=square] :is([data-slot=avatar], [data-slot=avatar-fallback], .z-mark) { border-radius: 2px; }
+/* Links in content: underline on hover (stock), always underlined, or primary coloured. */
+html[data-t-links=always] .z-content a.hover\:underline { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in oklab, currentColor 40%, transparent); }
+html[data-t-links=primary] .z-content a.hover\:underline { color: var(--primary); }
+html.dark[data-t-links=primary] .z-content a.hover\:underline { color: color-mix(in oklab, var(--primary) 55%, white); }
+/* Focus ring: stock, subtle, or none (keyboard focus still moves; no blue outline in any mode). */
+html[data-t-focus=subtle] :focus-visible { --tw-ring-color: color-mix(in oklab, var(--foreground) 12%, transparent); }
+html[data-t-focus=none] :focus-visible { --tw-ring-color: transparent; outline: none; }
+/* Motion: stock, fast, or off. */
+html[data-t-motion=fast] *, html[data-t-motion=fast] *::before, html[data-t-motion=fast] *::after { animation-duration: 80ms !important; transition-duration: 80ms !important; }
+html[data-t-motion=off] *, html[data-t-motion=off] *::before, html[data-t-motion=off] *::after { animation-duration: 1ms !important; animation-delay: 0s !important; transition-duration: 0s !important; scroll-behavior: auto !important; }
+/* Scrollbars: stock or thin. */
+html[data-t-scrollbar=thin], html[data-t-scrollbar=thin] * { scrollbar-width: thin; }
+html[data-t-staticon=off] [data-slot=card-header]:has(> .z-stat-ic) { grid-template-columns: 1fr; }

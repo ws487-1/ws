@@ -163,7 +163,13 @@ export function Filings({ vm }) {
 }
 
 const shortDate = (s) => new Date(s + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
-const chartCfg = { a: { label: 'Appointed', color: 'var(--chart-1)' }, r: { label: 'Resigned', color: 'var(--chart-2)' } }
+const PAL = {
+  theme: ['var(--chart-1)', 'var(--chart-2)'],
+  shades: ['var(--primary)', 'color-mix(in oklab, var(--primary) 35%, var(--background))'],
+  mono: ['var(--foreground)', 'color-mix(in oklab, var(--foreground) 30%, var(--background))'],
+  stock: ['oklch(0.646 0.222 41.116)', 'oklch(0.6 0.118 184.704)'],
+}
+const cfgFor = (p) => { const c = PAL[p] || PAL.theme; return { a: { label: 'Appointed', color: c[0] }, r: { label: 'Resigned', color: c[1] } } }
 /* Board activity / appointments by year: shadcn Chart (recharts) from the unchanged charts.js analysis. */
 export function History({ items, o }) {
   const [tw] = useTweaks()
@@ -191,15 +197,15 @@ export function History({ items, o }) {
   const kpi = (l, n) => <div className="grid gap-0.5" key={l}><span className="text-xs text-muted-foreground">{l}</span><span className="text-xl font-semibold tabular-nums">{n}</span></div>
   return <Section icon={ChartColumn} title={title} desc={rows[0].y + ' – ' + shortDate(m.today)} action={action}>
     <div className="flex flex-wrap gap-x-8 gap-y-2">{m.stockSafe ? kpi(o.kind === 'company' ? 'In post now' : 'Roles held now', rows[rows.length - 1].n) : null}{kpi('Appointed since ' + rows[0].y, sumA)}{kpi('Resigned since ' + rows[0].y, sumR)}</div>
-    <ChartContainer config={chartCfg} className="aspect-auto h-[200px] w-full" role="img" aria-label={rows.map((r) => `${r.y}: ${r.a} appointed, ${r.r} resigned`).join('; ')}>
+    <ChartContainer config={cfgFor(tw.chartPal)} className="aspect-auto h-[200px] w-full" role="img" aria-label={rows.map((r) => `${r.y}: ${r.a} appointed, ${r.r} resigned`).join('; ')}>
       <BarChart data={data} margin={{ left: -20, right: 4, top: 4 }}>
         <CartesianGrid vertical={false} />
         <XAxis dataKey="y" tickLine={false} axisLine={false} tickMargin={8} minTickGap={8} />
         <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={40} />
         <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
         <ChartLegend content={<ChartLegendContent />} />
-        <Bar dataKey="a" fill="var(--color-a)" radius={tw.chart === 'stacked' ? [0, 0, 0, 0] : 4} stackId={tw.chart === 'stacked' ? 's' : undefined} />
-        <Bar dataKey="r" fill="var(--color-r)" radius={tw.chart === 'stacked' ? [4, 4, 0, 0] : 4} stackId={tw.chart === 'stacked' ? 's' : undefined} />
+        <Bar dataKey="a" fill="var(--color-a)" radius={tw.chart === 'stacked' ? [0, 0, 0, 0] : +tw.barRadius} stackId={tw.chart === 'stacked' ? 's' : undefined} />
+        <Bar dataKey="r" fill="var(--color-r)" radius={tw.chart === 'stacked' ? [+tw.barRadius, +tw.barRadius, 0, 0] : +tw.barRadius} stackId={tw.chart === 'stacked' ? 's' : undefined} />
       </BarChart>
     </ChartContainer>
   </Section>
