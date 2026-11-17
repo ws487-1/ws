@@ -1,5 +1,6 @@
 // @ts-nocheck
-import { Check, RotateCcw, Sun, Moon, Monitor } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Check, Copy, RotateCcw, Sun, Moon, Monitor } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -17,6 +18,37 @@ const BASES = [['neutral', 'oklch(0.556 0 0)'], ['zinc', 'oklch(0.552 0.016 285.
 const Row = ({ label, hint, children, id }: any) => <div className="grid gap-2"><div className="flex items-baseline justify-between gap-2"><Label htmlFor={id}>{label}</Label>{hint ? <span className="text-xs text-muted-foreground tabular-nums">{hint}</span> : null}</div>{children}</div>
 const H = ({ children, desc }: any) => <div className="grid gap-0.5"><h3 className="text-sm font-semibold">{children}</h3>{desc ? <p className="text-xs text-muted-foreground">{desc}</p> : null}</div>
 
+/* Copy settings: only keys changed from defaults, as readable lines plus a JSON line. */
+export function settingsText(v) {
+  const diff = Object.fromEntries(Object.keys(DEF).filter((k) => v[k] !== DEF[k]).map((k) => [k, v[k]]))
+  const ks = Object.keys(diff)
+  if (!ks.length) return { text: 'No changes from default', n: 0 }
+  const f = (x) => (x === '' ? 'stock' : String(x))
+  return { text: ['Zuli React v2 settings (changed from default)'].concat(ks.map((k) => `${k}: ${f(diff[k])} (default: ${f(DEF[k])})`), ['JSON: ' + JSON.stringify(diff)]).join('\n'), n: ks.length }
+}
+async function copyText(t) {
+  try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(t); return true } } catch { /* fall back */ }
+  const ta = document.createElement('textarea')
+  ta.value = t; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px'
+  const host = document.querySelector('[data-slot=sheet-content]') || document.body
+  host.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, t.length)
+  let ok = false
+  try { ok = document.execCommand('copy') } catch { ok = false }
+  ta.remove(); return ok
+}
+function CopySettings({ v }) {
+  const [msg, setMsg] = useState('')
+  const tm = useRef(0)
+  useEffect(() => () => clearTimeout(tm.current), [])
+  const go = async () => {
+    const { text, n } = settingsText(v)
+    const ok = await copyText(text)
+    setMsg(!ok ? 'Copy failed' : n ? 'Copied ' + n + ' change' + (n === 1 ? '' : 's') : 'No changes from default')
+    clearTimeout(tm.current); tm.current = window.setTimeout(() => setMsg(''), 2000)
+  }
+  return <Button id="xpCopy" onClick={go} aria-live="polite">{msg && msg.startsWith('Copied') ? <Check /> : <Copy />}{msg || 'Copy settings'}</Button>
+}
+
 /* Experimental settings: a right-hand sheet. Everything persists in localStorage 'zulireact2.tweaks'. */
 export function XpSheet({ open, onOpenChange }) {
   const [v, set] = useTweaks()
@@ -26,7 +58,7 @@ export function XpSheet({ open, onOpenChange }) {
   const sl = (k, label, min, max, step, fmt) => <Row label={label} hint={fmt(v[k])}><Slider value={[v[k]]} min={min} max={max} step={step} onValueChange={([x]) => set(k, x)} aria-label={label} /></Row>
   const custom = v.primary && !PRESETS.some(([, , hex]) => hex.toLowerCase() === v.primary.toLowerCase())
   return <Sheet open={open} onOpenChange={onOpenChange}>
-    <SheetContent side="right" className="flex flex-col gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-sm">
+    <SheetContent side="right" overlayClassName="bg-transparent supports-backdrop-filter:backdrop-blur-none" className="flex flex-col gap-0 p-0 shadow-2xl data-[side=right]:w-full data-[side=right]:sm:max-w-sm">
       <SheetHeader className="border-b"><SheetTitle>Experimental settings</SheetTitle><SheetDescription>Saved in this browser. Only affects this build.</SheetDescription></SheetHeader>
       <ScrollArea className="min-h-0 flex-1"><div className="grid gap-6 p-4">
         <H desc="Stock shadcn base colours and a primary">Colour</H>
@@ -66,6 +98,6 @@ export function XpSheet({ open, onOpenChange }) {
         <Row label="History chart">{seg('chart', [['grouped', 'Grouped'], ['stacked', 'Stacked']], 'History chart')}</Row>
         {sw('logo', 'Monochrome logo', 'ink', 'colour')}
       </div></ScrollArea>
-      <SheetFooter className="border-t"><Button variant="outline" onClick={() => setTweaks({})}><RotateCcw />Reset to defaults</Button></SheetFooter>
+      <SheetFooter className="border-t"><CopySettings v={v} /><Button variant="outline" onClick={() => setTweaks({})}><RotateCcw />Reset to defaults</Button></SheetFooter>
     </SheetContent></Sheet>
 }
