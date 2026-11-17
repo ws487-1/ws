@@ -72,6 +72,7 @@ export function XpSheet({ open, onOpenChange }) {
         <Row label="Initials avatars" id="xp-initials">{sel('initials', [['neutral', 'Neutral grey'], ['primary', 'Tints of primary'], ['solid', 'Solid primary']], 'Initials avatars')}</Row>
         <Row label="Status text" id="xp-status">{sel('status', [['bold', 'Bold colour (current)'], ['dot', 'Dot and text'], ['plain', 'Plain colour']], 'Status text')}</Row>
         <Row label="Primary buttons">{seg('btn', [['solid', 'Solid'], ['soft', 'Soft tint']], 'Primary buttons')}</Row>
+        <Row label="Flag style">{seg('flag', [['country', 'Country'], ['union', 'Union Jack'], ['both', 'Both']], 'Flag style')}</Row>
         <Row label="Chart colours" id="xp-chartPal">{sel('chartPal', [['theme', 'Theme (primary + grey)'], ['shades', 'Shades of primary'], ['mono', 'Monochrome'], ['stock', 'shadcn chart palette']], 'Chart colours')}</Row>
         <Separator />
         <H desc="Sidebar, navigation and page width">Layout</H>

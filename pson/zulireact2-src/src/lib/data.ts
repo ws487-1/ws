@@ -98,13 +98,13 @@ async function pcCountry(postcode) {
 }
 export async function nation(vm) {
   const j = vm.jurisdictionCode
-  if (j === 'scotland') return { flag: 'gb-sct', name: 'Scotland' }
-  if (j === 'northern-ireland') return { text: 'Northern Ireland', reg: true }
+  if (j === 'scotland') return { flag: 'gb-sct', name: 'Scotland', uk: true }
+  if (j === 'northern-ireland') return { text: 'Northern Ireland', reg: true, uk: true }
   if (j === 'england-wales' || j === 'england' || j === 'wales') {
     const c = vm.address.postcode ? await pcCountry(vm.address.postcode) : null
-    if (c === 'England' && j !== 'wales') return { flag: 'gb-eng', name: 'England' }
-    if (c === 'Wales' && j !== 'england') return { flag: 'gb-wls', name: 'Wales' }
-    return { text: j === 'england-wales' ? 'England & Wales' : vm.jurisdiction, reg: true }
+    if (c === 'England' && j !== 'wales') return { flag: 'gb-eng', name: 'England', uk: true }
+    if (c === 'Wales' && j !== 'england') return { flag: 'gb-wls', name: 'Wales', uk: true }
+    return { text: j === 'england-wales' ? 'England & Wales' : vm.jurisdiction, reg: true, uk: true }
   }
   const t = (vm.overseas && vm.overseas.country) || vm.jurisdiction || vm.address.country
   return t ? { text: t } : null

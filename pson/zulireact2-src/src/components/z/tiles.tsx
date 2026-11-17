@@ -31,9 +31,15 @@ export function SaveBtns({ entry }) {
   </div>
 }
 
+/* Registered-office nation. 'Flag style' setting: country (England/Scotland/Wales flags; Northern Ireland as text),
+   union (Union Jack for every UK company), both (Union Jack plus the country flag). SVGs from flag-icons (MIT). */
+const Flag = ({ f }) => <img src={BASE + 'flags/' + f + '.svg'} width="18" height="13" alt="" className="z-flag rounded-[2px] ring-1 ring-border" />
 function Nation({ n }) {
+  const [tw] = useTweaks()
   if (!n) return null
-  if (n.flag) return <span className="inline-flex items-center gap-1.5" title={'Registered in ' + n.name}><img src={BASE + 'flags/' + n.flag + '.svg'} width="18" height="13" alt="" className="rounded-[2px] ring-1 ring-border" />{n.name}</span>
+  const name = n.flag ? n.name : n.text
+  if (n.uk && tw.flag !== 'country') return <span className="inline-flex items-center gap-1.5" title={'Registered in ' + name + ', United Kingdom'}><Flag f="gb" />{tw.flag === 'both' && n.flag ? <Flag f={n.flag} /> : null}{name}</span>
+  if (n.flag) return <span className="inline-flex items-center gap-1.5" title={'Registered in ' + n.name}><Flag f={n.flag} />{n.name}</span>
   return <span>{n.reg ? n.text : 'Registered office: ' + n.text}</span>
 }
 const sicHref = (code, vm) => {

@@ -16,6 +16,7 @@ export const DEF = {
   navActive: 'stock', sbLabels: 'on', sbSeps: 'off', sticky: 'on', homeSearch: 'hero',
   headSize: 'default', headWeight: 'semibold', tracking: 'tight',
   cardHead: 'plain', statIcon: 'on', statSize: 'default', rows: 'default', rowHover: 'on', barRadius: 4, avatar: 'circle',
+  flag: 'country',
   links: 'hover', focus: 'stock', motion: 'stock', scrollbar: 'stock',
 }
 export type Tweaks = typeof DEF
