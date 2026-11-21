@@ -30,7 +30,11 @@ html:is([data-nav=outline], [data-nav=secondary]) [data-sidebar=menu] { gap: .37
 /* Top-bar layout nav: same styles on the header buttons. */
 .z-topnav a[data-active=true] { background: var(--primary); color: var(--primary-foreground); }
 
-/* Logo: black (white in dark mode) by default, or the original artwork. */
+/* Logo: 'new' = concept 03 (ink letters, bright blue dot; light/dark SVGs swap with the theme). 'ink' and 'colour' are
+   the old PNG, monochrome or original artwork. */
+.z-logo-d { display: none; }
+html.dark .z-logo-l { display: none; }
+html.dark .z-logo-d { display: inline-block; }
 html[data-logo=ink] .z-logo { filter: brightness(0); }
 html.dark[data-logo=ink] .z-logo { filter: brightness(0) invert(1); }
 
@@ -126,9 +130,58 @@ html.dark[data-t-links=primary] .z-content a.hover\:underline { color: color-mix
 /* Focus ring: stock, subtle, or none (keyboard focus still moves; no blue outline in any mode). */
 html[data-t-focus=subtle] :focus-visible { --tw-ring-color: color-mix(in oklab, var(--foreground) 12%, transparent); }
 html[data-t-focus=none] :focus-visible { --tw-ring-color: transparent; outline: none; }
-/* Motion: stock, fast, or off. */
-html[data-t-motion=fast] *, html[data-t-motion=fast] *::before, html[data-t-motion=fast] *::after { animation-duration: 80ms !important; transition-duration: 80ms !important; }
-html[data-t-motion=off] *, html[data-t-motion=off] *::before, html[data-t-motion=off] *::after { animation-duration: 1ms !important; animation-delay: 0s !important; transition-duration: 0s !important; scroll-behavior: auto !important; }
 /* Scrollbars: stock or thin. */
 html[data-t-scrollbar=thin], html[data-t-scrollbar=thin] * { scrollbar-width: thin; }
 html[data-t-staticon=off] [data-slot=card-header]:has(> .z-stat-ic) { grid-template-columns: 1fr; }
+
+/* ---- Consultation 2 (21 Nov 2026) ---- */
+/* Motion: the Motion setting is gone. Tooltips fade only (no zoom/slide), ~100ms. OS reduced-motion turns all fades off. */
+[data-slot=tooltip-content] { animation-duration: 100ms !important; }
+@keyframes z-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.z-fade { animation: z-fade-in var(--z-fade, 150ms) ease-out both; }
+html[data-t-pulse=static] .animate-pulse { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 0s !important; scroll-behavior: auto !important; }
+  .z-fade { animation: none; }
+}
+
+/* Flags: size (height var), shape, edge. */
+.z-flag { height: var(--z-flag-h, 16px); width: calc(var(--z-flag-h, 16px) * 4 / 3); object-fit: cover; display: inline-block; vertical-align: middle; flex: none; }
+html[data-t-flagshape=square] .z-flag, html[data-t-flagshape=circle] .z-flag { width: var(--z-flag-h, 16px); }
+html[data-t-flagshape=rect] .z-flag { border-radius: 1px; }
+html[data-t-flagshape=rounded] .z-flag { border-radius: 3px; }
+html[data-t-flagshape=circle] .z-flag { border-radius: 50%; }
+html[data-t-flagedge=ring] .z-flag { box-shadow: inset 0 0 0 1px rgb(0 0 0 / .1), 0 0 0 1px rgb(0 0 0 / .1); }
+html[data-t-flagedge=border] .z-flag { box-shadow: 0 0 0 1px var(--border); }
+html[data-t-flagedge=shadow] .z-flag { box-shadow: 0 1px 3px rgb(0 0 0 / .25); }
+.z-flag-s { height: 12px !important; width: 16px !important; }
+
+/* Filings rows: whole row is a link (new tab). Settings: row style, hover, type code, page count. */
+.z-frow { cursor: pointer; }
+.z-frow:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+html:is([data-t-fhover=both], [data-t-fhover=tint]) .z-frow:hover { background: color-mix(in oklab, var(--muted) 75%, transparent); }
+html:is([data-t-fhover=both], [data-t-fhover=underline]) .z-frow:hover .z-ftitle { text-decoration: underline; text-underline-offset: 3px; }
+html[data-t-fhover=underline] .z-frow:hover { background: transparent; }
+.z-ftable [data-slot=table-cell] { vertical-align: baseline; }
+html[data-t-frow=zebra] .z-ftable [data-slot=table-body] tr:nth-child(even) { background: color-mix(in oklab, var(--muted) 60%, transparent); }
+html[data-t-frow=zebra] .z-ftable [data-slot=table-row] { border-bottom: 0; }
+html[data-t-frow=boxed] .z-ftable table { border-collapse: separate; border-spacing: 0 .375rem; }
+html[data-t-frow=boxed] .z-ftable [data-slot=table-body] [data-slot=table-row] { border: 0; }
+html[data-t-frow=boxed] .z-ftable [data-slot=table-body] [data-slot=table-cell] { border-block: 1px solid var(--border); }
+html[data-t-frow=boxed] .z-ftable [data-slot=table-body] [data-slot=table-cell]:first-child { border-left: 1px solid var(--border); border-radius: var(--radius) 0 0 var(--radius); }
+html[data-t-frow=boxed] .z-ftable [data-slot=table-body] [data-slot=table-cell]:last-child { border-right: 1px solid var(--border); border-radius: 0 var(--radius) var(--radius) 0; }
+html[data-t-ftype=hidden] .z-ftype { display: none !important; }
+
+/* Officers timeline: hatched start for "appointed before" dates. */
+.z-tl text { font-family: var(--z-font), system-ui, sans-serif; }
+
+/* Ownership PSC columns in full-width layouts. */
+.z-psc-grid { display: grid; gap: 1rem 1.5rem; }
+@media (min-width: 900px) { .z-psc-grid.c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .z-psc-grid.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .z-psc-grid.cauto { grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); } }
+
+/* Toasts: minimal style. */
+html[data-t-toaststyle=minimal] [data-sonner-toast] { box-shadow: none !important; padding: 10px 12px !important; }
+/* Map marker: Zuli-blue dot with a white ring; pulse option. */
+.z-map-dot { width: 16px; height: 16px; border-radius: 50%; background: #245091; border: 3px solid #fff; box-shadow: 0 1px 5px rgb(0 0 0 / .4); }
+.z-map-dot.pulse { animation: z-pulse 1.8s ease-out infinite; }
+@keyframes z-pulse { 0% { box-shadow: 0 0 0 0 rgb(36 80 145 / .5), 0 1px 5px rgb(0 0 0 / .4); } 100% { box-shadow: 0 0 0 16px rgb(36 80 145 / 0), 0 1px 5px rgb(0 0 0 / .4); } }

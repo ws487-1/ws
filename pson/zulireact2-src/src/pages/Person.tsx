@@ -9,7 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Cp, ErrorCard, Muted, Note, ProfileCtx, ProfileSkeleton, Rows, Section, St, Stat, CoMark } from '@/components/z/bits'
 import { Dl, History, PersonHeader } from '@/components/z/tiles'
 import { N } from '@/lib/legacy'
-import { companyNames, disqForPerson, loadDisq, loadPerson } from '@/lib/data'
+import { companyNames, disqForPerson, loadDisq, loadPerson, memo, peek } from '@/lib/data'
+import { flagFor, flagSrc } from '@/lib/flags'
+import { ExternalLink } from 'lucide-react'
 import { useLoad, setTitle } from '@/lib/hooks'
 import { useCrumbs } from '@/lib/crumbs'
 import { useTweaks } from '@/lib/tweaks'
@@ -59,8 +61,10 @@ function Appointments({ vm }) {
   </Section>
 }
 
+/* Person flags (consultation 2 §13; Will: residence flag yes). Flag after the text; unknown values stay text only. */
+const withFlags = (vals, on) => (!vals || !vals.length ? '' : !on ? vals.join(', ') : <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">{vals.map((v, i) => { const f = flagFor(v); return <span key={i} className="inline-flex items-center gap-1.5">{v}{f ? <img src={flagSrc(f.code)} alt="" className="z-flag z-flag-s" title={v} loading="lazy" /> : null}{i < vals.length - 1 ? ',' : ''}</span> })}</span>)
 function Officer({ route, ids, pscId }) {
-  const s = useLoad(() => loadPerson(ids, pscId), [route.key])
+  const s = useLoad(() => memo('p:' + route.key, () => loadPerson(ids, pscId)), [route.key], () => peek('p:' + route.key))
   const [dq, setDq] = useState(null)
   const [tw] = useTweaks()
   const nm = s.data ? (s.data.pscOnly ? s.data.pscOnly.name || 'Owner' : s.data.vm.name) : 'Person'
@@ -83,15 +87,15 @@ function Officer({ route, ids, pscId }) {
   const firstAp = vm.items.map((x) => x.appointedIso).filter(Boolean).sort()[0]
   const lastRes = vm.active ? '' : vm.items.map((x) => x.resignedIso).filter(Boolean).sort().pop()
   return <ProfileCtx.Provider value={{ here: route.key, name: vm.name }}><div className="z-stack">
-    <PersonHeader name={vm.name} meta={[vm.roles.join(', '), vm.born && 'Born ' + vm.born]} corporate={vm.corporate} entry={{ kind: 'person', key, href: pscId ? U.psc(pscId) : U.person(apIds), name: vm.name, sub: [vm.roles[0], vm.born && 'Born ' + vm.born].filter(Boolean).join(' · ') }} />
+    <PersonHeader name={vm.name} meta={[vm.roles.join(', '), vm.born && 'Born ' + vm.born, tw.personFlags === 'overview' && vm.residences[0] ? withFlags(vm.residences.slice(0, 1), true) : '']} corporate={vm.corporate} entry={{ kind: 'person', key, href: pscId ? U.psc(pscId) : U.person(apIds), name: vm.name, sub: [vm.roles[0], vm.born && 'Born ' + vm.born].filter(Boolean).join(' · ') }} />
     <div className="bento">
       <div className="s4"><Stat style={tw.stat} icon={Archive} label="Dissolved or in liquidation" value={String(vm.finished)} sub="Companies appointed to" tone={vm.finished ? 'warn' : ''} /></div>
       <div className="s4"><Stat style={tw.stat} icon={Hourglass} label="Longest role" value={vm.longest ? vm.longest.years + (vm.longest.years === 1 ? ' year' : ' years') : '—'} sub={vm.longest ? vm.longest.company : 'No complete dates'} /></div>
       <div className="s4"><Stat style={tw.stat} icon={Timer} label="Average tenure" value={reliableAvg ? vm.averageYears + (vm.averageYears === 1 ? ' year' : ' years') : '—'} sub={reliableAvg ? 'Across ' + vm.tenureBase + ' appointments' : vm.loaded < vm.total ? 'Not shown: not all appointments loaded' : vm.tenureBase < 2 ? 'Not shown: needs two or more dated roles' : 'Not shown: dates incomplete'} /></div>
       {dq ? <div className="s12"><DisqCard d={dq} /></div> : null}
-      <div className="s4"><Section icon={UserRound} title="Details" desc="From Companies House records"><Dl rows={[['Date of birth', vm.born], ['Age', ageText(vm.dob)], ['Nationality', vm.nationalities.join(', ')], ['Country of residence', vm.residences.join(', ')],
+      <div className="s4"><Section icon={UserRound} title="Details" desc="From Companies House records"><Dl rows={[['Date of birth', vm.born], ['Age', ageText(vm.dob)], ['Nationality', withFlags(vm.nationalities, tw.personFlags === 'both' || tw.personFlags === 'overview')], ['Country of residence', withFlags(vm.residences, tw.personFlags !== 'off')],
         ['First appointed', firstAp ? <Cp v={N.fmtDate(firstAp)} /> : ''], ['Last resigned', lastRes ? <Cp v={N.fmtDate(lastRes)} /> : ''],
-        ['Correspondence address(es)', vm.addresses.length ? vm.addresses.map((a, i) => <div key={i}><Cp v={a} /></div>) : ''], ['Former names', vm.formerNames.join(', ')],
+        ['Correspondence address(es)', vm.addresses.length ? vm.addresses.map((a, i) => <div key={i}><Cp v={a} /> <a className="ml-1 inline-flex items-center gap-0.5 text-xs whitespace-nowrap text-muted-foreground underline-offset-4 hover:underline" target="_blank" rel="noopener" href={'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(a)}>Open in Maps<ExternalLink className="size-3" /></a></div>) : ''], ['Former names', vm.formerNames.join(', ')],
         ['Director ID', apIds.map((id) => <div key={id} className="font-mono text-xs [word-break:break-all]"><Cp v={id} /></div>)]]} /></Section></div>
       <div className="s8"><Appointments vm={vm} /></div>
       <div className="s12"><History items={vm.items} o={{ kind: 'person', complete, loaded: vm.loaded, total: vm.total }} /></div>

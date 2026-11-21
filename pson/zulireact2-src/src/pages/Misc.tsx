@@ -1,4 +1,7 @@
 // @ts-nocheck
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Sun, Moon, Monitor, SunMoon } from 'lucide-react'
+import { useTweaks } from '@/lib/tweaks'
 import { useEffect, useState } from 'react'
 import { Trash2, Bell, KeyRound, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -11,7 +14,9 @@ import { Mark, St, PageHead, Muted } from '@/components/z/bits'
 import { N } from '@/lib/legacy'
 import { setTitle } from '@/lib/hooks'
 import { useCrumbs } from '@/lib/crumbs'
-import { chKey, cleanKey, removeSaved, saved, savedHref, savedKey, setChKey } from '@/lib/store'
+import { note } from '@/lib/toast'
+import { getTweaks } from '@/lib/tweaks'
+import { chKey, cleanKey, restoreSaved, removeSaved, saved, savedHref, savedKey, setChKey } from '@/lib/store'
 
 const ANY = '__any'
 /* Saved: one list of companies and people, newest first, with kind tabs, a text filter and a status menu. */
@@ -34,7 +39,7 @@ export function SavedPage() {
       {!all.length ? <Muted>Nothing saved yet. Use Save on a company or person page.</Muted> : !list.length ? <Muted>Nothing saved matches.</Muted> :
         <div className="divide-y">{list.map((x) => <div className="flex items-center gap-3 py-2.5" key={savedKey(x)}><Mark kind={x.kind === 'person' ? 'person' : 'company'} name={x.name} /><div className="grid min-w-0 flex-1 gap-0.5"><a className="truncate font-medium hover:underline" href={savedHref(x)}>{x.name}</a>
           <span className="text-xs text-muted-foreground">{x.kind === 'person' ? [x.sub, when(x)].filter(Boolean).join(' · ') : <><St label={x.status} colour={x.colour} /> · {['No. ' + x.number, x.town, when(x)].filter(Boolean).join(' · ')}</>}</span></div>
-          <Button variant="ghost" size="icon-sm" aria-label={'Remove ' + x.name + ' from saved'} onClick={() => { removeSaved(savedKey(x)); bump((n) => n + 1) }}><Trash2 /></Button></div>)}</div>}
+          <Button variant="ghost" size="icon-sm" aria-label={'Remove ' + x.name + ' from saved'} onClick={() => { removeSaved(savedKey(x)); bump((n) => n + 1); note('Removed from saved', { description: x.name, action: getTweaks().undoUnsave === 'on' ? { label: 'Undo', onClick: () => { restoreSaved(x); bump((n) => n + 1) } } : undefined }) }}><Trash2 /></Button></div>)}</div>}
     </CardContent></Card></div>
 }
 
@@ -54,5 +59,13 @@ export function SettingsPage() {
       <CardHeader><CardTitle className="flex items-center gap-2"><KeyRound className="size-4" />Companies House API key</CardTitle><CardDescription>Free from developer.company-information.service.gov.uk (REST key). Add {location.origin} under the key's JavaScript domains so this page can use it.</CardDescription></CardHeader>
       <CardContent className="grid gap-2"><Label htmlFor="chk">API key</Label><Input id="chk" type="password" value={v} onChange={(e) => setV(e.target.value)} placeholder={has ? 'Saved. Paste a new key to replace it.' : 'Paste your key'} /><p className="text-sm text-muted-foreground" role="status">{msg || (has ? 'A key is saved.' : 'No key saved yet.')}</p></CardContent>
       <CardFooter className="gap-2 border-t"><Button type="submit">Save key</Button>{has ? <Button variant="outline" type="button" onClick={() => { setChKey(''); setHas(false); setMsg('Removed.') }}>Remove key</Button> : null}</CardFooter>
-    </form></Card></div>
+    </form></Card>
+    <AppearanceCard /></div>
+}
+/* Appearance: light / dark / system (moved here from the experimental panel; a real preference). */
+function AppearanceCard() {
+  const [tw, set] = useTweaks()
+  return <Card className="max-w-2xl"><CardHeader><CardTitle className="flex items-center gap-2"><SunMoon className="size-4" />Appearance</CardTitle><CardDescription>Light, dark, or follow your device.</CardDescription></CardHeader>
+    <CardContent><ToggleGroup type="single" variant="outline" value={tw.mode} onValueChange={(x) => x && set('mode', x)} aria-label="Colour mode" className="w-full max-w-sm">
+      <ToggleGroupItem value="light" className="flex-1"><Sun />Light</ToggleGroupItem><ToggleGroupItem value="dark" className="flex-1"><Moon />Dark</ToggleGroupItem><ToggleGroupItem value="system" className="flex-1"><Monitor />System</ToggleGroupItem></ToggleGroup></CardContent></Card>
 }

@@ -11,6 +11,7 @@ import { ch, isNumber, normNumber, pastedTarget } from '@/lib/data'
 import { useLoad, setTitle } from '@/lib/hooks'
 import { useCrumbs } from '@/lib/crumbs'
 import { go, withParams, U } from '@/lib/router'
+import { note } from '@/lib/toast'
 import { fmtWhen, saveViewed, viewedList, viewHref, viewKey } from '@/lib/store'
 import { NoKey } from './Home'
 
@@ -77,8 +78,10 @@ function Viewed() {
   const [n, setN] = useState(10)
   if (!l.length) return null
   const shown = Math.min(Math.max(n, 10), l.length)
-  const rm = (k) => { const x = viewedList().filter((r) => viewKey(r) !== k); saveViewed(x); setL(x) }
-  return <Section icon={Clock} title="Recently viewed" desc={l.length + ' in this browser'} action={<Button variant="ghost" size="sm" onClick={() => { saveViewed([]); setL([]) }}><Trash2 />Clear all</Button>}>
+  const undo = (prev) => ({ label: 'Undo', onClick: () => { saveViewed(prev); setL(prev) } })
+  const rm = (k) => { const prev = viewedList(), x = prev.filter((r) => viewKey(r) !== k); saveViewed(x); setL(x); note('Removed from recently viewed', { action: undo(prev) }) }
+  const clearAll = () => { const prev = viewedList(); saveViewed([]); setL([]); note('Cleared recently viewed', { action: undo(prev) }) }
+  return <Section icon={Clock} title="Recently viewed" desc={l.length + ' in this browser'} action={<Button variant="ghost" size="sm" onClick={clearAll}><Trash2 />Clear all</Button>}>
     <div className="divide-y">{l.slice(0, shown).map((r) => <div className="flex items-center gap-3 py-2.5" key={viewKey(r)}><Mark kind={r.type === 'person' ? 'person' : 'company'} name={r.name} /><div className="grid min-w-0 flex-1"><a className="truncate text-sm font-medium hover:underline" href={viewHref(r)}>{r.name}</a><span className="text-xs text-muted-foreground">{[r.type === 'company' && 'No. ' + r.id, fmtWhen(r.t) && 'Viewed ' + fmtWhen(r.t)].filter(Boolean).join(' · ')}</span></div>
       <Button variant="ghost" size="icon-sm" onClick={() => rm(viewKey(r))} aria-label={'Remove ' + r.name + ' from recently viewed'}><X /></Button></div>)}</div>
     {l.length > shown ? <div className="flex items-center gap-3 text-xs text-muted-foreground"><Button variant="outline" size="sm" onClick={() => setN(shown + 10)}>Show {Math.min(10, l.length - shown)} more</Button>Showing {shown} of {l.length}</div> : null}

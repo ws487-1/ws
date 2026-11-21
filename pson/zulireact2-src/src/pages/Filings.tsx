@@ -6,12 +6,11 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { BackBtn, ErrorCard, FilingTable, PageHead, Pager, Rows, Note } from '@/components/z/bits'
+import { ErrorCard, FilingTable, PageHead, Pager, Rows, Note } from '@/components/z/bits'
 import { N } from '@/lib/legacy'
 import { ApiError, ch, normNumber } from '@/lib/data'
 import { useLoad, setTitle } from '@/lib/hooks'
 import { useCrumbs } from '@/lib/crumbs'
-import { backFor } from '@/lib/store'
 import { go, withParams, U } from '@/lib/router'
 import { CompanyLine } from './Officers'
 
@@ -51,12 +50,11 @@ export function FilingsPage({ route, n: raw }) {
   const name = s.data ? N.profile(s.data.prof).name : n
   useCrumbs([{ label: 'Companies', href: '#/search' }, { label: name, href: U.company(n) }, { label: 'Filing history' }], [name])
   useEffect(() => { setTitle(s.data ? 'Filing history · ' + name : 'Filing history') }, [s.data])
-  const back = backFor(route.key)
   const cats = Object.entries(N.FH_CAT).sort((a: any, b: any) => a[1].localeCompare(b[1]))
-  if (s.err) return <div className="z-stack"><BackBtn b={back} /><ErrorCard e={s.err} /></div>
+  if (s.err) return <div className="z-stack"><ErrorCard e={s.err} /></div>
   const d = s.data
   return <div className="z-stack">
-    <BackBtn b={back} />
+    
     <PageHead title="Filing history" desc={d ? <><CompanyLine p={d.prof} /> · {d.total.toLocaleString('en-GB')} filings</> : 'No. ' + n} />
     <Card><CardContent className="grid gap-4">
       <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[14rem_10rem_10rem_minmax(0,1fr)_auto] lg:items-end" onSubmit={(e) => { e.preventDefault(); nav({ from: f.from, to: f.to, q: f.q.trim(), page: '' }) }}>

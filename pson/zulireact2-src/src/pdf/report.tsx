@@ -44,7 +44,7 @@ const s = StyleSheet.create({
 
 /* A section: the heading's `id` (not the section's: a section split over pages would point at its last page) is the target of the contents links, `bookmark` puts it in the viewer's outline, and the title's
    render callback records the page it lands on (pass one) so the contents page can print it (pass two). */
-const Sec = ({ id, title, desc, children, first, pages }) => <View bookmark={{ title, fit: true }} style={[s.sec, first ? { marginTop: 4 } : null]}>
+const Sec = ({ id, title, desc, children, first, pages, outline = true }) => <View bookmark={outline ? { title, fit: true } : undefined} style={[s.sec, first ? { marginTop: 4 } : null]}>
   <View id={id} style={s.secHead} minPresenceAhead={40} wrap={false}><Text style={s.secT} render={({ pageNumber }) => { if (pages) pages[id] = pageNumber; return title }} />{desc ? <Text style={s.secD}>{desc}</Text> : null}</View>
   {children}
 </View>
@@ -72,8 +72,14 @@ export function changesOf(vm) {
 }
 const tenure = (a, b) => { const m = Math.round((new Date(b) - new Date(a)) / 2629800000); return m < 1 ? '<1m' : m < 12 ? m + 'm' : Math.floor(m / 12) + 'y' + (m % 12 ? ' ' + (m % 12) + 'm' : '') }
 
-export function ReportDoc({ vm, nation, logo, generated, base, pages, toc }) {
-  const of = vm.officers, own = vm.ownership, chg = vm.charges, fl = vm.filings
+/* Options (Download report settings). Defaults reproduce the /pdf test page. */
+export const REPORT_DEFAULTS = { size: 'A4', cover: true, contents: true, figs: true, links: true, outline: true, filingsN: 25, logoW: 66, secs: { overview: true, officers: true, former: false, ownership: true, charges: true, filings: true, changes: true } }
+export function ReportDoc({ vm, nation, logo, generated, base, pages, toc, opt: o0 }) {
+  const opt = { ...REPORT_DEFAULTS, ...(o0 || {}), secs: { ...REPORT_DEFAULTS.secs, ...((o0 && o0.secs) || {}) } }
+  const on = opt.secs
+  const Lk = opt.links ? Link : ({ children, style }) => <Text style={style}>{children}</Text>
+  const bm = (title) => (opt.outline ? { title, fit: true } : undefined)
+  const of = vm.officers, own = vm.ownership, chg = vm.charges, fl = { ...vm.filings, items: vm.filings.items.slice(0, +opt.filingsN || 25) }
   const st = vm.status, stColour = TONE[st.tone] || TONE.grey
   const changes = changesOf(vm)
   const today = new Date().toISOString().slice(0, 10)
@@ -83,29 +89,30 @@ export function ReportDoc({ vm, nation, logo, generated, base, pages, toc }) {
   const secs = [
     { id: 'overview', title: 'Overview', sub: [vm.type.label, vm.createdText ? 'incorporated ' + vm.createdText : ''].filter(Boolean).join(' · ') },
     { id: 'officers', title: 'Current officers', sub: `${of.counts.active} active · ${of.counts.resigned} resigned` },
+    { id: 'former', title: 'Former officers', sub: `${of.former.length} on record` },
     { id: 'ownership', title: 'Ownership', sub: own.current.length ? `${own.current.length} current PSC${own.current.length === 1 ? '' : 's'}` : 'No PSCs on record' },
     { id: 'charges', title: 'Charges', sub: chg.available && chg.total ? `${chg.outstanding} outstanding of ${chg.total}` : 'None registered' },
     { id: 'filings', title: 'Recent filings', sub: fl.total ? `Latest ${Math.min(fl.items.length, fl.total)} of ${fl.total.toLocaleString('en-GB')}` : 'None' },
     { id: 'changes', title: 'Officer changes', sub: changes.length ? `${changes.length} events` : 'None' },
-  ]
+  ].filter((x) => on[x.id])
   const foot = <View style={s.foot} fixed><Text>Zuli company report · generated {generated}</Text><Text render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} /></View>
-  return <Document title={vm.name + ' – company report'} author="Zuli" subject={'Company ' + vm.number} creator="Zuli" producer="Zuli" pageMode="useOutlines">
+  return <Document title={vm.name + ' – company report'} author="Zuli" subject={'Company ' + vm.number} creator="Zuli" producer="Zuli" pageMode={opt.outline ? 'useOutlines' : 'useNone'}>
     {/* Cover */}
-    <Page size="A4" style={[s.page, { paddingTop: 56 }]} bookmark={{ title: 'Cover', fit: true }}>
-      <Image src={logo} style={{ height: 22, width: 66 }} />
+    {opt.cover ? <Page size={opt.size} style={[s.page, { paddingTop: 56 }]} bookmark={bm('Cover')}>
+      <Image src={logo} style={{ height: 22, width: opt.logoW }} />
       <View style={{ flexGrow: 1, justifyContent: 'center' }}>
         <Text style={{ fontSize: 9, color: MUTED, letterSpacing: 1.2, marginBottom: 10 }}>COMPANY REPORT</Text>
-        <Link src={zuli('#/company/' + vm.number)} style={{ color: INK, textDecoration: 'none' }}><Text style={s.cover}>{vm.name}</Text></Link>
+        <Lk src={zuli('#/company/' + vm.number)} style={{ color: INK, textDecoration: 'none' }}><Text style={s.cover}>{vm.name}</Text></Lk>
         <Text style={{ marginTop: 14, fontSize: 11, color: MUTED }}><Text style={{ color: stColour, fontWeight: 700 }}>{st.label}{st.detail ? ' – ' + st.detail : ''}</Text>{'   ·   '}Company no. {vm.number}</Text>
         <View style={{ width: 56, height: 3, backgroundColor: BLUE, marginTop: 26 }} />
       </View>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 0.6, borderTopColor: LINE, paddingTop: 8, fontSize: 8.5, color: MUTED }}>
-        <Text>Generated {generated}</Text><Link src={zuli('#/company/' + vm.number)} style={{ color: MUTED, textDecoration: 'none' }}>View on Zuli</Link>
+        <Text>Generated {generated}</Text>{opt.links ? <Link src={zuli('#/company/' + vm.number)} style={{ color: MUTED, textDecoration: 'none' }}>View on Zuli</Link> : <Text>{vm.number}</Text>}
       </View>
-    </Page>
+    </Page> : null}
 
     {/* Contents: every row is an internal link; page numbers come from the first render pass. */}
-    <Page size="A4" style={s.page} id="contents" bookmark={{ title: 'Contents', fit: true }}>
+    {opt.contents ? <Page size={opt.size} style={s.page} id="contents" bookmark={bm('Contents')}>
       {foot}
       <Text style={[s.h1, { marginTop: 6, marginBottom: 18 }]}>Contents</Text>
       {secs.map((x, i) => <Link key={x.id} src={'#' + x.id} style={{ color: INK, textDecoration: 'none' }}>
@@ -116,17 +123,18 @@ export function ReportDoc({ vm, nation, logo, generated, base, pages, toc }) {
         </View>
       </Link>)}
       <Text style={[s.sub, { marginTop: 14 }]}>Select a section to jump to it. Every page links back here from its header.</Text>
-    </Page>
+    </Page> : null}
 
     {/* Body */}
-    <Page size="A4" style={s.page}>
-      <View style={s.runHead} fixed><Text>{vm.name} · No. {vm.number}</Text><Link src="#contents" style={{ color: BLUE, textDecoration: 'none' }}>Back to contents</Link></View>
+    <Page size={opt.size} style={s.page}>
+      <View style={s.runHead} fixed><Text>{vm.name} · No. {vm.number}</Text>{opt.contents ? <Link src="#contents" style={{ color: BLUE, textDecoration: 'none' }}>Back to contents</Link> : <Text>{generated}</Text>}</View>
       {foot}
-      <View style={s.figs} wrap={false}>
+      {!opt.cover ? <View style={{ marginBottom: 12 }}><Image src={logo} style={{ height: 16, width: opt.logoW * 16 / 22, marginBottom: 8 }} /><Text style={s.h1}>{vm.name}</Text><Text style={s.meta}><Text style={{ color: stColour, fontWeight: 700 }}>{st.label}</Text>{'  ·  '}Company no. {vm.number}</Text></View> : null}
+      {opt.figs ? <View style={s.figs} wrap={false}>
         {[[vm.ageYears != null ? vm.ageYears + (vm.ageYears === 1 ? ' year' : ' years') : '–', 'Age'], [String(of.counts.active), of.counts.active === 1 ? 'Active officer' : 'Active officers'], [String(own.current.length), own.current.length === 1 ? 'Current PSC' : 'Current PSCs'], [chg.available && chg.total ? chg.outstanding + ' of ' + chg.total : '0', 'Charges outstanding'], [fl.total ? fl.total.toLocaleString('en-GB') : '0', 'Filings on record']].map(([v, l], i, a) => <View key={l} style={[s.fig, i === a.length - 1 ? { borderRightWidth: 0 } : null]}><Text style={s.figV}>{v}</Text><Text style={s.figL}>{l}</Text></View>)}
-      </View>
+      </View> : null}
 
-      <Sec id="overview" pages={pages} title="Overview" first>
+      {on.overview ? <Sec id="overview" pages={pages} title="Overview" first outline={opt.outline}>
         <KV k="Company number">{vm.number}</KV>
         <KV k="Status"><Text style={{ color: stColour, fontWeight: 700 }}>{st.label}{st.detail ? ' – ' + st.detail : ''}</Text></KV>
         <KV k="Company type">{vm.type.label}</KV>
@@ -139,28 +147,38 @@ export function ReportDoc({ vm, nation, logo, generated, base, pages, toc }) {
         <KV k="Accounts">{vm.accounts.lastMadeUp ? `Last made up to ${vm.accounts.lastMadeUp}${vm.accounts.lastType ? ' (' + vm.accounts.lastType + ')' : ''}${vm.accounts.nextDue ? ' · next due ' + vm.accounts.nextDue : ''}` : vm.accounts.nextDue ? 'First accounts due ' + vm.accounts.nextDue : ''}</KV>
         <KV k="Confirmation statement">{vm.confirmation.nextDue ? `Next due ${vm.confirmation.nextDue}${vm.confirmation.last ? ' · last made up to ' + vm.confirmation.last : ''}` : ''}</KV>
         {flags ? <KV k="Notes"><Text style={{ color: TONE.warn, fontWeight: 600 }}>{flags}</Text></KV> : null}
-      </Sec>
+      </Sec> : null}
 
-      <Sec id="officers" pages={pages} title="Current officers" desc={`${of.counts.active} active · ${of.counts.resigned} resigned`}>
+      {on.officers ? <Sec id="officers" outline={opt.outline} pages={pages} title="Current officers" desc={`${of.counts.active} active · ${of.counts.resigned} resigned`}>
         <Table empty="No current officers on record." rows={of.active} cols={[
-          { h: 'Name', cell: (o) => <View>{o.officerId ? <Link src={zuli('#/person?id=' + encodeURIComponent(o.officerId))} style={s.a}>{o.name}</Link> : <Text>{o.name}</Text>}<Text style={s.sub}>{[o.occupation, o.address].filter(Boolean).join(' · ')}</Text></View> },
+          { h: 'Name', cell: (o) => <View>{o.officerId ? <Lk src={zuli('#/person?id=' + encodeURIComponent(o.officerId))} style={s.a}>{o.name}</Lk> : <Text>{o.name}</Text>}<Text style={s.sub}>{[o.occupation, o.address].filter(Boolean).join(' · ')}</Text></View> },
           { h: 'Role', w: 70, cell: (o) => <T>{o.roleLabel}</T> },
           { h: 'Appointed', w: 72, cell: (o) => <Two a={o.appointed || o.appointedBefore} b={o.appointedIso ? tenure(o.appointedIso, today) : ''} /> },
           { h: 'Nationality', w: 78, cell: (o) => <Two a={o.nationality} b={o.residence} /> },
           { h: 'Born', w: 48, cell: (o) => <T>{o.born}</T> },
         ]} />
-      </Sec>
+      </Sec> : null}
 
-      <Sec id="ownership" pages={pages} title="Ownership" desc={own.current.length ? `${own.current.length} current PSC${own.current.length === 1 ? '' : 's'}${own.counts.ceased ? ' · ' + own.counts.ceased + ' ceased' : ''}` : ''}>
+      {on.former ? <Sec id="former" outline={opt.outline} pages={pages} title="Former officers" desc={`${of.former.length} on record`}>
+        <Table empty="No former officers on record." rows={of.former} cols={[
+          { h: 'Name', cell: (o) => o.officerId ? <Lk src={zuli('#/person?id=' + encodeURIComponent(o.officerId))} style={s.a}>{o.name}</Lk> : <T>{o.name}</T> },
+          { h: 'Role', w: 80, cell: (o) => <T>{o.roleLabel}</T> },
+          { h: 'Appointed', w: 72, cell: (o) => <T>{o.appointed || o.appointedBefore}</T> },
+          { h: 'Resigned', w: 72, cell: (o) => <T>{o.resigned}</T> },
+          { h: 'Tenure', w: 50, right: true, cell: (o) => <Text style={{ color: MUTED }}>{o.appointedIso && o.resignedIso ? tenure(o.appointedIso, o.resignedIso) : ''}</Text> },
+        ]} />
+      </Sec> : null}
+
+      {on.ownership ? <Sec id="ownership" outline={opt.outline} pages={pages} title="Ownership" desc={own.current.length ? `${own.current.length} current PSC${own.current.length === 1 ? '' : 's'}${own.counts.ceased ? ' · ' + own.counts.ceased + ' ceased' : ''}` : ''}>
         <Table empty={own.statements && own.statements.length ? own.statements.map((x) => x.plain || '').filter(Boolean).join(' ') || 'No persons with significant control on record.' : 'No persons with significant control on record.'} rows={own.current} cols={[
-          { h: 'Person with significant control', cell: (p) => <Two a={p.ukCompany ? <Link src={zuli('#/company/' + p.ukCompany)} style={s.a}>{p.name}</Link> : p.name} b={[p.kindLabel, p.nationality, p.registration && p.registration.number ? 'Company no. ' + p.registration.number : ''].filter(Boolean).join(' · ')} /> },
+          { h: 'Person with significant control', cell: (p) => <Two a={p.ukCompany ? <Lk src={zuli('#/company/' + p.ukCompany)} style={s.a}>{p.name}</Lk> : p.name} b={[p.kindLabel, p.nationality, p.registration && p.registration.number ? 'Company no. ' + p.registration.number : ''].filter(Boolean).join(' · ')} /> },
           { h: 'Control', w: 190, cell: (p) => <Two a={p.summary ? p.summary.main : p.band} b={p.summary && p.summary.other} /> },
           { h: 'Notified', w: 62, cell: (p) => <T>{p.notified}</T> },
         ]} />
         {own.ceased.length ? <View style={{ marginTop: 6 }}><Text style={[s.sub, { marginBottom: 2 }]} minPresenceAhead={20}>Former PSCs</Text>{own.ceased.map((p, i) => <View key={i} style={s.tr} wrap={false}><Text style={{ flex: 1 }}>{p.name}</Text><Text style={{ width: 150, color: MUTED }}>{p.notified} – {p.ceased}</Text></View>)}</View> : null}
-      </Sec>
+      </Sec> : null}
 
-      <Sec id="charges" pages={pages} title="Charges" desc={chg.available && chg.total ? `${chg.outstanding} outstanding · ${chg.satisfied} satisfied · ${chg.total} total` : ''}>
+      {on.charges ? <Sec id="charges" outline={opt.outline} pages={pages} title="Charges" desc={chg.available && chg.total ? `${chg.outstanding} outstanding · ${chg.satisfied} satisfied · ${chg.total} total` : ''}>
         <Table empty="No charges registered against this company." rows={chg.available ? chg.items : []} cols={[
           { h: 'Created', w: 64, cell: (c) => <T>{c.created}</T> },
           { h: 'Status', w: 74, cell: (c) => <Text style={{ fontWeight: 600, color: c.outstanding ? TONE.warn : MUTED }}>{c.statusLabel}{c.satisfied ? '\n' : ''}{c.satisfied ? <Text style={{ fontWeight: 400, fontSize: 7.8 }}>{c.satisfied}</Text> : null}</Text> },
@@ -168,26 +186,26 @@ export function ReportDoc({ vm, nation, logo, generated, base, pages, toc }) {
           { h: 'Details', cell: (c) => <Two a={[c.features && c.features.join(', '), c.coversAll ? 'Covers all property' : ''].filter(Boolean).join(' · ') || c.title} b={c.description && c.description !== 'N/A.' ? c.description.slice(0, 220) + (c.description.length > 220 ? '…' : '') : ''} /> },
         ]} />
         {chg.available && chg.loaded < chg.total ? <Text style={s.sub}>Showing {chg.loaded} of {chg.total} charges.</Text> : null}
-      </Sec>
+      </Sec> : null}
 
-      <Sec id="filings" pages={pages} title="Recent filings" desc={fl.total ? `Latest ${Math.min(fl.items.length, fl.total)} of ${fl.total.toLocaleString('en-GB')}` : ''}>
+      {on.filings ? <Sec id="filings" outline={opt.outline} pages={pages} title="Recent filings" desc={fl.total ? `Latest ${Math.min(fl.items.length, fl.total)} of ${fl.total.toLocaleString('en-GB')}` : ''}>
         <Table empty="No filings on record." rows={fl.items} cols={[
           { h: 'Date', w: 64, cell: (f) => <T>{f.date}</T> },
           { h: 'Type', w: 60, cell: (f) => <Text style={[s.mono, { fontSize: 7 }]}>{f.typeCode}</Text> },
-          { h: 'Description', cell: (f) => f.viewUrl ? <Link src={f.viewUrl} style={s.a}>{f.title}</Link> : <T>{f.title}</T> },
+          { h: 'Description', cell: (f) => f.viewUrl && opt.links ? <Link src={f.viewUrl} style={s.a}>{f.title}</Link> : <T>{f.title}</T> },
           { h: 'Pages', w: 34, right: true, cell: (f) => <Text style={{ color: MUTED }}>{f.pages || ''}</Text> },
         ]} />
-      </Sec>
+      </Sec> : null}
 
-      <Sec id="changes" pages={pages} title="Officer changes" desc={changes.length ? `${changes.length} appointment and resignation events` : ''}>
+      {on.changes ? <Sec id="changes" outline={opt.outline} pages={pages} title="Officer changes" desc={changes.length ? `${changes.length} appointment and resignation events` : ''}>
         <Table empty="No dated officer changes on record." rows={changes} cols={[
           { h: 'Date', w: 64, cell: (e) => <T>{e.date}</T> },
           { h: 'Change', w: 70, cell: (e) => <Text style={{ fontWeight: 700, fontSize: 7.6, letterSpacing: 0.3, color: e.kind === 'Appointed' ? TONE.ok : MUTED }}>{e.kind.toUpperCase()}</Text> },
-          { h: 'Officer', cell: (e) => e.o.officerId ? <Link src={zuli('#/person?id=' + encodeURIComponent(e.o.officerId))} style={s.a}>{e.o.name}</Link> : <T>{e.o.name}</T> },
+          { h: 'Officer', cell: (e) => e.o.officerId ? <Lk src={zuli('#/person?id=' + encodeURIComponent(e.o.officerId))} style={s.a}>{e.o.name}</Lk> : <T>{e.o.name}</T> },
           { h: 'Role', w: 96, cell: (e) => <T>{e.o.roleLabel}</T> },
           { h: 'Tenure', w: 50, right: true, cell: (e) => <Text style={{ color: MUTED }}>{e.kind === 'Resigned' && e.o.appointedIso ? tenure(e.o.appointedIso, e.o.resignedIso) : ''}</Text> },
         ]} />
-      </Sec>
+      </Sec> : null}
     </Page>
   </Document>
 }

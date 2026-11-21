@@ -57,7 +57,14 @@ export async function allPages(base, per, max = Infinity) {
 }
 
 /* Company page: only the parts the profile links to (Companies House answers 404 for the rest). */
-export async function loadCompany(n) {
+/* In-memory cache of company view-models (10 minutes, like the sessionStorage cache) so returning to a company renders on
+   the first frame with no placeholders. Also used for any other loader via memo(). */
+const MEM = new Map()
+export const peek = (k) => { const e = MEM.get(k); return e && Date.now() - e.t < TTL ? e.v : undefined }
+export async function memo(k, fn) { const hit = peek(k); if (hit !== undefined) return hit; const v = await fn(); MEM.set(k, { t: Date.now(), v }); return v }
+export const peekCompany = (n) => peek('co:' + n)
+export const loadCompany = (n) => memo('co:' + n, () => loadCompanyRaw(n))
+async function loadCompanyRaw(n) {
   const c = '/company/' + n, raw: any = {}
   raw.profile = await ch(c)
   if (raw.profile._http) throw new ApiError('404', 'No company found with number ' + n + '.')
@@ -66,8 +73,8 @@ export async function loadCompany(n) {
   const [officers, psc, pscStatements, exemptions, registers, ukEstablishments, charges, insolvency, filings] = await Promise.all([
     allPages(c + '/officers', 100), L.persons_with_significant_control ? ch(c + '/persons-with-significant-control?items_per_page=25') : null,
     L.persons_with_significant_control_statements ? ch(c + '/persons-with-significant-control-statements?items_per_page=25') : null,
-    L.exemptions ? ch(c + '/exemptions') : null, L.registers ? ch(c + '/registers') : null, ukLink ? ch(c + '/uk-establishments') : null, p.has_charges ? ch(c + '/charges?items_per_page=25') : null,
-    p.has_insolvency_history ? ch(c + '/insolvency') : null, ch(c + '/filing-history?items_per_page=25')])
+    L.exemptions ? ch(c + '/exemptions') : null, L.registers ? ch(c + '/registers') : null, ukLink ? ch(c + '/uk-establishments') : null, (L.charges || p.has_charges) ? ch(c + '/charges?items_per_page=25') : null,
+    (L.insolvency || p.has_insolvency_history) ? ch(c + '/insolvency') : null, ch(c + '/filing-history?items_per_page=25')])
   Object.assign(raw, { officers, psc, pscStatements, exemptions, registers, ukEstablishments, charges, insolvency, filings, similar: null, appointments: {} })
   const act = (officers.items || []).filter((o) => !o.resigned_on).slice(0, 3)
   await Promise.all(act.map(async (o) => { const l = o.links && o.links.officer && o.links.officer.appointments; if (l) raw.appointments[l] = await ch(l + '?items_per_page=50').catch(() => null) }))

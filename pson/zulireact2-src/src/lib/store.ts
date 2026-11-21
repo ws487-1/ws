@@ -37,6 +37,7 @@ export function toggleSaved(entry) {
   if (!on) rest.unshift(Object.assign({}, entry, { savedAt: new Date().toISOString() }))
   lsSet(SLOT.saved, rest); return !on
 }
+export function restoreSaved(entry) { if (!entry) return; const k = savedKey(entry); const l = saved().filter((x) => savedKey(x) !== k); l.push(entry); l.sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt))); lsSet(SLOT.saved, l) }
 export const removeSaved = (k) => lsSet(SLOT.saved, saved().filter((x) => savedKey(x) !== k))
 
 /* Recently viewed: {type, id, name, t}, newest first, at most 100. Hrefs are built for this app's routes. */
@@ -50,8 +51,3 @@ export function viewedList() { const raw = lsGet(SLOT.viewed); return (Array.isA
 export function addViewed(type, id, name) { if (!id || !name) return; const e = { type, id: String(id), name: String(name), t: new Date().toISOString() }; saveViewed([e].concat(viewedList().filter((r) => viewKey(r) !== viewKey(e)))) }
 export const fmtWhen = (t) => { const d = t ? new Date(t) : null; return d && !isNaN(+d) ? N.fmtDate(t.slice(0, 10)) + ', ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '' }
 
-/* Back button scope: a tile's open button on a profile remembers that profile for this tab (sessionStorage 'zuli.back'). */
-export const BACK = 'zuli.back'
-export function rememberBack(to, from, name) { try { sessionStorage.setItem(BACK, JSON.stringify({ to: to.replace(/^#/, ''), from: from.replace(/^#/, ''), name })) } catch { /* blocked */ } }
-export function backFor(here) { try { const b = JSON.parse(sessionStorage.getItem(BACK) || 'null'); return b && b.to === here ? b : null } catch { return null } }
-export function clearBackUnless(here) { try { const b = JSON.parse(sessionStorage.getItem(BACK) || 'null'); if (b && b.to !== here) sessionStorage.removeItem(BACK) } catch { /* blocked */ } }

@@ -702,8 +702,8 @@
     const [officers, psc, pscStatements, exemptions, registers, ukEstablishments, charges, insolvency, filings] = await Promise.all([
       allPages(c + '/officers', 100), L.persons_with_significant_control ? ch(c + '/persons-with-significant-control?items_per_page=25') : null,
       L.persons_with_significant_control_statements ? ch(c + '/persons-with-significant-control-statements?items_per_page=25') : null,
-      L.exemptions ? ch(c + '/exemptions') : null, L.registers ? ch(c + '/registers') : null, ukLink ? ch(c + '/uk-establishments') : null, p.has_charges ? ch(c + '/charges?items_per_page=25') : null,
-      p.has_insolvency_history ? ch(c + '/insolvency') : null, ch(c + '/filing-history?items_per_page=25')]);
+      L.exemptions ? ch(c + '/exemptions') : null, L.registers ? ch(c + '/registers') : null, ukLink ? ch(c + '/uk-establishments') : null, (L.charges || p.has_charges) ? ch(c + '/charges?items_per_page=25') : null,
+      (L.insolvency || p.has_insolvency_history) ? ch(c + '/insolvency') : null, ch(c + '/filing-history?items_per_page=25')]);
     Object.assign(raw, { officers, psc, pscStatements, exemptions, registers, ukEstablishments, charges, insolvency, filings, similar: null, appointments: {} });
     const act = (officers.items || []).filter((o) => !o.resigned_on).slice(0, 3);
     await Promise.all(act.map(async (o) => { const l = o.links && o.links.officer && o.links.officer.appointments; if (l) raw.appointments[l] = await ch(l + '?items_per_page=50').catch(() => null); }));

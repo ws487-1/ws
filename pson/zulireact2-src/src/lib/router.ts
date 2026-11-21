@@ -19,7 +19,7 @@ export const U = {
   home: () => '#/',
   search: (p: Record<string, unknown>) => '#' + withParams('/search', p),
   company: (n: string) => '#/company/' + encodeURIComponent(n),
-  officers: (n: string) => '#/company/' + encodeURIComponent(n) + '/officers',
+  officers: (n: string, view?: string) => '#/company/' + encodeURIComponent(n) + '/officers' + (view ? '?view=' + view : ''),
   filings: (n: string) => '#/company/' + encodeURIComponent(n) + '/filings',
   person: (ids: string | string[]) => '#/person?id=' + [].concat(ids as any).map(encodeURIComponent).join(','),
   psc: (id: string) => '#/person?psc=' + encodeURIComponent(id),

@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useEffect, useRef, useState } from 'react'
-import { Check, Copy, RotateCcw, Sun, Moon, Monitor } from 'lucide-react'
+import { Check, Copy, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -12,9 +12,8 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
-import { DEF, PRESETS, setTweaks, useTweaks } from '@/lib/tweaks'
+import { DEF, setTweaks, useTweaks } from '@/lib/tweaks'
 
-const BASES = [['neutral', 'oklch(0.556 0 0)'], ['zinc', 'oklch(0.552 0.016 285.938)'], ['stone', 'oklch(0.553 0.013 58.071)'], ['slate', 'oklch(0.554 0.046 257.417)'], ['gray', 'oklch(0.551 0.027 264.364)']]
 const Row = ({ label, hint, children, id }: any) => <div className="grid gap-2"><div className="flex items-baseline justify-between gap-2"><Label htmlFor={id}>{label}</Label>{hint ? <span className="text-xs text-muted-foreground tabular-nums">{hint}</span> : null}</div>{children}</div>
 const H = ({ children, desc }: any) => <div className="grid gap-0.5"><h3 className="text-sm font-semibold">{children}</h3>{desc ? <p className="text-xs text-muted-foreground">{desc}</p> : null}</div>
 
@@ -24,7 +23,7 @@ export function settingsText(v) {
   const ks = Object.keys(diff)
   if (!ks.length) return { text: 'No changes from default', n: 0 }
   const f = (x) => (x === '' ? 'near-black (stock)' : String(x))
-  return { text: ['Zuli React v2 settings (changed from default)'].concat(ks.map((k) => `${k}: ${f(diff[k])} (default: ${f(DEF[k])})`), ['JSON: ' + JSON.stringify(diff)]).join('\n'), n: ks.length }
+  return { text: ['Zuli React v2 experimental settings (changed from default)'].concat(ks.map((k) => `${k}: ${f(diff[k])} (default: ${f(DEF[k])})`), ['JSON: ' + JSON.stringify(diff)]).join('\n'), n: ks.length }
 }
 async function copyText(t) {
   try { if (navigator.clipboard && window.isSecureContext) { await navigator.clipboard.writeText(t); return true } } catch { /* fall back */ }
@@ -49,79 +48,114 @@ function CopySettings({ v }) {
   return <Button id="xpCopy" onClick={go} aria-live="polite">{msg && msg.startsWith('Copied') ? <Check /> : <Copy />}{msg || 'Copy settings'}</Button>
 }
 
-/* Experimental settings: a right-hand sheet. Everything persists in localStorage 'zulireact2.tweaks'. */
+/* Experimental settings (rebuilt 21 Nov 2026, consultation 2 §14): a right-hand sheet, sections, nothing collapses.
+   Stored in localStorage 'zulireact2.xp'. Light/dark mode lives on the Settings page. */
 export function XpSheet({ open, onOpenChange }) {
   const [v, set] = useTweaks()
-  const seg = (k, items, label) => <ToggleGroup type="single" variant="outline" size="sm" value={String(v[k])} onValueChange={(x) => x && set(k, x)} className="w-full" aria-label={label}>{items.map(([val, l, Ic]) => <ToggleGroupItem key={val} value={val} className="flex-1 px-1.5 text-xs">{Ic ? <Ic /> : null}{l}</ToggleGroupItem>)}</ToggleGroup>
+  const seg = (k, items, label) => <ToggleGroup type="single" variant="outline" size="sm" value={String(v[k])} onValueChange={(x) => x && set(k, x)} className="w-full" aria-label={label}>{items.map(([val, l]) => <ToggleGroupItem key={val} value={val} className="flex-1 px-1.5 text-xs">{l}</ToggleGroupItem>)}</ToggleGroup>
   const sel = (k, items, label) => <Select value={String(v[k])} onValueChange={(x) => set(k, x)}><SelectTrigger id={'xp-' + k} size="sm" className="w-full" aria-label={label}><SelectValue /></SelectTrigger><SelectContent>{items.map(([val, l]) => <SelectItem key={val} value={val}>{l}</SelectItem>)}</SelectContent></Select>
-  const sw = (k, label, on = 'on', off = 'off') => <div className="flex items-center justify-between gap-3"><Label htmlFor={'xp-' + k} className="font-normal">{label}</Label><Switch id={'xp-' + k} checked={v[k] === on || v[k] === true} onCheckedChange={(c) => set(k, typeof DEF[k] === 'boolean' ? c : c ? on : off)} /></div>
-  const sl = (k, label, min, max, step, fmt) => <Row label={label} hint={fmt(v[k])}><Slider value={[v[k]]} min={min} max={max} step={step} onValueChange={([x]) => set(k, x)} aria-label={label} /></Row>
-  const custom = v.primary && !PRESETS.some(([, , hex]) => hex.toLowerCase() === v.primary.toLowerCase())
+  const sw = (k, label, on = 'on', off = 'off') => <div className="flex items-center justify-between gap-3"><Label htmlFor={'xp-' + k} className="font-normal">{label}</Label><Switch id={'xp-' + k} checked={v[k] === on} onCheckedChange={(c) => set(k, c ? on : off)} /></div>
+  /* One row: ≤4 short options as a segmented control, otherwise a select. */
+  const r = (k, label, items) => <Row label={label} id={'xp-' + k} key={k}>{items.length <= 4 && items.every(([, l]) => l.length <= 12) ? seg(k, items, label) : sel(k, items, label)}</Row>
+  const ON = [['on', 'On'], ['off', 'Off']]
   return <Sheet open={open} onOpenChange={onOpenChange}>
     <SheetContent side="right" overlayClassName="bg-transparent supports-backdrop-filter:backdrop-blur-none" className="flex flex-col gap-0 p-0 shadow-2xl data-[side=right]:w-full data-[side=right]:sm:max-w-sm">
-      <SheetHeader className="border-b"><SheetTitle>Experimental settings</SheetTitle><SheetDescription>Saved in this browser. Only affects this build.</SheetDescription></SheetHeader>
+      <SheetHeader className="border-b"><SheetTitle>Experimental settings</SheetTitle><SheetDescription>Saved in this browser. Only affects this build. Light/dark mode is on the Settings page.</SheetDescription></SheetHeader>
       <ScrollArea className="min-h-0 flex-1"><div className="grid gap-6 p-4">
-        <H desc="Stock shadcn base colours and a primary">Colour</H>
-        <Row label="Mode">{seg('mode', [['light', 'Light', Sun], ['dark', 'Dark', Moon], ['system', 'System', Monitor]], 'Mode')}</Row>
-        <Row label="Base colour" hint={v.base}><div className="grid grid-cols-5 gap-2">{BASES.map(([b, c]) => <Button key={b} variant="outline" size="sm" className={cn('h-auto flex-col gap-1 py-2 text-xs capitalize', v.base === b && 'border-primary ring-1 ring-primary')} onClick={() => set('base', b)} aria-pressed={v.base === b}><span className="size-4 rounded-full" style={{ background: c }} />{b}</Button>)}</div></Row>
-        <Row label="Primary" hint={v.primary || 'Near-black'}><div className="flex flex-wrap gap-2">
-          {PRESETS.map(([id, l, hex]) => <Tooltip key={id}><TooltipTrigger asChild><button type="button" aria-label={l} aria-pressed={(v.primary || '') === hex} onClick={() => set('primary', hex)} className={cn('grid size-8 place-items-center rounded-full border-2 transition-transform hover:scale-110', (v.primary || '').toLowerCase() === hex.toLowerCase() ? 'border-foreground' : 'border-transparent')}><span className="grid size-6 place-items-center rounded-full" style={{ background: hex || 'var(--foreground)' }}>{(v.primary || '').toLowerCase() === hex.toLowerCase() ? <Check className="size-3.5" style={{ color: hex ? '#fff' : 'var(--background)' }} /> : null}</span></button></TooltipTrigger><TooltipContent>{l}{hex ? ' ' + hex : ''}</TooltipContent></Tooltip>)}
-          <label className={cn('relative grid size-8 cursor-pointer place-items-center rounded-full border-2', custom ? 'border-foreground' : 'border-dashed border-border')} title="Custom colour"><span className="size-6 rounded-full" style={{ background: custom ? v.primary : 'conic-gradient(#ef4444,#f59e0b,#22c55e,#06b6d4,#3b82f6,#ef4444)' }} /><input type="color" className="absolute inset-0 cursor-pointer opacity-0" value={v.primary || '#171717'} onChange={(e) => set('primary', e.target.value)} aria-label="Custom primary colour" /></label>
-        </div></Row>
-        {sl('radius', 'Radius', 0, 1.25, 0.125, (x) => x + 'rem')}
-        <Row label="Initials avatars" id="xp-initials">{sel('initials', [['neutral', 'Neutral grey'], ['primary', 'Tints of primary'], ['solid', 'Solid primary']], 'Initials avatars')}</Row>
-        <Row label="Status text" id="xp-status">{sel('status', [['bold', 'Bold colour (current)'], ['dot', 'Dot and text'], ['plain', 'Plain colour']], 'Status text')}</Row>
-        <Row label="Primary buttons">{seg('btn', [['solid', 'Solid'], ['soft', 'Soft tint']], 'Primary buttons')}</Row>
-        <Row label="Flag style">{seg('flag', [['country', 'Country'], ['union', 'Union Jack'], ['both', 'Both']], 'Flag style')}</Row>
-        <Row label="Chart colours" id="xp-chartPal">{sel('chartPal', [['theme', 'Theme (primary + grey)'], ['shades', 'Shades of primary'], ['mono', 'Monochrome'], ['stock', 'shadcn chart palette']], 'Chart colours')}</Row>
+        <H desc="Company page grid">Layout</H>
+        {r('dash', 'Dashboard layout', [['C', 'C full width'], ['A', 'A paired'], ['classic', 'Classic']])}
+        {r('emptyCharges', 'Charges tile when none', [['row', 'Slim row'], ['hidden', 'Hidden']])}
+        {r('pscCols', 'Ownership PSC columns (full width)', [['auto', 'Auto'], ['2', '2'], ['3', '3']])}
         <Separator />
-        <H desc="Sidebar, navigation and page width">Layout</H>
-        <Row label="Navigation">{seg('layout', [['sidebar', 'Sidebar'], ['topbar', 'Top bar only']], 'Navigation')}</Row>
-        {v.layout === 'sidebar' ? <>
-          <Row label="Sidebar style">{seg('sidebarVariant', [['sidebar', 'Default'], ['floating', 'Floating'], ['inset', 'Inset']], 'Sidebar style')}</Row>
-          <Row label="Collapse">{seg('collapsible', [['icon', 'To icons'], ['offcanvas', 'Off-canvas'], ['none', 'Fixed']], 'Collapse')}</Row>
-          {sl('sidebarWidth', 'Sidebar width', 12, 20, 0.5, (x) => x + 'rem')}
-          {v.collapsible !== 'none' ? sw('startCollapsed', 'Start collapsed') : null}
-        </> : null}
-        <Row label="Menu buttons" id="xp-nav">{sel('nav', [['outline', 'Outline buttons'], ['secondary', 'Filled grey buttons'], ['solid', 'Plain, solid active'], ['ghost', 'Stock ghost']], 'Menu buttons')}</Row>
-        <Row label="Active menu item" id="xp-navActive">{sel('navActive', [['stock', 'Stock'], ['primary', 'Primary fill'], ['bar', 'Left bar'], ['bold', 'Bold text only']], 'Active menu item')}</Row>
-        {sw('sbLabels', 'Sidebar section labels')}
-        {sw('sbSeps', 'Lines between sidebar sections')}
-        {sw('sticky', 'Sticky top bar')}
-        <Row label="Content width">{seg('width', [['full', 'Full'], ['wide', '1440'], ['narrow', '1240'], ['tight', '1080']], 'Content width')}</Row>
-        <Row label="Home search">{seg('homeSearch', [['hero', 'Large hero'], ['compact', 'Compact']], 'Home search')}</Row>
-        {sw('breadcrumbs', 'Breadcrumbs')}
-        {sw('kbd', 'Keyboard hints')}
+        <H desc="Board tile and the Officers page">Board & officers</H>
+        {r('boardChart', 'Board tile chart', [['bars', 'Yearly bars'], ['step', 'Board size'], ['none', 'None']])}
+        {r('boardN', 'Board tile changes shown', [['5', '5'], ['8', '8'], ['10', '10']])}
+        {r('offView', 'Officers default view', [['table', 'Table'], ['timeline', 'Timeline'], ['changes', 'Changes']])}
+        {r('tlSort', 'Timeline sort', [['current', 'Current first'], ['appointed', 'Appointed'], ['tenure', 'Tenure']])}
+        {r('tlColour', 'Timeline colour', [['status', 'Current/former'], ['role', 'By role']])}
+        {sw('tlLabels', 'Tenure labels on timeline bars')}
+        {r('bigRange', 'Default range over 40 records', [['5y', '5y'], ['10y', '10y'], ['all', 'All']])}
+        {r('offChart', 'Officers page header chart', [['step', 'Board size'], ['bars', 'Yearly bars'], ['none', 'None']])}
+        {sw('lineups', 'Line-ups view (experiment)')}
         <Separator />
-        <H desc="Font, size and spacing">Type and density</H>
-        <Row label="Font">{seg('font', [['geist', 'Geist'], ['inter', 'Inter'], ['system', 'System']], 'Font')}</Row>
-        {sl('fs', 'Text size', 87.5, 112.5, 2.5, (x) => x + '%')}
-        <Row label="Density">{seg('density', [['compact', 'Compact'], ['default', 'Default'], ['comfortable', 'Roomy']], 'Density')}</Row>
-        <Row label="Page title size">{seg('headSize', [['small', 'Small'], ['default', 'Default'], ['large', 'Large']], 'Page title size')}</Row>
-        <Row label="Heading weight">{seg('headWeight', [['medium', 'Medium'], ['semibold', 'Semibold'], ['bold', 'Bold']], 'Heading weight')}</Row>
-        <Row label="Heading tracking">{seg('tracking', [['normal', 'Normal'], ['tight', 'Tight'], ['tighter', 'Tighter']], 'Heading tracking')}</Row>
+        <H desc="Filing rows, tile and full page">Filings</H>
+        {r('fBtnSize', 'Download button size', [['xs', 'XS 24'], ['sm', 'SM 28'], ['md', 'MD 32']])}
+        {r('fBtnStyle', 'Download button style', [['outline', 'Outline'], ['ghost', 'Ghost'], ['soft', 'Soft'], ['pdf', '+ PDF']])}
+        {r('fRow', 'Row style', [['divider', 'Divider'], ['zebra', 'Zebra'], ['boxed', 'Boxed']])}
+        {r('fHover', 'Row hover', [['both', 'Tint + line'], ['tint', 'Tint'], ['underline', 'Underline']])}
+        {r('fPages', 'Page count', [['beside', 'Beside'], ['under', 'Under'], ['hidden', 'Hidden']])}
+        {r('fType', 'Type code column', [['shown', 'Shown'], ['hidden', 'Hidden']])}
+        {r('fRows', 'Rows in tile (with pager)', [['5', '5'], ['6', '6'], ['8', '8']])}
         <Separator />
-        <H desc="Cards, stats, tables and charts">Components</H>
-        <Row label="Stat tiles" id="xp-stat">{sel('stat', [['default', 'Dashboard (stock)'], ['compact', 'Compact'], ['icon', 'Icon left'], ['centred', 'Centred']], 'Stat tiles')}</Row>
-        {sw('statIcon', 'Stat tile icons')}
-        <Row label="Stat figure size">{seg('statSize', [['small', 'Small'], ['default', 'Default'], ['large', 'Large']], 'Stat figure size')}</Row>
-        {sw('cardHead', 'Divider under card headers', 'divider', 'plain')}
-        <Row label="Card shadow">{seg('shadow', [['none', 'None'], ['stock', 'Stock'], ['soft', 'Soft'], ['lifted', 'Lifted']], 'Card shadow')}</Row>
-        {sw('border', 'Card borders')}
-        {sw('cardbg', 'Muted card background', 'muted', 'plain')}
-        {sw('stripe', 'Striped tables')}
-        {sw('rowHover', 'Highlight table rows on hover')}
-        <Row label="Table row height">{seg('rows', [['compact', 'Compact'], ['default', 'Default'], ['relaxed', 'Relaxed']], 'Table row height')}</Row>
-        <Row label="Avatar shape">{seg('avatar', [['circle', 'Circle'], ['rounded', 'Rounded'], ['square', 'Square']], 'Avatar shape')}</Row>
-        <Row label="History chart">{seg('chart', [['grouped', 'Grouped'], ['stacked', 'Stacked']], 'History chart')}</Row>
-        {sl('barRadius', 'Chart bar corners', 0, 12, 1, (x) => x + 'px')}
-        {sw('logo', 'Monochrome logo', 'ink', 'colour')}
+        <H desc="Registered office map (company pages only)">Map</H>
+        {r('mapBtn', 'Button position', [['end', 'Address end'], ['label', 'Address start'], ['header', 'Header']])}
+        {r('mapForm', 'Button form', [['text', 'Icon + Map'], ['icon', 'Icon only']])}
+        {r('mapPlace', 'Placement', [['inline', 'Inline'], ['dialog', 'Dialog'], ['sheet', 'Sheet'], ['popover', 'Popover']])}
+        {r('mapSize', 'Size', [['s', 'S 240'], ['m', 'M 320'], ['l', 'L 420']])}
+        {r('mapBase', 'Base style', [['positron', 'Positron'], ['bright', 'Bright'], ['liberty', 'Liberty'], ['dark', 'Dark'], ['fiord', 'Fiord']])}
+        {r('mapTint', 'Tint', [['none', 'None'], ['accent', 'Zuli blue'], ['grey', 'Greyscale']])}
+        {sw('mapStreets', 'Street names')}
+        {r('mapPoi', 'Points of interest', [['off', 'Off'], ['major', 'Major'], ['all', 'All']])}
+        {sw('mapHouse', 'House numbers')}
+        {sw('map3d', '3D buildings')}
+        {r('mapBcol', 'Building colour', [['flat', 'Flat'], ['gradient', 'By height']])}
+        {sw('mapVgrad', 'Soft wall shading (vertical gradient)')}
+        {r('mapHeight', 'Height exaggeration', [['1', '1×'], ['1.5', '1.5×'], ['2', '2×']])}
+        {r('mapZoom', 'Zoom', [['14', '14'], ['15', '15'], ['16', '16'], ['17', '17']])}
+        {r('mapPitch', 'Pitch', [['0', '0°'], ['30', '30°'], ['45', '45°'], ['60', '60°']])}
+        {r('mapBearing', 'Bearing', [['0', '0°'], ['-20', '−20°'], ['orbit', 'Orbit']])}
+        {sw('mapFly', 'Fly-in on open')}
+        {r('mapMarker', 'Marker', [['dot', 'Dot'], ['pin', 'Pin'], ['pulse', 'Pulse'], ['area', 'Area']])}
+        {r('mapInteract', 'Interaction', [['static', 'Static'], ['coop', 'Cooperative'], ['free', 'Free']])}
+        {sw('mapTerrain', 'Terrain and hill shading')}
+        {sw('mapGlobe', 'Globe intro')}
+        {sw('mapLinks', 'Google / Apple Maps links')}
         <Separator />
-        <H desc="Links, focus, motion and scrolling">Interaction</H>
-        <Row label="Links" id="xp-links">{sel('links', [['hover', 'Underline on hover (stock)'], ['always', 'Always underlined'], ['primary', 'Primary colour']], 'Links')}</Row>
-        <Row label="Focus ring">{seg('focus', [['stock', 'Stock'], ['subtle', 'Subtle'], ['none', 'None']], 'Focus ring')}</Row>
-        <Row label="Motion">{seg('motion', [['stock', 'Stock'], ['fast', 'Fast'], ['off', 'Off']], 'Motion')}</Row>
-        <Row label="Scrollbars">{seg('scrollbar', [['stock', 'Stock'], ['thin', 'Thin']], 'Scrollbars')}</Row>
+        <H desc="Registered office flag and person flags">Flags</H>
+        {r('flag', 'Flag style', [['country', 'Country'], ['union', 'Union Jack'], ['both', 'Both']])}
+        {r('flagPos', 'Company flag position', [['end', 'Address end'], ['start', 'Address start'], ['name', 'After name'], ['meta', 'Meta line'], ['row', 'Own row'], ['hidden', 'Hidden']])}
+        {r('flagSize', 'Size', [['12', '12'], ['14', '14'], ['16', '16'], ['20', '20']])}
+        {r('flagShape', 'Shape', [['rect', '4:3'], ['square', 'Square'], ['rounded', 'Rounded'], ['circle', 'Circle']])}
+        {r('flagEdge', 'Edge', [['none', 'None'], ['ring', 'Inset ring'], ['border', 'Grey border'], ['shadow', 'Shadow']])}
+        {r('flagLabel', 'Label', [['both', 'Flag + name'], ['flag', 'Flag only'], ['name', 'Name only']])}
+        {r('personFlags', 'Person flags', [['off', 'Off'], ['residence', 'Residence in Details'], ['both', 'Residence + nationality'], ['overview', 'Overview too']])}
+        <Separator />
+        <H desc="Labels on officer and PSC rows; popover explains">ID verification</H>
+        {r('idOff', 'Officer rows', [['vo', 'Verified + overdue'], ['v', 'Verified only'], ['all', 'All states']])}
+        {r('idPsc', 'PSC rows', [['all', 'All states'], ['vo', 'Verified + overdue']])}
+        {r('idPop', 'Popover', [['hover', 'On hover'], ['click', 'On click']])}
+        <Separator />
+        <H desc="Toasts (bottom-right), back link, loading">Feedback & navigation</H>
+        {r('toastStyle', 'Toast style', [['default', 'Default'], ['rich', 'Rich colours'], ['minimal', 'Minimal']])}
+        {r('toastDur', 'Toast duration', [['3', '3s'], ['4', '4s'], ['6', '6s']])}
+        {sw('undoUnsave', 'Undo on unsave')}
+        {r('back', 'Back link', [['one', 'One level'], ['trail', 'Trail (3)']])}
+        {r('fade', 'Loading fade', [['150', '150ms'], ['100', '100ms'], ['none', 'None']])}
+        {r('pulse', 'Placeholder pulse', [['on', 'Pulse'], ['static', 'Static']])}
+        <Separator />
+        <H desc="PDF built in the browser. Work in progress">Download report</H>
+        {r('repPlace', 'Button placement', [['header', 'Header actions'], ['tile', 'Overview tile'], ['both', 'Both'], ['sidebar', 'Sidebar']])}
+        {r('repStyle', 'Button style', [['outline', 'Outline'], ['solid', 'Solid'], ['secondary', 'Soft'], ['ghost', 'Ghost']])}
+        {r('repLabel', 'Button label', [['text', 'Icon + text'], ['icon', 'Icon only']])}
+        {r('repOpen', 'When ready', [['download', 'Download'], ['tab', 'Open in new tab']])}
+        {r('repSize', 'Page size', [['A4', 'A4'], ['LETTER', 'US Letter']])}
+        {r('repFile', 'File name', [['name-number-date', 'Zuli report – Name – No. – date'], ['number-name', 'No. Name'], ['name', 'Name – company report'], ['slug', 'zuli-number-yyyymmdd']])}
+        {sw('repCover', 'Cover page')}
+        {sw('repContents', 'Contents page (linked)')}
+        {sw('repFigs', 'Headline figures strip')}
+        {sw('repOverview', 'Section: Overview')}
+        {sw('repOfficers', 'Section: Current officers')}
+        {sw('repFormer', 'Section: Former officers')}
+        {sw('repOwnership', 'Section: Ownership')}
+        {sw('repCharges', 'Section: Charges')}
+        {sw('repFilings', 'Section: Recent filings')}
+        {r('repFilingsN', 'Filings included', [['10', '10'], ['25', '25'], ['50', '50'], ['100', '100']])}
+        {sw('repChanges', 'Section: Officer changes')}
+        {sw('repLinks', 'Links to Zuli and documents')}
+        {sw('repOutline', 'PDF bookmarks (outline)')}
+        <Separator />
+        <H desc="Logo concept 03 is the new default">Brand</H>
+        {r('logo', 'Logo', [['new', 'New (03)'], ['ink', 'Old, mono'], ['colour', 'Old, colour']])}
       </div></ScrollArea>
       <SheetFooter className="border-t"><CopySettings v={v} /><Button variant="outline" onClick={() => setTweaks({})}><RotateCcw />Reset to defaults</Button></SheetFooter>
     </SheetContent></Sheet>

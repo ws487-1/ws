@@ -1,7 +1,6 @@
 // @ts-nocheck
 /* Test page (not in the nav): build a company report PDF in the browser from a company number. #/pdf or #/pdf/<number> */
 import { useEffect, useRef, useState } from 'react'
-import { pdf } from '@react-pdf/renderer'
 import { Download, FileText, LoaderCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -9,32 +8,9 @@ import { Input } from '@/components/ui/input'
 import { PageHead, Muted, Note } from '@/components/z/bits'
 import { useCrumbs } from '@/lib/crumbs'
 import { setTitle } from '@/lib/hooks'
-import { loadCompany, allPages, nation } from '@/lib/data'
-import { N } from '@/lib/legacy'
-import { ReportDoc } from '@/pdf/report'
+import { buildReport } from '@/pdf/build'
 
-const LOGO = import.meta.env.BASE_URL + 'zuli-logo.png'
 const SAMPLES = [['00445790', 'Tesco'], ['00002065', 'Lloyds Bank'], ['09446231', 'Monzo'], ['05358761', 'O & O Electrical']]
-
-/* react-pdf can't draw SVG files, so the flag-icons SVG is rasterised to a PNG data URL first. */
-function flagPng(code) {
-  return new Promise((ok, no) => {
-    const img = new window.Image(); img.onload = () => { const c = document.createElement('canvas'); c.width = 160; c.height = 120; c.getContext('2d').drawImage(img, 0, 0, 160, 120); ok(c.toDataURL('image/png')) }
-    img.onerror = no; img.src = import.meta.env.BASE_URL + 'flags/' + code + '.svg'
-  })
-}
-/* Same loader as the company page, plus every charge: fetched when the profile links to charges (or the older has_charges flag says so). */
-async function loadReport(n) {
-  const { raw, vm } = await loadCompany(n)
-  const p = raw.profile, L = p.links || {}
-  if (L.charges || p.has_charges) {
-    const c = await allPages('/company/' + n + '/charges', 100)
-    if (!c._http) vm.charges = N.charges(c)
-  }
-  const nat = await nation(vm).catch(() => null)
-  if (nat && nat.flag) nat.png = await flagPng(nat.flag).catch(() => '')
-  return { vm, nat }
-}
 
 export default function PdfPage({ route }) {
   const initial = (route.parts[1] || '').toUpperCase()
@@ -51,15 +27,8 @@ export default function PdfPage({ route }) {
     setNum(n); setSt({ busy: true, err: '', url: '', name: '', pages: 0, ms: 0 })
     const t0 = performance.now()
     try {
-      const { vm, nat } = await loadReport(n)
-      const generated = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-      /* Two passes: the first records which page each section starts on, the second prints those numbers on the
-         contents page. The contents page is one fixed page, so the numbers can't shift between passes. */
-      const base = location.origin + import.meta.env.BASE_URL, starts = {}
-      const doc = (toc) => <ReportDoc vm={vm} nation={nat} logo={LOGO} generated={generated} base={base} pages={starts} toc={toc} />
-      await pdf(doc(null)).toBlob()
-      const toc = { ...starts }
-      const blob = await pdf(doc(toc)).toBlob()
+      /* Test page keeps the full default report (all sections); only the logo follows the setting. */
+      const { blob, vm } = await buildReport(n, {})
       const head = await blob.slice(0, Math.min(blob.size, 4e6)).text().catch(() => '')
       const pages = (head.match(/\/Type\s*\/Page[^s]/g) || []).length
       if (urlRef.current) URL.revokeObjectURL(urlRef.current)

@@ -1,6 +1,6 @@
 // @ts-nocheck
-import { Fragment, Suspense, lazy, useEffect, useState } from 'react'
-import { House, Search, Bookmark, Bell, Settings, SlidersHorizontal, CircleHelp, Menu, Palette, Moon, Sun, Clock, Building2, UserRound, ChevronsUpDown, KeyRound } from 'lucide-react'
+import { Fragment, Suspense, lazy, useEffect, useLayoutEffect, useState } from 'react'
+import { House, Search, Bookmark, Bell, Settings, SlidersHorizontal, CircleHelp, Menu, Palette, Moon, Sun, Clock, Building2, UserRound, ChevronsUpDown, KeyRound, FileDown, LoaderCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -13,9 +13,14 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupConte
 import { useIsMobile } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 import { useRoute } from '@/lib/router'
-import { chKey, clearBackUnless, viewedList, viewHref } from '@/lib/store'
+import { chKey, viewedList, viewHref } from '@/lib/store'
+import { install as installNav, onRoute, restoreScroll } from '@/lib/nav'
+import { BackBar } from '@/components/z/bits'
+import { Toaster } from '@/components/ui/sonner'
 import { useCrumbTrail } from '@/lib/crumbs'
-import { useTweaks } from '@/lib/tweaks'
+import { useTweaks, getTweaks } from '@/lib/tweaks'
+import { makeReport } from '@/components/z/report'
+import { note } from '@/lib/toast'
 import { FiltersCtx, FiltersSheet } from '@/components/z/filters'
 import { CommandPalette } from '@/components/z/command'
 import { XpSheet } from '@/components/z/xp'
@@ -29,7 +34,14 @@ import { PersonPage } from '@/pages/Person'
 import { SavedPage, AlertsPage, SettingsPage } from '@/pages/Misc'
 const PdfPage = lazy(() => import('@/pages/Pdf')) // react-pdf stays in its own chunk
 
-const LOGO = import.meta.env.BASE_URL + 'zuli-logo.png'
+const BASE = import.meta.env.BASE_URL
+/* Logo: 'new' = concept 03 (ink letters, bright blue dot #3a7ff0; dark mode swaps to the light-letter SVG with the #7fa9f0
+   dot). 'ink' / 'colour' = the old PNG (monochrome via CSS filter, or the original artwork). */
+function Logo({ className = '' }) {
+  const [tw] = useTweaks()
+  if (tw.logo !== 'new') return <img src={BASE + 'zuli-logo.png'} alt="Zuli" className={cn('z-logo h-6 w-auto', className)} />
+  return <span className={cn('inline-flex', className)}><img src={BASE + 'zuli-logo-03.svg'} alt="Zuli" className="z-logo-l h-[22px] w-auto" /><img src={BASE + 'zuli-logo-03-dark.svg'} alt="Zuli" className="z-logo-d h-[22px] w-auto" /></span>
+}
 const NAV = [['home', '#/', 'Home', House], ['search', '#/search', 'Search', Search], ['saved', '#/saved', 'Saved', Bookmark], ['alerts', '#/alerts', 'Alerts', Bell], ['settings', '#/settings', 'Settings', Settings]]
 
 /* Account menu: the experimental settings live here, plus quick links and a theme switch. */
@@ -79,13 +91,18 @@ function AppSidebar({ active, tw, openXp, routeKey }) {
   const { setOpenMobile } = useSidebar()
   useEffect(() => setOpenMobile(false), [routeKey])
   const rv = viewedList().slice(0, 5)
+  const [co, setCo] = useState(window.__zCompany || null)
+  useEffect(() => { const f = () => setCo(window.__zCompany || null); window.addEventListener('zcompany', f); return () => window.removeEventListener('zcompany', f) }, [])
+  const [busy, setBusy] = useState(false)
+  const report = async () => { if (busy || !co) return; setBusy(true); const t = getTweaks(); const win = t.repOpen === 'tab' ? window.open('', '_blank') : null; try { const r = await makeReport(co.number, t, win); note(t.repOpen === 'tab' ? 'Report opened in a new tab' : 'Report downloaded', { kind: 'success', description: r.name }) } catch (e) { if (win) win.close(); note('Couldn\u2019t build the report', { description: e.message || String(e) }) } finally { setBusy(false) } }
   const coll = tw.collapsible === 'none' && isMobile ? 'offcanvas' : tw.collapsible
   return <Sidebar variant={tw.sidebarVariant} collapsible={coll}>
     <SidebarHeader><SidebarMenu><SidebarMenuItem><SidebarMenuButton size="lg" asChild tooltip="Zuli home"><a href="#/" aria-label="Zuli home">
-      <span className="hidden size-8 shrink-0 place-items-center rounded-lg bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground group-data-[collapsible=icon]:grid">Z</span>
-      <img src={LOGO} alt="Zuli" className="z-logo h-6 w-auto group-data-[collapsible=icon]:hidden" /></a></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarHeader>
+      {tw.logo === 'new' ? <img src={BASE + 'favicon.svg'} alt="" className="hidden size-8 shrink-0 rounded-lg group-data-[collapsible=icon]:block" /> : <span className="hidden size-8 shrink-0 place-items-center rounded-lg bg-sidebar-primary text-sm font-bold text-sidebar-primary-foreground group-data-[collapsible=icon]:grid">Z</span>}
+      <Logo className="group-data-[collapsible=icon]:hidden" /></a></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarHeader>
     <SidebarContent>
       <SidebarGroup><SidebarGroupLabel>Navigate</SidebarGroupLabel><SidebarGroupContent><SidebarMenu>{NAV.map(([k, h, l, Ic]) => <SidebarMenuItem key={k}><SidebarMenuButton asChild isActive={active === k} tooltip={l}><a href={h} aria-current={active === k ? 'page' : undefined}><Ic />{l}</a></SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></SidebarGroupContent></SidebarGroup>
+      {tw.repPlace === 'sidebar' && co ? <SidebarGroup><SidebarGroupLabel>This company</SidebarGroupLabel><SidebarGroupContent><SidebarMenu><SidebarMenuItem><SidebarMenuButton onClick={report} tooltip="Download report" disabled={busy}>{busy ? <LoaderCircle className="animate-spin" /> : <FileDown />}<span>{busy ? 'Building report…' : 'Download report'}</span></SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarGroupContent></SidebarGroup> : null}
       {rv.length ? <SidebarGroup className="group-data-[collapsible=icon]:hidden"><SidebarGroupLabel>Recently viewed</SidebarGroupLabel><SidebarGroupContent><SidebarMenu>{rv.map((r) => <SidebarMenuItem key={viewHref(r)}><SidebarMenuButton size="sm" asChild><a href={viewHref(r)}>{r.type === 'company' ? <Building2 /> : <UserRound />}<span>{r.name}</span></a></SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></SidebarGroupContent></SidebarGroup> : null}
     </SidebarContent>
     <SidebarFooter><SidebarMenu><SidebarMenuItem><AccountMenu openXp={openXp} side={isMobile ? 'bottom' : 'right'} align="end">
@@ -103,11 +120,11 @@ function TopBar({ active, tools, routeKey }) {
   return <header className="z-hdr sticky top-0 z-20 border-b bg-background/95 backdrop-blur">
     <div className="z-content flex h-14 items-center gap-3 px-4 md:px-6">
       <Button variant="ghost" size="icon-sm" className="md:hidden" onClick={() => setOpen(true)} aria-label="Menu"><Menu /></Button>
-      <a href="#/" aria-label="Zuli home" className="shrink-0"><img src={LOGO} alt="Zuli" className="z-logo h-6 w-auto" /></a>
+      <a href="#/" aria-label="Zuli home" className="shrink-0"><Logo /></a>
       <nav className="z-topnav hidden items-center gap-1 md:flex" aria-label="Main">{nav('')}</nav>
       {tools}
     </div>
-    <Sheet open={open} onOpenChange={setOpen}><SheetContent side="left" className="w-72"><SheetHeader><SheetTitle><img src={LOGO} alt="Zuli" className="z-logo h-6 w-auto" /></SheetTitle><SheetDescription className="sr-only">Main menu</SheetDescription></SheetHeader><nav className="z-topnav grid gap-1 px-4" aria-label="Main">{nav('justify-start')}</nav></SheetContent></Sheet>
+    <Sheet open={open} onOpenChange={setOpen}><SheetContent side="left" className="w-72"><SheetHeader><SheetTitle><Logo /></SheetTitle><SheetDescription className="sr-only">Main menu</SheetDescription></SheetHeader><nav className="z-topnav grid gap-1 px-4" aria-label="Main">{nav('justify-start')}</nav></SheetContent></Sheet>
   </header>
 }
 
@@ -120,7 +137,7 @@ export default function App() {
   useEffect(() => setSbOpen(!tw.startCollapsed), [tw.startCollapsed])
   const p = route.parts
   const active = route.path === '/' ? 'home' : ['search', 'saved', 'alerts', 'settings'].includes(p[0]) ? p[0] : ''
-  useEffect(() => { clearBackUnless(route.key); window.scrollTo(0, 0); setFOpen(false); setCmd(false) }, [route.key])
+  useLayoutEffect(() => { installNav(); const pop = onRoute(route.key); restoreScroll(route.key, pop); setFOpen(false); setCmd(false) }, [route.key])
   useEffect(() => { const f = (e) => { if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setCmd((o) => !o) } }; window.addEventListener('keydown', f); return () => window.removeEventListener('keydown', f) }, [])
   const openFilters = () => { setFKey((k) => k + 1); setFOpen(true) }
   const openXp = () => setXp(true)
@@ -137,8 +154,8 @@ export default function App() {
   else if (p[0] === 'pdf') page = <Suspense fallback={<p className="text-muted-foreground">Loading…</p>}><PdfPage route={route} /></Suspense>
   else page = <p className="text-muted-foreground">Page not found. <a className="underline" href="#/">Home</a></p>
   const tools = <HeaderTools openCmd={() => setCmd(true)} openFilters={openFilters} openXp={openXp} tw={tw} />
-  const overlays = <><FiltersSheet key={fKey} open={fOpen} onOpenChange={setFOpen} route={route} /><CommandPalette open={cmd} onOpenChange={setCmd} openFilters={openFilters} openXp={openXp} /><XpSheet open={xp} onOpenChange={setXp} /></>
-  const main = <div className="z-content flex-1 p-4 md:p-6" key={route.key}>{page}</div>
+  const overlays = <><FiltersSheet key={fKey} open={fOpen} onOpenChange={setFOpen} route={route} /><CommandPalette open={cmd} onOpenChange={setCmd} openFilters={openFilters} openXp={openXp} /><XpSheet open={xp} onOpenChange={setXp} /><Toaster /></>
+  const main = <div className="z-content flex flex-1 flex-col gap-[var(--gap)] p-4 md:p-6" key={route.key}><BackBar routeKey={route.key} />{page}</div>
   return <FiltersCtx.Provider value={{ open: openFilters }}>
     {tw.layout === 'topbar' ? <div className="flex min-h-svh flex-col"><TopBar active={active} tools={tools} routeKey={route.key} />
       {tw.breadcrumbs === 'on' ? <div className="z-content w-full px-4 pt-4 md:px-6"><Crumbs /></div> : null}{main}</div> :

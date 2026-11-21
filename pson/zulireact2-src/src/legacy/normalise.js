@@ -65,18 +65,21 @@
     const status = str(p.company_status);
     const active = ['active', 'open', 'registered'].includes(status) || (!status && !p.date_of_cessation);
     const flags = [];
-    if (p.has_insolvency_history) flags.push({ label: 'Insolvency history', tone: 'bad' });
-    if (p.has_been_liquidated && status !== 'liquidation') flags.push({ label: 'Has been liquidated', tone: 'bad' });
+    /* Deprecated CH flags (has_insolvency_history, has_been_liquidated, is_community_interest_company, has_charges): the spec
+       says use links.insolvency / subtype / links.charges. Old flags only as a fallback. "Has been liquidated" is added in
+       company() from the insolvency case types. */
+    const L0 = p.links || {};
+    if (L0.insolvency || p.has_insolvency_history) flags.push({ label: 'Insolvency history', tone: 'bad' });
     if (active && (acc.overdue || na.overdue)) flags.push({ label: 'Accounts overdue', tone: 'bad' });
     if (active && cs.overdue) flags.push({ label: 'Confirmation statement overdue', tone: 'bad' });
     if (p.registered_office_is_in_dispute) flags.push({ label: 'Registered office in dispute', tone: 'warn' });
     if (p.undeliverable_registered_office_address) flags.push({ label: 'Mail to registered office undeliverable', tone: 'warn' });
     if (p.has_super_secure_pscs) flags.push({ label: 'Has super-secure PSCs', tone: 'neutral' });
-    if (p.is_community_interest_company) flags.push({ label: 'Community interest company', tone: 'neutral' });
+    if (p.subtype === 'community-interest-company' || p.is_community_interest_company) flags.push({ label: 'Community interest company', tone: 'neutral' });
     if (p.partial_data_available) flags.push({ label: 'Partial data only', tone: 'neutral' });
     for (const a of arr(p.corporate_annotation)) flags.push({ label: sentence(a.type || a.description || 'Annotation'), tone: 'warn', note: str(a.description) });
     const deadlines = active ? [
-      deadline('Accounts', na.due_on || acc.next_due, acc.overdue || na.overdue, isoOk(acc.next_made_up_to || na.period_end_on) ? 'for the period to ' + fmtDate(acc.next_made_up_to || na.period_end_on) : ''),
+      deadline('Accounts', na.due_on || acc.next_due, na.overdue || acc.overdue, isoOk(na.period_end_on || acc.next_made_up_to) ? 'for the period to ' + fmtDate(na.period_end_on || acc.next_made_up_to) : ''),
       deadline('Confirmation statement', cs.next_due, cs.overdue, isoOk(cs.next_made_up_to) ? 'made up to ' + fmtDate(cs.next_made_up_to) : ''),
     ].filter(Boolean).sort((a, b) => a.days - b.days) : [];
     const created = str(p.date_of_creation), ceased = str(p.date_of_cessation);
@@ -109,7 +112,7 @@
         regNumber: str(p.external_registration_number || fc.registration_number), country: str(fc.originating_registry && fc.originating_registry.country),
         registry: str(fc.originating_registry && fc.originating_registry.name), legalForm: str(fc.legal_form), business: str(fc.business_activity),
       } : null,
-      hasCharges: !!p.has_charges, hasInsolvency: !!p.has_insolvency_history, canFile: p.can_file !== false,
+      hasCharges: !!((p.links || {}).charges || p.has_charges), hasInsolvency: !!((p.links || {}).insolvency || p.has_insolvency_history), canFile: p.can_file !== false,
     };
   }
 
@@ -117,6 +120,15 @@
   function idv(v) {
     if (!v || !isoOk(v.identity_verified_on || v.appointment_verification_start_on)) return null;
     return { verifiedOn: fmtDate(v.identity_verified_on || v.appointment_verification_start_on), dueOn: fmtDate(v.appointment_verification_statement_due_on), acsp: str(v.authorised_corporate_service_provider_name) };
+  }
+  /* ID verification state per role: verified / due (statement due date in the future) / overdue (due date passed, no start). */
+  function idState(v) {
+    if (!v) return null;
+    const ver = v.identity_verified_on || v.appointment_verification_start_on;
+    if (isoOk(ver)) return { state: 'verified', on: fmtDate(ver), acsp: str(v.authorised_corporate_service_provider_name) };
+    const due = str(v.appointment_verification_statement_due_on);
+    if (isoOk(due)) return { state: due < new Date().toISOString().slice(0, 10) ? 'overdue' : 'due', due: fmtDate(due) };
+    return null;
   }
   function officer(o) {
     const corporate = !!(o.identification || /corporate/.test(str(o.officer_role)));
@@ -135,7 +147,7 @@
       officerId: (/\/officers\/([^/]+)\/appointments/.exec(str(o.links && o.links.officer && o.links.officer.appointments)) || [])[1] || '',
       formerNames: arr(o.former_names).map((f) => [f.forenames, f.surname].filter(Boolean).join(' ')).filter(Boolean),
       registration: corporate ? { number: str(id.registration_number), legalForm: str(id.legal_form), place: str(id.place_registered || id.country_registered) } : null,
-      idv: idv(o.identity_verification_details),
+      idv: idv(o.identity_verification_details), idState: idState(o.identity_verification_details),
       responsibilities: str(o.responsibilities),
       personNumber: str(o.person_number),
     };
@@ -214,7 +226,7 @@
       ukCompany: corporate && /^(england|wales|scotland|northern ireland|united kingdom|uk|great britain|companies house|registrar of companies)/i.test(str(id.place_registered || id.country_registered) + ' ' + str(id.legal_authority)) && /^[A-Z]{0,2}\d{5,8}$/i.test(str(id.registration_number).replace(/\s/g, '')) ? str(id.registration_number).replace(/\s/g, '').toUpperCase().padStart(8, '0') : '',
       registration: corporate ? { legalForm: str(id.legal_form), authority: str(id.legal_authority), register: str(id.place_registered), country: str(id.country_registered), number: str(id.registration_number) } : null,
       sanctioned: x.is_sanctioned === true,
-      idv: idv(x.identity_verification_details),
+      idv: idv(x.identity_verification_details), idState: idState(x.identity_verification_details),
     };
   }
   const STATEMENT_PLAIN = {
@@ -335,7 +347,7 @@
         category: str(f.category), categoryLabel: FH_CAT[f.category] || sentence(str(f.category).replace(/-/g, ' ')) || 'Other',
         typeCode: str(f.type), title: t.title, strong: t.strong, pages: f.pages || 0, paper: !!f.paper_filed,
         docLink: str(f.links && f.links.document_metadata),
-        viewUrl: f.links && f.links.self ? 'https://find-and-update.company-information.service.gov.uk' + f.links.self + '/document?format=pdf&download=0' : '',
+        viewUrl: f.links && f.links.self && f.links.document_metadata ? 'https://find-and-update.company-information.service.gov.uk' + f.links.self + '/document?format=pdf&download=0' : '',
         pdfUrl: f.links && f.links.self && f.links.document_metadata ? 'https://find-and-update.company-information.service.gov.uk' + f.links.self + '/document?format=pdf&download=1' : '',
         resolutions: arr(f.resolutions).map((r) => filingTitle(r).title).filter(Boolean),
         annotations: arr(f.annotations).map((a) => filingTitle(a).title || str(a.annotation)).filter(Boolean),
@@ -557,6 +569,8 @@
     };
     // Headline facts used by tiles; each tile is {label, value, sub, tone}
     vm.officerWord = officerWord(pr.type.code); vm.otherRegister = otherRegister(pr.type.code);
+    const rawCases = ok(raw.insolvency) ? arr(raw.insolvency.cases) : [];
+    if (pr.status.code !== 'liquidation' && (rawCases.some((c) => /liquidation/.test(str(c.type))) || (raw.profile && raw.profile.has_been_liquidated)) && !vm.flags.some((f) => f.label === 'Has been liquidated')) vm.flags.push({ label: 'Has been liquidated', tone: 'bad' });
     const o = vm.officers, c = vm.charges, own = vm.ownership;
     vm.keyFacts = [
       { key: 'age', label: 'Age', value: pr.ageYears == null ? '—' : pr.ageYears < 1 ? '< 1 year' : `${pr.ageYears} year${pr.ageYears === 1 ? '' : 's'}`, sub: pr.createdText ? 'Incorporated ' + pr.createdText : '' },
