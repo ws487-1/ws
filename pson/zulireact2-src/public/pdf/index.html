@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><title>Zuli – PDF report</title><meta name="robots" content="noindex">
+<script>
+/* /pson/zulireact/2/pdf → the app's PDF test page. ?number=00445790 (or ?n=) opens straight onto that company. */
+(function () { var q = new URLSearchParams(location.search), n = (q.get('number') || q.get('n') || q.get('company') || '').replace(/[^A-Za-z0-9]/g, '');
+  location.replace('../#/pdf' + (n ? '/' + n : '')) })()
+</script></head>
+<body><p><a href="../#/pdf">Open the PDF report page</a></p></body></html>

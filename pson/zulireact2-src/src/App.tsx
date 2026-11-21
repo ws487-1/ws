@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, Suspense, lazy, useEffect, useState } from 'react'
 import { House, Search, Bookmark, Bell, Settings, SlidersHorizontal, CircleHelp, Menu, Palette, Moon, Sun, Clock, Building2, UserRound, ChevronsUpDown, KeyRound } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -27,6 +27,7 @@ import { OfficersPage } from '@/pages/Officers'
 import { FilingsPage } from '@/pages/Filings'
 import { PersonPage } from '@/pages/Person'
 import { SavedPage, AlertsPage, SettingsPage } from '@/pages/Misc'
+const PdfPage = lazy(() => import('@/pages/Pdf')) // react-pdf stays in its own chunk
 
 const LOGO = import.meta.env.BASE_URL + 'zuli-logo.png'
 const NAV = [['home', '#/', 'Home', House], ['search', '#/search', 'Search', Search], ['saved', '#/saved', 'Saved', Bookmark], ['alerts', '#/alerts', 'Alerts', Bell], ['settings', '#/settings', 'Settings', Settings]]
@@ -133,6 +134,7 @@ export default function App() {
   else if (p[0] === 'saved') page = <SavedPage />
   else if (p[0] === 'alerts') page = <AlertsPage />
   else if (p[0] === 'settings') page = <SettingsPage />
+  else if (p[0] === 'pdf') page = <Suspense fallback={<p className="text-muted-foreground">Loading…</p>}><PdfPage route={route} /></Suspense>
   else page = <p className="text-muted-foreground">Page not found. <a className="underline" href="#/">Home</a></p>
   const tools = <HeaderTools openCmd={() => setCmd(true)} openFilters={openFilters} openXp={openXp} tw={tw} />
   const overlays = <><FiltersSheet key={fKey} open={fOpen} onOpenChange={setFOpen} route={route} /><CommandPalette open={cmd} onOpenChange={setCmd} openFilters={openFilters} openXp={openXp} /><XpSheet open={xp} onOpenChange={setXp} /></>
