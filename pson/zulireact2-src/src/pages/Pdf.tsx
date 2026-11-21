@@ -53,7 +53,13 @@ export default function PdfPage({ route }) {
     try {
       const { vm, nat } = await loadReport(n)
       const generated = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-      const blob = await pdf(<ReportDoc vm={vm} nation={nat} logo={LOGO} generated={generated} />).toBlob()
+      /* Two passes: the first records which page each section starts on, the second prints those numbers on the
+         contents page. The contents page is one fixed page, so the numbers can't shift between passes. */
+      const base = location.origin + import.meta.env.BASE_URL, starts = {}
+      const doc = (toc) => <ReportDoc vm={vm} nation={nat} logo={LOGO} generated={generated} base={base} pages={starts} toc={toc} />
+      await pdf(doc(null)).toBlob()
+      const toc = { ...starts }
+      const blob = await pdf(doc(toc)).toBlob()
       const head = await blob.slice(0, Math.min(blob.size, 4e6)).text().catch(() => '')
       const pages = (head.match(/\/Type\s*\/Page[^s]/g) || []).length
       if (urlRef.current) URL.revokeObjectURL(urlRef.current)
